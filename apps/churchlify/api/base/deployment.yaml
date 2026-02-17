@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: churchlify-api
+  namespace: churchlify
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: churchlify-api
+  template:
+    metadata:
+      labels:
+        app: churchlify-api
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/worker: worker
+
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: "kubernetes.io/hostname"
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: churchlify-api
+
+      containers:
+      - name: churchlify-api
+        image: ghcr.io/churchlify/churchlify-api:latest
+        ports:
+        - containerPort: 3000
+
+        # Load app-specific env vars
+        envFrom:
+        - secretRef:
+            name: churchlify-api-secret
+
+        # Load global DB + Redis components
+        - secretRef:
+            name: global-db-secrets
+
+        # Build Mongo URI dynamically
+        env:
+        - name: MONGO_URI
+          value: "mongodb://$(MONGO_USER):$(MONGO_PASSWORD)@$(MONGO_HOST):$(MONGO_PORT)/$(APP_DB_NAME)?authSource=admin"
+
+        volumeMounts:
+        - name: files
+          mountPath: /usr/src/app/files_upload
+
+      volumes:
+      - name: files
+        persistentVolumeClaim:
+          claimName: churchlify-api-files
