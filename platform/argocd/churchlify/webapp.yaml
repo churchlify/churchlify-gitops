@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: churchlify-webapp
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/churchlify/churchlify-gitops.git
+    path: apps/churchlify/webapp/overlays/production
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: churchlify
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
