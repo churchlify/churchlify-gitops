@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/churchlify/churchlify-gitops.git
-    path: apps/churchlify/website/overlays/production
+    path: apps/schoolrider/website/overlays/production
     targetRevision: main
   destination:
     server: https://kubernetes.default.svc
