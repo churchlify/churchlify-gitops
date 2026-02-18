@@ -34,12 +34,9 @@ spec:
         envFrom:
         - secretRef:
             name: churchlify-api-secret
-
-        # Load global DB + Redis components
         - secretRef:
             name: global-db-secrets
 
-        # Build Mongo URI dynamically
         env:
         - name: MONGO_URI
           value: "mongodb://$(MONGO_USER):$(MONGO_PASSWORD)@$(MONGO_HOST):$(MONGO_PORT)/$(APP_DB_NAME)?authSource=admin"
