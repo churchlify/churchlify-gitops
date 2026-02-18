@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: schoolrider-api
+  namespace: schoolrider
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: schoolrider-api
+  template:
+    metadata:
+      labels:
+        app: schoolrider-api
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/worker: worker
+
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: "kubernetes.io/hostname"
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: schoolrider-api
+
+      containers:
+      - name: schoolrider-api
+        image: ghcr.io/Harris-Consult/schoolrider-api:latest
+        ports:
+        - containerPort: 3000
+
+        # Load app-specific env vars
+        envFrom:
+        - secretRef:
+            name: schoolrider-api-secret
+        - secretRef:
+            name: global-db-secrets
+
+        env:
+        - name: MONGO_URI
+          value: "mongodb://$(MONGO_USER):$(MONGO_PASSWORD)@$(MONGO_HOST):$(MONGO_PORT)/$(APP_DB_NAME)?authSource=admin"
+
+        volumeMounts:
+        - name: files
+          mountPath: /usr/src/app/files_upload
+
+      volumes:
+      - name: files
+        persistentVolumeClaim:
+          claimName: schoolrider-api-files
