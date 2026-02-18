@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/churchlify/churchlify-gitops.git
     targetRevision: main
-    path: platform/argocd
+    path: bootstrap
     directory:
       recurse: true 
   destination:
