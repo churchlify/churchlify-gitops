@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: churchlify-webapp
+  namespace: churchlify
+spec:
+  selector:
+    app: churchlify-webapp
+  ports:
+  - port: 80
+    targetPort: 3000

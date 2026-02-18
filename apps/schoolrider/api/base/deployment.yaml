@@ -33,7 +33,7 @@ spec:
         # Load app-specific env vars
         envFrom:
         - secretRef:
-            name: schoolrider-api-secret
+            name: schoolrider-secrets
         - secretRef:
             name: global-db-secrets
 

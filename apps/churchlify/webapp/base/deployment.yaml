@@ -1,17 +1,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: churchlify-api
+  name: churchlify-webapp
   namespace: churchlify
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: churchlify-api
+      app: churchlify-webapp
   template:
     metadata:
       labels:
-        app: churchlify-api
+        app: churchlify-webapp
     spec:
       nodeSelector:
         node-role.kubernetes.io/worker: worker
@@ -22,11 +22,11 @@ spec:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              app: churchlify-api
+              app: churchlify-webapp
 
       containers:
-      - name: churchlify-api
-        image: ghcr.io/churchlify/churchlify-api:latest
+      - name: churchlify-webapp
+        image: ghcr.io/churchlify/churchlify-webapp:latest
         ports:
         - containerPort: 3000
 
@@ -48,4 +48,4 @@ spec:
       volumes:
       - name: files
         persistentVolumeClaim:
-          claimName: churchlify-api-files
+          claimName: churchlify-webapp-files
