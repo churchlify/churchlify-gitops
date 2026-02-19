@@ -26,7 +26,7 @@ spec:
 
       containers:
       - name: churchlify-webapp
-        image: ghcr.io/churchlify/churchlify-webapp:latest
+        image: ghcr.io/churchlify/churchlify-web:latest
         ports:
         - containerPort: 3000
 
