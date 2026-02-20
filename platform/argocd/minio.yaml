@@ -8,7 +8,7 @@ spec:
   source:
     repoURL:  https://github.com/churchlify/churchlify-gitops.git
     targetRevision: HEAD
-    path: apps/minio # This must point to the folder with your kustomization.yaml
+    path: apps/minio/overlays/production # This must point to the folder with your kustomization.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: platform # Where MinIO should live
