@@ -12,3 +12,9 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: platform # Where MinIO should live
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
