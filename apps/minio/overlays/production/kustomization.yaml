@@ -1,3 +1,2 @@
 resources:
   - ../../base
-  - cluster-vault.yaml
