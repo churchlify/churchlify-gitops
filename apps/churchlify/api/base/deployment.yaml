@@ -5,6 +5,7 @@ metadata:
   namespace: churchlify
 spec:
   replicas: 2
+  strategy: Recreate
   selector:
     matchLabels:
       app: churchlify-api

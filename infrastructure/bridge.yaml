@@ -1,0 +1,12 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ClusterSecretStore
+metadata:
+  name: cluster-vault
+spec:
+  provider:
+    kubernetes:
+      remoteNamespace: platform
+      auth:
+        serviceAccountRef:
+          name: external-secrets
+          namespace: external-secrets
