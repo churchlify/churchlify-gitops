@@ -1,0 +1,14 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: minio-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL:  https://github.com/churchlify/churchlify-gitops.git
+    targetRevision: HEAD
+    path: apps/minio # This must point to the folder with your kustomization.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform # Where MinIO should live
