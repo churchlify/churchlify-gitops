@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-setup
+  namespace: platform
+spec:
+  template:
+    spec:
+      containers:
+      - name: mc
+        image: minio/mc:latest
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: minio-creds
+              key: username
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: minio-creds
+              key: password
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Wait for MinIO to be ready
+          until mc alias set myminio http://minio-service:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD; do
+            echo "Waiting for MinIO..."
+            sleep 5
+          done;
+          # Create a bucket named 'app-data' if it doesn't exist
+          mc mb --ignore-existing myminio/app-data;
+          # Set policy to download (optional)
+          mc anonymous set download myminio/app-data;
+      restartPolicy: OnFailure
