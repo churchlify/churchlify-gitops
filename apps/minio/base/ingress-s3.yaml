@@ -6,7 +6,12 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/custom-http-errors: "599" 
+    cert-manager.io/cluster-issuer: letsencrypt-prod # If using SSL
 spec:
+  tls:
+  - hosts:
+    - s3.churchlify.com
+    secretName: minio-api-tls
   rules:
   - host: s3.churchlify.com 
     http:
