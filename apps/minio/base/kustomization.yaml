@@ -7,3 +7,4 @@ resources:
   - ingress.yaml
   - external-secret.yaml
   - minio-setup-job.yaml
+  - ingress-s3.yaml
