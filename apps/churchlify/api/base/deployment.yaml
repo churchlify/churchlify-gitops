@@ -41,12 +41,3 @@ spec:
         env:
         - name: MONGO_URI
           value: "mongodb://$(MONGO_USER):$(MONGO_PASSWORD)@$(MONGO_HOST):$(MONGO_PORT)/$(APP_DB_NAME)?authSource=admin"
-
-        volumeMounts:
-        - name: files
-          mountPath: /usr/src/app/files_upload
-
-      volumes:
-      - name: files
-        persistentVolumeClaim:
-          claimName: churchlify-api-files
