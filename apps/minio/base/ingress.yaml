@@ -7,6 +7,10 @@ metadata:
     kubernetes.io/ingress.class: nginx
     cert-manager.io/cluster-issuer: letsencrypt-prod # If using SSL
 spec:
+  tls:
+  - hosts:
+    - minio.churchlify.com
+    secretName: minio-tls
   rules:
   - host: minio.churchlify.com
     http:
