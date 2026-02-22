@@ -21,7 +21,7 @@ spec:
         command:
         - /bin/sh
         - -c
-        - minio server /data --console-address ":9001"
+        - minio server /data --console-address ":9001" --region us-east-1
         ports:
         - containerPort: 9000
         - containerPort: 9001
