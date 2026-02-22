@@ -36,6 +36,8 @@ spec:
               secretKeyRef:
                 name: minio-creds
                 key: password
+          - name: MINIO_REGION_NAME
+            value: us-east-1
         volumeMounts:
         - name: minio-storage
           mountPath: /data
