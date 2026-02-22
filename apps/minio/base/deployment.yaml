@@ -21,7 +21,7 @@ spec:
         command:
         - /bin/sh
         - -c
-        - minio server /data --console-address ":9001" --region us-east-1
+        - minio server /data --console-address ":9001"
         ports:
         - containerPort: 9000
         - containerPort: 9001
@@ -36,7 +36,7 @@ spec:
               secretKeyRef:
                 name: minio-creds
                 key: password
-          - name: MINIO_REGION_NAME
+          - name: MINIO_REGION
             value: us-east-1
         volumeMounts:
         - name: minio-storage
