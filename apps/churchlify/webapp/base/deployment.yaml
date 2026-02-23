@@ -34,8 +34,6 @@ spec:
         envFrom:
         - secretRef:
             name: churchlify-secrets
-        - secretRef:
-            name: global-db-secrets
 
         env:
         - name: MONGO_URI
