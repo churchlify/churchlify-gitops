@@ -29,12 +29,12 @@ spec:
           - name: MINIO_ROOT_USER
             valueFrom:
               secretKeyRef:
-                name: global-db-secrets
+                name: minio-creds
                 key: username
           - name: MINIO_ROOT_PASSWORD
             valueFrom:
               secretKeyRef:
-                name: global-db-secrets
+                name: minio-creds
                 key: password
           - name: MINIO_REGION
             value: us-east-1
