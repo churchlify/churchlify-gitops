@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: schoolrider-root
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io 
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Harris-Consult/gitops.git
+    targetRevision: main
+    path: platform/argocd # Folder containing your child Application YAMLs
+    directory:
+      recurse: true 
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions: # Fixed indentation
+      - PrunePropagationPolicy=background
+      - CreateNamespace=true # Good practice to ensure namespaces exist
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10
