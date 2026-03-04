@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mediasoup-worker
+  namespace: platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mediasoup
+  template:
+    metadata:
+      labels:
+        app: mediasoup
+    spec:
+      containers:
+      - name: mediasoup
+        image: ghcr.io/churchlify/mediasoup:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+          name: api
+        - containerPort: 40000
+          protocol: UDP
+          name: media-udp
+        env:
+        - name: MEDIASOUP_LISTEN_IP
+          value: "0.0.0.0"
+        - name: MEDIASOUP_MIN_PORT
+          value: "40000"
+        - name: MEDIASOUP_MAX_PORT
+          value: "40100"
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            export MEDIASOUP_ANNOUNCED_IP=$(curl -s http://checkip.amazonaws.com)
+            echo "Mediasoup starting on Announced IP: $MEDIASOUP_ANNOUNCED_IP"
+            # Start your compiled entrypoint
+            node dist/main.js
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"

@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mediasoup
+  namespace: platform
+  annotations:
+    metallb.universe.tf/address-pool: media-public-ips
+    metallb.universe.tf/allow-shared-ip: "mediasoup-shared"
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  selector:
+    app: mediasoup
+  ports:
+    - name: signaling
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
+    - name: media-udp
+      protocol: UDP
+      port: 40000
+      targetPort: 40000
