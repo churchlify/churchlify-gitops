@@ -36,7 +36,7 @@ spec:
             export MEDIASOUP_ANNOUNCED_IP=$(curl -s http://checkip.amazonaws.com)
             echo "Mediasoup starting on Announced IP: $MEDIASOUP_ANNOUNCED_IP"
             # Start your compiled entrypoint
-            node dist/main.js
+            node mediasoup-worker.js
         resources:
           requests:
             cpu: "500m"
