@@ -1,0 +1,20 @@
+apiVersion: metallb.universe.tf/v1beta1
+kind: IPAddressPool
+metadata:
+  name: media-public-ips
+  namespace: metallb-system
+spec:
+  addresses:
+    - 192.168.88.210-192.168.88.220 # A specific slice of your network
+  # Setting this to false prevents other apps from "stealing" these IPs
+  autoAssign: false 
+---
+apiVersion: metallb.universe.tf/v1beta1
+kind: L2Advertisement
+metadata:
+  name: media-advertisement
+  namespace: metallb-system
+spec:
+  # This tells MetalLB to announce the IPs in the media pool
+  ipAddressPools:
+    - media-public-ips
