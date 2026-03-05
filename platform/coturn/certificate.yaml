@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: coturn-tls
+  namespace: platform
+spec:
+  secretName: coturn-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  commonName: turn.churchlify.com
+  dnsNames:
+    - turn.churchlify.com
