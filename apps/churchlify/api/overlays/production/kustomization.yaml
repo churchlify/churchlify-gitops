@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: ghcr.io/churchlify/churchlify-api
   newName: ghcr.io/churchlify/churchlify-api
-  newTag: b6c82725816730f5cd4e1316ea347f038bd98ac1
+  newTag: 5f21d452fc30e78a7b15daee2449f02688735c14
