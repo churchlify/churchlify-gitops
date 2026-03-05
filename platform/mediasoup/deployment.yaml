@@ -29,11 +29,11 @@ spec:
         - name: MEDIASOUP_ANNOUNCED_IP
           valueFrom:
             secretKeyRef:
-              name: mediasoup-secrets
+              name: global-db-secrets
               key: MEDIASOUP_ANNOUNCED_IP
               optional: true
         - name: MEDIASOUP_ANNOUNCED_IP_DEFAULT
-          value: "mediasoups.churchlify.com"
+          value: "mediasoup.churchlify.com"
         - name: NODE_IP
           valueFrom:
             fieldRef:
