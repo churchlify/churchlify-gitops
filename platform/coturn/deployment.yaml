@@ -40,12 +40,18 @@ spec:
           value: "49160"
         - name: TURN_MAX_PORT
           value: "49200"
+        volumeMounts:
+        - name: coturn-tls
+          mountPath: /etc/coturn/tls
+          readOnly: true
         command: ["/bin/sh", "-c"]
         args:
           - |
             exec turnserver \
               --listening-port=3478 \
               --tls-listening-port=5349 \
+              --cert=/etc/coturn/tls/tls.crt \
+              --pkey=/etc/coturn/tls/tls.key \
               --min-port=${TURN_MIN_PORT} \
               --max-port=${TURN_MAX_PORT} \
               --realm=${TURN_REALM} \
@@ -54,3 +60,7 @@ spec:
               --fingerprint \
               --no-cli \
               --log-file=stdout
+      volumes:
+      - name: coturn-tls
+        secret:
+          secretName: coturn-tls
