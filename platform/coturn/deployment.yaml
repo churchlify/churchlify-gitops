@@ -36,6 +36,16 @@ spec:
               key: TURN_SECRET
         - name: TURN_REALM
           value: "turn.churchlify.com"
+        - name: TURN_EXTERNAL_IP
+          valueFrom:
+            secretKeyRef:
+              name: coturn-secrets
+              key: TURN_EXTERNAL_IP
+              optional: true
+        - name: NODE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
         - name: TURN_MIN_PORT
           value: "49160"
         - name: TURN_MAX_PORT
@@ -47,9 +57,21 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
           - |
+            if [ -z "$NODE_IP" ]; then
+              echo "ERROR: NODE_IP is empty; cannot configure coturn listener/relay addresses"
+              exit 1
+            fi
+            EXTERNAL_IP_ARG=""
+            if [ -n "$TURN_EXTERNAL_IP" ]; then
+              EXTERNAL_IP_ARG="--external-ip=${TURN_EXTERNAL_IP}/${NODE_IP}"
+              echo "Coturn using external IP mapping: ${TURN_EXTERNAL_IP}/${NODE_IP}"
+            fi
             exec turnserver \
               --listening-port=3478 \
               --tls-listening-port=5349 \
+              --listening-ip=${NODE_IP} \
+              --relay-ip=${NODE_IP} \
+              ${EXTERNAL_IP_ARG} \
               --cert=/etc/coturn/tls/tls.crt \
               --pkey=/etc/coturn/tls/tls.key \
               --min-port=${TURN_MIN_PORT} \
