@@ -20,16 +20,16 @@ spec:
         ports:
         - containerPort: 3000
           name: api
-        - containerPort: 40000
+        - containerPort: 42000
           protocol: UDP
           name: media-udp
         env:
         - name: MEDIASOUP_LISTEN_IP
           value: "0.0.0.0"
         - name: MEDIASOUP_MIN_PORT
-          value: "40000"
+          value: "42000"
         - name: MEDIASOUP_MAX_PORT
-          value: "40100"
+          value: "42100"
         command: ["/bin/sh", "-c"]
         args:
           - |
