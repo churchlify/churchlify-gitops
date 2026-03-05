@@ -16,7 +16,407 @@ spec:
       protocol: TCP
       port: 3000
       targetPort: 3000
-    - name: media-udp
+    - name: media-udp-42000
       protocol: UDP
       port: 42000
       targetPort: 42000
+    - name: media-udp-42001
+      protocol: UDP
+      port: 42001
+      targetPort: 42001
+    - name: media-udp-42002
+      protocol: UDP
+      port: 42002
+      targetPort: 42002
+    - name: media-udp-42003
+      protocol: UDP
+      port: 42003
+      targetPort: 42003
+    - name: media-udp-42004
+      protocol: UDP
+      port: 42004
+      targetPort: 42004
+    - name: media-udp-42005
+      protocol: UDP
+      port: 42005
+      targetPort: 42005
+    - name: media-udp-42006
+      protocol: UDP
+      port: 42006
+      targetPort: 42006
+    - name: media-udp-42007
+      protocol: UDP
+      port: 42007
+      targetPort: 42007
+    - name: media-udp-42008
+      protocol: UDP
+      port: 42008
+      targetPort: 42008
+    - name: media-udp-42009
+      protocol: UDP
+      port: 42009
+      targetPort: 42009
+    - name: media-udp-42010
+      protocol: UDP
+      port: 42010
+      targetPort: 42010
+    - name: media-udp-42011
+      protocol: UDP
+      port: 42011
+      targetPort: 42011
+    - name: media-udp-42012
+      protocol: UDP
+      port: 42012
+      targetPort: 42012
+    - name: media-udp-42013
+      protocol: UDP
+      port: 42013
+      targetPort: 42013
+    - name: media-udp-42014
+      protocol: UDP
+      port: 42014
+      targetPort: 42014
+    - name: media-udp-42015
+      protocol: UDP
+      port: 42015
+      targetPort: 42015
+    - name: media-udp-42016
+      protocol: UDP
+      port: 42016
+      targetPort: 42016
+    - name: media-udp-42017
+      protocol: UDP
+      port: 42017
+      targetPort: 42017
+    - name: media-udp-42018
+      protocol: UDP
+      port: 42018
+      targetPort: 42018
+    - name: media-udp-42019
+      protocol: UDP
+      port: 42019
+      targetPort: 42019
+    - name: media-udp-42020
+      protocol: UDP
+      port: 42020
+      targetPort: 42020
+    - name: media-udp-42021
+      protocol: UDP
+      port: 42021
+      targetPort: 42021
+    - name: media-udp-42022
+      protocol: UDP
+      port: 42022
+      targetPort: 42022
+    - name: media-udp-42023
+      protocol: UDP
+      port: 42023
+      targetPort: 42023
+    - name: media-udp-42024
+      protocol: UDP
+      port: 42024
+      targetPort: 42024
+    - name: media-udp-42025
+      protocol: UDP
+      port: 42025
+      targetPort: 42025
+    - name: media-udp-42026
+      protocol: UDP
+      port: 42026
+      targetPort: 42026
+    - name: media-udp-42027
+      protocol: UDP
+      port: 42027
+      targetPort: 42027
+    - name: media-udp-42028
+      protocol: UDP
+      port: 42028
+      targetPort: 42028
+    - name: media-udp-42029
+      protocol: UDP
+      port: 42029
+      targetPort: 42029
+    - name: media-udp-42030
+      protocol: UDP
+      port: 42030
+      targetPort: 42030
+    - name: media-udp-42031
+      protocol: UDP
+      port: 42031
+      targetPort: 42031
+    - name: media-udp-42032
+      protocol: UDP
+      port: 42032
+      targetPort: 42032
+    - name: media-udp-42033
+      protocol: UDP
+      port: 42033
+      targetPort: 42033
+    - name: media-udp-42034
+      protocol: UDP
+      port: 42034
+      targetPort: 42034
+    - name: media-udp-42035
+      protocol: UDP
+      port: 42035
+      targetPort: 42035
+    - name: media-udp-42036
+      protocol: UDP
+      port: 42036
+      targetPort: 42036
+    - name: media-udp-42037
+      protocol: UDP
+      port: 42037
+      targetPort: 42037
+    - name: media-udp-42038
+      protocol: UDP
+      port: 42038
+      targetPort: 42038
+    - name: media-udp-42039
+      protocol: UDP
+      port: 42039
+      targetPort: 42039
+    - name: media-udp-42040
+      protocol: UDP
+      port: 42040
+      targetPort: 42040
+    - name: media-udp-42041
+      protocol: UDP
+      port: 42041
+      targetPort: 42041
+    - name: media-udp-42042
+      protocol: UDP
+      port: 42042
+      targetPort: 42042
+    - name: media-udp-42043
+      protocol: UDP
+      port: 42043
+      targetPort: 42043
+    - name: media-udp-42044
+      protocol: UDP
+      port: 42044
+      targetPort: 42044
+    - name: media-udp-42045
+      protocol: UDP
+      port: 42045
+      targetPort: 42045
+    - name: media-udp-42046
+      protocol: UDP
+      port: 42046
+      targetPort: 42046
+    - name: media-udp-42047
+      protocol: UDP
+      port: 42047
+      targetPort: 42047
+    - name: media-udp-42048
+      protocol: UDP
+      port: 42048
+      targetPort: 42048
+    - name: media-udp-42049
+      protocol: UDP
+      port: 42049
+      targetPort: 42049
+    - name: media-udp-42050
+      protocol: UDP
+      port: 42050
+      targetPort: 42050
+    - name: media-udp-42051
+      protocol: UDP
+      port: 42051
+      targetPort: 42051
+    - name: media-udp-42052
+      protocol: UDP
+      port: 42052
+      targetPort: 42052
+    - name: media-udp-42053
+      protocol: UDP
+      port: 42053
+      targetPort: 42053
+    - name: media-udp-42054
+      protocol: UDP
+      port: 42054
+      targetPort: 42054
+    - name: media-udp-42055
+      protocol: UDP
+      port: 42055
+      targetPort: 42055
+    - name: media-udp-42056
+      protocol: UDP
+      port: 42056
+      targetPort: 42056
+    - name: media-udp-42057
+      protocol: UDP
+      port: 42057
+      targetPort: 42057
+    - name: media-udp-42058
+      protocol: UDP
+      port: 42058
+      targetPort: 42058
+    - name: media-udp-42059
+      protocol: UDP
+      port: 42059
+      targetPort: 42059
+    - name: media-udp-42060
+      protocol: UDP
+      port: 42060
+      targetPort: 42060
+    - name: media-udp-42061
+      protocol: UDP
+      port: 42061
+      targetPort: 42061
+    - name: media-udp-42062
+      protocol: UDP
+      port: 42062
+      targetPort: 42062
+    - name: media-udp-42063
+      protocol: UDP
+      port: 42063
+      targetPort: 42063
+    - name: media-udp-42064
+      protocol: UDP
+      port: 42064
+      targetPort: 42064
+    - name: media-udp-42065
+      protocol: UDP
+      port: 42065
+      targetPort: 42065
+    - name: media-udp-42066
+      protocol: UDP
+      port: 42066
+      targetPort: 42066
+    - name: media-udp-42067
+      protocol: UDP
+      port: 42067
+      targetPort: 42067
+    - name: media-udp-42068
+      protocol: UDP
+      port: 42068
+      targetPort: 42068
+    - name: media-udp-42069
+      protocol: UDP
+      port: 42069
+      targetPort: 42069
+    - name: media-udp-42070
+      protocol: UDP
+      port: 42070
+      targetPort: 42070
+    - name: media-udp-42071
+      protocol: UDP
+      port: 42071
+      targetPort: 42071
+    - name: media-udp-42072
+      protocol: UDP
+      port: 42072
+      targetPort: 42072
+    - name: media-udp-42073
+      protocol: UDP
+      port: 42073
+      targetPort: 42073
+    - name: media-udp-42074
+      protocol: UDP
+      port: 42074
+      targetPort: 42074
+    - name: media-udp-42075
+      protocol: UDP
+      port: 42075
+      targetPort: 42075
+    - name: media-udp-42076
+      protocol: UDP
+      port: 42076
+      targetPort: 42076
+    - name: media-udp-42077
+      protocol: UDP
+      port: 42077
+      targetPort: 42077
+    - name: media-udp-42078
+      protocol: UDP
+      port: 42078
+      targetPort: 42078
+    - name: media-udp-42079
+      protocol: UDP
+      port: 42079
+      targetPort: 42079
+    - name: media-udp-42080
+      protocol: UDP
+      port: 42080
+      targetPort: 42080
+    - name: media-udp-42081
+      protocol: UDP
+      port: 42081
+      targetPort: 42081
+    - name: media-udp-42082
+      protocol: UDP
+      port: 42082
+      targetPort: 42082
+    - name: media-udp-42083
+      protocol: UDP
+      port: 42083
+      targetPort: 42083
+    - name: media-udp-42084
+      protocol: UDP
+      port: 42084
+      targetPort: 42084
+    - name: media-udp-42085
+      protocol: UDP
+      port: 42085
+      targetPort: 42085
+    - name: media-udp-42086
+      protocol: UDP
+      port: 42086
+      targetPort: 42086
+    - name: media-udp-42087
+      protocol: UDP
+      port: 42087
+      targetPort: 42087
+    - name: media-udp-42088
+      protocol: UDP
+      port: 42088
+      targetPort: 42088
+    - name: media-udp-42089
+      protocol: UDP
+      port: 42089
+      targetPort: 42089
+    - name: media-udp-42090
+      protocol: UDP
+      port: 42090
+      targetPort: 42090
+    - name: media-udp-42091
+      protocol: UDP
+      port: 42091
+      targetPort: 42091
+    - name: media-udp-42092
+      protocol: UDP
+      port: 42092
+      targetPort: 42092
+    - name: media-udp-42093
+      protocol: UDP
+      port: 42093
+      targetPort: 42093
+    - name: media-udp-42094
+      protocol: UDP
+      port: 42094
+      targetPort: 42094
+    - name: media-udp-42095
+      protocol: UDP
+      port: 42095
+      targetPort: 42095
+    - name: media-udp-42096
+      protocol: UDP
+      port: 42096
+      targetPort: 42096
+    - name: media-udp-42097
+      protocol: UDP
+      port: 42097
+      targetPort: 42097
+    - name: media-udp-42098
+      protocol: UDP
+      port: 42098
+      targetPort: 42098
+    - name: media-udp-42099
+      protocol: UDP
+      port: 42099
+      targetPort: 42099
+    - name: media-udp-42100
+      protocol: UDP
+      port: 42100
+      targetPort: 42100
