@@ -32,6 +32,8 @@ spec:
               name: mediasoup-secrets
               key: MEDIASOUP_ANNOUNCED_IP
               optional: true
+        - name: MEDIASOUP_ANNOUNCED_IP_DEFAULT
+          value: "mediasoups.churchlify.com"
         - name: NODE_IP
           valueFrom:
             fieldRef:
@@ -43,7 +45,11 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
           - |
-            ANNOUNCED_IP="${MEDIASOUP_ANNOUNCED_IP:-$NODE_IP}"
+            ANNOUNCED_IP="${MEDIASOUP_ANNOUNCED_IP:-$MEDIASOUP_ANNOUNCED_IP_DEFAULT}"
+            if [ -z "$MEDIASOUP_ANNOUNCED_IP" ]; then
+              echo "WARN: MEDIASOUP_ANNOUNCED_IP secret is empty; using default announced host: $ANNOUNCED_IP"
+            fi
+            ANNOUNCED_IP="${ANNOUNCED_IP:-$NODE_IP}"
             if [ -z "$ANNOUNCED_IP" ]; then
               echo "ERROR: MEDIASOUP_ANNOUNCED_IP is empty and NODE_IP fallback is unavailable"
               exit 1
