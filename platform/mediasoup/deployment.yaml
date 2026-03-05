@@ -26,6 +26,16 @@ spec:
         env:
         - name: MEDIASOUP_LISTEN_IP
           value: "0.0.0.0"
+        - name: MEDIASOUP_ANNOUNCED_IP
+          valueFrom:
+            secretKeyRef:
+              name: mediasoup-secrets
+              key: MEDIASOUP_ANNOUNCED_IP
+              optional: true
+        - name: NODE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
         - name: MEDIASOUP_MIN_PORT
           value: "42000"
         - name: MEDIASOUP_MAX_PORT
@@ -33,8 +43,13 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
           - |
-            export MEDIASOUP_ANNOUNCED_IP=$(curl -s http://checkip.amazonaws.com)
-            echo "Mediasoup starting on Announced IP: $MEDIASOUP_ANNOUNCED_IP"
+            ANNOUNCED_IP="${MEDIASOUP_ANNOUNCED_IP:-$NODE_IP}"
+            if [ -z "$ANNOUNCED_IP" ]; then
+              echo "ERROR: MEDIASOUP_ANNOUNCED_IP is empty and NODE_IP fallback is unavailable"
+              exit 1
+            fi
+            export MEDIASOUP_ANNOUNCED_IP="$ANNOUNCED_IP"
+            echo "Mediasoup starting with announced IP: $MEDIASOUP_ANNOUNCED_IP"
             # Start your compiled entrypoint
             node mediasoup-worker.js
         resources:

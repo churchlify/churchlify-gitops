@@ -35,7 +35,7 @@ spec:
               name: coturn-secrets
               key: TURN_SECRET
         - name: TURN_REALM
-          value: "turn.churchlify.local"
+          value: "turn.churchlify.com"
         - name: TURN_MIN_PORT
           value: "49160"
         - name: TURN_MAX_PORT
