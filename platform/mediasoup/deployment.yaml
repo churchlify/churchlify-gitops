@@ -16,7 +16,7 @@ spec:
       containers:
       - name: mediasoup
         image: ghcr.io/churchlify/mediasoup:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 3000
           name: api
