@@ -36,7 +36,3 @@ spec:
         envFrom:
         - secretRef:
             name: churchlify-secrets
-
-        env:
-        - name: MONGO_URI
-          value: "mongodb://$(MONGO_USER):$(MONGO_PASSWORD)@$(MONGO_HOST):$(MONGO_PORT)/$(APP_DB_NAME)?authSource=admin"
