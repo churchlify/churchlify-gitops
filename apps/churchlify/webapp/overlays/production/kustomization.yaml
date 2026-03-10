@@ -6,3 +6,6 @@ images:
 - name: ghcr.io/churchlify/churchlify-api
   newName: ghcr.io/churchlify/churchlify-api
   newTag: 239ccd0a348bb3c97fbbf67bcd9eaa29d4c7622c
+- name: ghcr.io/churchlify/churchlify-web
+  newName: ghcr.io/churchlify/churchlify-web
+  newTag: 1c8f486755d2daac07feae207357c2bb7cede16c
