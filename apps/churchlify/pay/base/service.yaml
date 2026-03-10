@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: churchlify-pay
+  namespace: churchlify
+spec:
+  selector:
+    app: churchlify-pay
+  ports:
+  - port: 80
+    targetPort: 3000

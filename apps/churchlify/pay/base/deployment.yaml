@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: churchlify-pay
+  namespace: churchlify
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: churchlify-pay
+  template:
+    metadata:
+      labels:
+        app: churchlify-pay
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/worker: worker
+
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: "kubernetes.io/hostname"
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: churchlify-pay
+
+      containers:
+      - name: churchlify-pay
+        image: ghcr.io/churchlify/churchlify-pay:latest
+        ports:
+        - containerPort: 3000
+
+        # Load app-specific env vars
+        envFrom:
+        - secretRef:
+            name: churchlify-secrets
+
+        env:
+        - name: MONGO_URI
+          value: "mongodb://$(MONGO_USER):$(MONGO_PASSWORD)@$(MONGO_HOST):$(MONGO_PORT)/$(APP_DB_NAME)?authSource=admin"
