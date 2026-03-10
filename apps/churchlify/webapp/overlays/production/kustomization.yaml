@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: ghcr.io/churchlify/churchlify-pay
   newName: ghcr.io/churchlify/churchlify-pay
-  newTag: 40c21f7f7b6576be6169257eb468aabf36eda71b
+  newTag: bdac3eafad133a813f9675a3b3b24932f8e1c1e5
