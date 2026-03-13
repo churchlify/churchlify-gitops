@@ -8,4 +8,4 @@ images:
   newTag: 7d8f554e973b27b95347021b42d42fd0ed5f7eeb
 - name: ghcr.io/churchlify/churchlify-web
   newName: ghcr.io/churchlify/churchlify-web
-  newTag: 59049023dcdb25230006c2e0453d33dff3f1799d
+  newTag: fab396d7c20eb1992cbf691406c17ad7f1156cd4
