@@ -21,6 +21,8 @@ spec:
                 name: mailu-config
             - secretRef:
                 name: mailu-secret
+          ports:
+            - containerPort: 80
           volumeMounts:
             - name: data
               mountPath: /data
