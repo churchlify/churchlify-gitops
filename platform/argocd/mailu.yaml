@@ -7,11 +7,11 @@ spec:
   project: default
   source:
     repoURL: 'https://github.com/churchlify/churchlify-gitops.git'
-    targetRevision: main
-    path: mailu
+    targetRevision: HEAD
+    path: apps/mailu/overlays/production
   destination:
     server: 'https://kubernetes.default.svc'
-    namespace: apps/mailu/overlays/production
+    namespace: mailu
   syncPolicy:
     automated:
       prune: true
