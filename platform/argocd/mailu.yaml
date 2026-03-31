@@ -11,7 +11,7 @@ spec:
     path: mailu
   destination:
     server: 'https://kubernetes.default.svc'
-    namespace: mailu
+    namespace: apps/mailu/overlays/production
   syncPolicy:
     automated:
       prune: true
