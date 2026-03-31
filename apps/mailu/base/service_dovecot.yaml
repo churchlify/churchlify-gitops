@@ -6,7 +6,7 @@ metadata:
 spec:
   selector:
     app: mailu-dovecot
-ports:
+  ports:
     - name: imap
       port: 143
       targetPort: 143
