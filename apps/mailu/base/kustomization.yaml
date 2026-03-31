@@ -17,4 +17,5 @@ resources:
   - deployment_dovecot.yaml
   - deployment_postfix.yaml
   - deployment_rspamd.yaml
+  - deployment_front.yaml
   - ingress.yaml

@@ -17,8 +17,10 @@ spec:
       - name: front
         image: ghcr.io/mailu/nginx:2.0
         envFrom:
-        - secretRef:
+        - configMapRef:
             name: mailu-config
+        - secretRef:
+            name: mailu-secret
         ports:
         - containerPort: 80
         - containerPort: 443
