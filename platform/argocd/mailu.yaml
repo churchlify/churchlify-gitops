@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: 'https://github.com/churchlify/churchlify-gitops.git'
-    targetRevision: HEAD
+    targetRevision: main
     path: mailu
   destination:
     server: 'https://kubernetes.default.svc'
