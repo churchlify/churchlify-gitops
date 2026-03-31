@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailu-admin
+  namespace: mailu
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mailu-admin
+  template:
+    metadata:
+      labels:
+        app: mailu-admin
+    spec:
+      containers:
+        - name: admin
+          image: ghcr.io/mailu/admin:2.0
+          envFrom:
+            - configMapRef:
+                name: mailu-config
+            - secretRef:
+                name: mailu-secret
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mailu-data-pvc

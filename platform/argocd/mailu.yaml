@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mailu-stack
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/churchlify/churchlify-gitops.git'
+    targetRevision: HEAD
+    path: mailu
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: mailu
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true  # <--- This creates the 'mailu' namespace for you
+      - ApplyOutOfSyncOnly=true

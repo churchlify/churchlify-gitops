@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailu-smtp
+  namespace: mailu
+  annotations:
+    argocd.argoproj.io/sync-wave: "5" 
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate 
+  selector:
+    matchLabels:
+      app: mailu-smtp
+  template:
+    metadata:
+      labels:
+        app: mailu-smtp
+    spec:
+      affinity:
+        podAffinity:
+          # Dovecot should be the 'Required' anchor, 
+          # Postfix 'Prefers' to be with it to avoid scheduling deadlocks.
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - mailu-dovecot
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+        - name: smtp
+          image: ghcr.io/mailu/postfix:2.0
+          envFrom:
+            - configMapRef:
+                name: mailu-config
+            - secretRef:
+                name: mailu-secret
+            - secretRef:
+                name: brevo-smtp
+          ports:
+            - containerPort: 25
+            - containerPort: 10025 
+          volumeMounts:
+            - name: mail-storage
+              mountPath: /data
+          readinessProbe:
+            tcpSocket:
+              port: 25
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 25
+            initialDelaySeconds: 20
+            periodSeconds: 10
+      volumes:
+        - name: mail-storage
+          persistentVolumeClaim:
+            claimName: mailu-mail-pvc

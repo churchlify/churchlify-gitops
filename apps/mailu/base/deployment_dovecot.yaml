@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailu-dovecot
+  namespace: mailu
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mailu-dovecot
+  template:
+    metadata:
+      labels:
+        app: mailu-dovecot
+    spec:
+      affinity:
+        podAntiAffinity: # Best practice: don't put two mail stacks on one node
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - mailu-dovecot
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+        - name: dovecot
+          image: ghcr.io/mailu/dovecot:2.0
+          envFrom:
+            - configMapRef:
+                name: mailu-config
+            - secretRef:
+                name: mailu-secret
+          volumeMounts:
+            - name: mail-storage
+              mountPath: /data
+      volumes:
+        - name: mail-storage
+          persistentVolumeClaim:
+            claimName: mailu-mail-pvc

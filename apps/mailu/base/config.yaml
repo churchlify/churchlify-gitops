@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mailu-config
+  namespace: mailu
+data:
+  DOMAIN: "churchlify.com"
+  HOSTNAMES: "mail.churchlify.com"
+  TLS_FLAVOR: "mail"   
+  # --- SMTP Relay (Brevo) ---
+  RELAYHOST: "smtp-relay.brevo.com"
+  RELAYPORT: "587"
+  RELAYNETS: "0.0.0.0/0"
+  OUTBOUND_TLS_LEVEL: "encrypt" 
+  # --- Limits & Security ---
+  AUTH_RATELIMIT: "10/minute;100/hour"
+  DKIM_SELECTOR: "mailu"
+  MESSAGE_SIZE_LIMIT: "52428800" # 50MB in bytes
+  # --- Component Discovery ---
+  ANTISPAM_ADDRESS: "mailu-rspamd:11334"
+  IMAP_ADDRESS: "mailu-dovecot:143"
+  # Update this to your existing Redis service name if it's not 'mailu-redis'
+  REDIS_ADDRESS: "redis.platform.svc.cluster.local:6379" 
+  FRONT_ADDRESS: "mailu-front"
+  ADMIN_ADDRESS: "mailu-admin"

@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mailu-web
+  namespace: mailu
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m" 
+spec:
+  tls:
+    - hosts:
+        - mail.churchlify.com
+        - mailadmin.churchlify.com
+      secretName: mailu-tls
+  rules:
+    - host: mail.churchlify.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mailu-front
+                port:
+                  number: 80
+    - host: mailadmin.churchlify.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mailu-front # Redirect to front, it proxies to admin UI
+                port:
+                  number: 80
