@@ -6,7 +6,7 @@ metadata:
 data:
   DOMAIN: "churchlify.com"
   HOSTNAMES: "mail.churchlify.com"
-  TLS_FLAVOR: "mail"   
+  TLS_FLAVOR: "notls"   
   # --- SMTP Relay (Brevo) ---
   RELAYHOST: "smtp-relay.brevo.com"
   RELAYPORT: "587"
