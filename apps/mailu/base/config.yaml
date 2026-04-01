@@ -6,7 +6,9 @@ metadata:
 data:
   DOMAIN: "churchlify.com"
   HOSTNAMES: "mail.churchlify.com,mailadmin.churchlify.com"
-  TLS_FLAVOR: "notls"   
+  TLS_FLAVOR: "cert"
+  WEB_ADMIN: "/admin" 
+  SITENAME: "Churchlify Mail"
 
   # --- Discovery Fixes ---
   # Use the service names you defined in your other manifests
