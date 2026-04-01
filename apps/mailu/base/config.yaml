@@ -6,7 +6,8 @@ metadata:
 data:
 # --- THE "STOP CRASHING" KEYS ---
   KUBERNETES: "true"         # Tells Mailu to bypass the 'Unsupported System' check
-  LOG_LEVEL: "DEBUG"         # Helps us see exactly what's failing if it still does
+  KUBERNETES_INGRESS: "true"L
+  OG_LEVEL: "DEBUG"         # Helps us see exactly what's failing if it still does
   DOCKER_ADDRESS: "127.0.0.1"      # Forces it to stop looking for /var/run/docker.sock
   SKIP_PROVISIONING: "true"
   # --- Database & Storage ---
