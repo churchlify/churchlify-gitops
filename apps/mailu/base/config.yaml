@@ -22,10 +22,6 @@ data:
     SMTP_ADDRESS=mailu-smtp
     REDIS_ADDRESS=redis.platform.svc.cluster.local:6379
 
-    WEBMAIL_ADDRESS=localhost
-    API_ADDRESS=localhost
-    WELCOME_ADDRESS=localhost
-
     REAL_IP_HEADER=X-Forwarded-For
     REAL_IP_FROM=10.0.0.0/8
     REAL_IP_FROM=192.168.0.0/16
