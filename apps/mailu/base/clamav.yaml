@@ -6,23 +6,30 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: mailu-antivirus
+      app: antivirus
   template:
     metadata:
       labels:
-        app: mailu-antivirus
+        app: antivirus
     spec:
       containers:
       - name: antivirus
-        [cite_start]image: clamav/clamav-debian:1.4 [cite: 2]
+        image: clamav/clamav-debian:1.4
         livenessProbe:
           exec:
-            [cite_start]command: ["/bin/sh", "-c", "kill -0 `cat /tmp/clamd.pid`"] [cite: 2]
+            command: 
+            - /bin/sh
+            - -c
+            - "kill -0 `cat /tmp/clamd.pid`"
           initialDelaySeconds: 20
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
         volumeMounts:
-        - name: data
+        - name: clamav-data
           mountPath: /var/lib/clamav
       volumes:
-      - name: data
+      - name: clamav-data
         persistentVolumeClaim:
           claimName: mailu-clamav-pvc
