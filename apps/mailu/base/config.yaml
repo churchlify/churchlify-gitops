@@ -6,30 +6,27 @@ metadata:
 data:
   DOMAIN: "churchlify.com"
   HOSTNAMES: "mail.churchlify.com,mailadmin.churchlify.com"
-  
-  # Reverting to 'notls' to fix the KeyError, 
-  # as your 2.0 image seems picky about the flavor string.
   TLS_FLAVOR: "notls"   
 
-  # --- SMTP Relay (Brevo) ---
+  # --- Discovery Fixes ---
+  # Use the service names you defined in your other manifests
+  ADMIN_ADDRESS: "mailu-admin"
+  ANTISPAM_ADDRESS: "mailu-rspamd:11334"
+  IMAP_ADDRESS: "mailu-dovecot:143"
+  
+  # Ensure these are NOT empty and NOT "none"
+  # Pointing to 127.0.0.1 effectively disables them without breaking Nginx syntax
+  WEBMAIL_ADDRESS: "127.0.0.1" 
+  SMTP_ADDRESS: "mailu-smtp" # This MUST match the name of your Postfix service
+
+  # --- Redis (Ensure this is reachable) ---
+  REDIS_ADDRESS: "redis.platform.svc.cluster.local:6379" 
+
+  # --- Other existing configs ---
   RELAYHOST: "smtp-relay.brevo.com"
   RELAYPORT: "587"
   RELAYNETS: "0.0.0.0/0"
   OUTBOUND_TLS_LEVEL: "encrypt" 
-
-  # --- Component Discovery ---
-  # These MUST be defined to prevent Nginx syntax errors (Line 139)
-  ANTISPAM_ADDRESS: "mailu-rspamd:11334"
-  IMAP_ADDRESS: "mailu-dovecot:143"
-  REDIS_ADDRESS: "redis.platform.svc.cluster.local:6379" 
-  FRONT_ADDRESS: "mailu-front"
-  ADMIN_ADDRESS: "mailu-admin"
-  
-  # FIX: Adding these prevents the 'empty' location blocks in Nginx
-  SMTP_ADDRESS: "mailu-smtp:25" 
-  WEBMAIL_ADDRESS: "none" 
-
-  # --- Limits & Security ---
   AUTH_RATELIMIT: "10/minute;100/hour"
   DKIM_SELECTOR: "mailu"
   MESSAGE_SIZE_LIMIT: "52428800"
