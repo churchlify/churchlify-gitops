@@ -5,21 +5,32 @@ metadata:
   namespace: mailu
 data:
   DOMAIN: "churchlify.com"
-  HOSTNAMES: "mail.churchlify.com"
-  TLS_FLAVOR: "notls"   
+  # Include both subdomains in HOSTNAMES
+  HOSTNAMES: "mail.churchlify.com,mailadmin.churchlify.com"
+  
+  # CHANGE: "mail-forwards" tells Mailu that your Nginx Ingress is handling SSL,
+  # but it should still pass the correct headers to the backends.
+  TLS_FLAVOR: "mail-forwards"   
+
   # --- SMTP Relay (Brevo) ---
   RELAYHOST: "smtp-relay.brevo.com"
   RELAYPORT: "587"
   RELAYNETS: "0.0.0.0/0"
   OUTBOUND_TLS_LEVEL: "encrypt" 
+
   # --- Limits & Security ---
   AUTH_RATELIMIT: "10/minute;100/hour"
   DKIM_SELECTOR: "mailu"
-  MESSAGE_SIZE_LIMIT: "52428800" # 50MB in bytes
+  MESSAGE_SIZE_LIMIT: "52428800" 
+
   # --- Component Discovery ---
+  # IMPORTANT: These MUST exist as Services in your 'mailu' namespace.
   ANTISPAM_ADDRESS: "mailu-rspamd:11334"
   IMAP_ADDRESS: "mailu-dovecot:143"
-  # Update this to your existing Redis service name if it's not 'mailu-redis'
   REDIS_ADDRESS: "redis.platform.svc.cluster.local:6379" 
   FRONT_ADDRESS: "mailu-front"
   ADMIN_ADDRESS: "mailu-admin"
+  
+  # NEW: Missing these often causes the Nginx syntax error
+  SMTP_ADDRESS: "mailu-smtp:25" 
+  WEBMAIL_ADDRESS: "none" # Explicitly set to 'none' if you aren't deploying Roundcube/Rainloop
