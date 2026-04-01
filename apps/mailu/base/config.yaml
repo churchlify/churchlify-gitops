@@ -4,6 +4,14 @@ metadata:
   name: mailu-config
   namespace: mailu
 data:
+# --- THE "STOP CRASHING" KEYS ---
+  KUBERNETES: "true"         # Tells Mailu to bypass the 'Unsupported System' check
+  LOG_LEVEL: "DEBUG"         # Helps us see exactly what's failing if it still does
+  
+  # --- Database & Storage ---
+  # Since you're on K8s, ensure it knows it's using the internal DB 
+  # (unless you have a separate Postgres/MariaDB pod)
+  DB_FLAVOR: "sqlite"
   # --- Core ---
   DOMAIN: "churchlify.com"
   HOSTNAMES: "mail.churchlify.com,mailadmin.churchlify.com"
