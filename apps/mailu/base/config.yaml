@@ -9,6 +9,7 @@ data:
   KUBERNETES_INGRESS: "true"
   FLAVOR: "kubernetes"  # Explicitly set the flavor
   CORE_ADDRESS: "mailu-admin"
+  INITIAL_ADMIN_PW: "S0methingS3cure!"  # Set a strong initial password for the admin user
   LOG_LEVEL: "DEBUG"            # Fixed: was OG_LEVEL
   DOCKER_ADDRESS: "127.0.0.1"
   SKIP_PROVISIONING: "true"
