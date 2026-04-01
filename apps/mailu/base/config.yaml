@@ -1,34 +1,27 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: mailu-config
-  namespace: mailu
 data:
   DOMAIN: "churchlify.com"
-  HOSTNAMES: "mail.churchlify.com,mailadmin.churchlify.com"
-  TLS_FLAVOR: "cert"
-  WEB_ADMIN: "/admin" 
+  HOSTNAMES: "mail.churchlify.com mailadmin.churchlify.com"
+
+  TLS_FLAVOR: "notls"   # ✅ FIX
+
+  WEBROOT: "/"
+  WEB_ADMIN: "/admin"
   SITENAME: "Churchlify Mail"
 
-  # --- Discovery Fixes ---
-  # Use the service names you defined in your other manifests
   ADMIN_ADDRESS: "mailu-admin"
   ANTISPAM_ADDRESS: "mailu-rspamd"
   IMAP_ADDRESS: "mailu-dovecot"
-  
-  # Ensure these are NOT empty and NOT "none"
-  # Pointing to 127.0.0.1 effectively disables them without breaking Nginx syntax
-  WEBMAIL_ADDRESS: "127.0.0.1" 
-  SMTP_ADDRESS: "mailu-smtp" # This MUST match the name of your Postfix service
+  SMTP_ADDRESS: "mailu-smtp"
 
-  # --- Redis (Ensure this is reachable) ---
-  REDIS_ADDRESS: "redis.platform.svc.cluster.local:6379" 
+  WEBMAIL_ADDRESS: "none"   # ✅ cleaner
 
-  # --- Other existing configs ---
+  REDIS_ADDRESS: "redis.platform.svc.cluster.local:6379"
+
   RELAYHOST: "smtp-relay.brevo.com"
   RELAYPORT: "587"
   RELAYNETS: "0.0.0.0/0"
-  OUTBOUND_TLS_LEVEL: "encrypt" 
+  OUTBOUND_TLS_LEVEL: "encrypt"
+
   AUTH_RATELIMIT: "10/minute;100/hour"
   DKIM_SELECTOR: "mailu"
   MESSAGE_SIZE_LIMIT: "52428800"
