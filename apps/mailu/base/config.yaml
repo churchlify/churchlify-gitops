@@ -5,7 +5,10 @@ metadata:
   namespace: mailu
 data:
   DOMAIN: "churchlify.com"
-  HOSTNAMES: "mail.churchlify.com mailadmin.churchlify.com"  # Space-separated, no commas
+  HOSTNAMES: "mail.churchlify.com mailadmin.churchlify.com"
+  
+  # Add this - the primary hostname for your mail server
+  HOSTNAME: "mail.churchlify.com"  # <-- THIS IS CRITICAL
   
   TLS_FLAVOR: "notls"
   
