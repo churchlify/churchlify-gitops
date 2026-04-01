@@ -14,18 +14,21 @@ spec:
         app: mailu-front
     spec:
       containers:
-      - name: front
-        image: ghcr.io/mailu/nginx:2.0
-        envFrom:
-        - configMapRef:
+        - name: front
+          image: ghcr.io/mailu/nginx:2.0
+          volumeMounts:
+            - name: mailu-config
+              mountPath: /mailu/config.env
+              subPath: config.env
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+            - containerPort: 25
+            - containerPort: 465
+            - containerPort: 587
+            - containerPort: 143
+            - containerPort: 993
+      volumes:
+        - name: mailu-config
+          configMap:
             name: mailu-config
-        - secretRef:
-            name: mailu-secret
-        ports:
-        - containerPort: 80
-        - containerPort: 443
-        - containerPort: 25
-        - containerPort: 465
-        - containerPort: 587
-        - containerPort: 143
-        - containerPort: 993
