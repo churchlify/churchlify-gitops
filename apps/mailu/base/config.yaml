@@ -5,28 +5,28 @@ metadata:
   namespace: mailu
 data:
   DOMAIN: "churchlify.com"
-  HOSTNAMES: "mail.churchlify.com mailadmin.churchlify.com"
-
+  HOSTNAMES: "mail.churchlify.com mailadmin.churchlify.com"  # Space-separated, no commas
+  
   TLS_FLAVOR: "notls"
-
+  
   WEBROOT: "/"
   WEB_ADMIN: "/admin"
   SITENAME: "Churchlify Mail"
-
+  
   ADMIN_ADDRESS: "mailu-admin"
   IMAP_ADDRESS: "mailu-dovecot"
   ANTISPAM_ADDRESS: "mailu-rspamd"
   SMTP_ADDRESS: "mailu-smtp"
-
+  
   WEBMAIL_ADDRESS: "none"
-
+  
   REDIS_ADDRESS: "redis.platform.svc.cluster.local:6379"
-
+  
   RELAYHOST: "smtp-relay.brevo.com"
   RELAYPORT: "587"
   RELAYNETS: "0.0.0.0/0"
   OUTBOUND_TLS_LEVEL: "encrypt"
-
+  
   AUTH_RATELIMIT: "10/minute;100/hour"
   DKIM_SELECTOR: "mailu"
   MESSAGE_SIZE_LIMIT: "52428800"
