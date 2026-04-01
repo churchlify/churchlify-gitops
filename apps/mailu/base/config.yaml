@@ -3,26 +3,45 @@ kind: ConfigMap
 metadata:
   name: mailu-config
   namespace: mailu
-data: # Fixed typo: was 'ddata'
-  # --- Standard Config ---
+  labels:
+    app.kubernetes.io/instance: churchlify-mail
+    app.kubernetes.io/part-of: mailu
+data:
+  # --- Core Settings ---
   DOMAIN: "churchlify.com"
   HOSTNAMES: "mail.churchlify.com,mailadmin.churchlify.com"
+  SITENAME: "Churchlify Mail"
   TLS_FLAVOR: "notls"
   
-  # --- Service Discovery ---
+  # --- Service Discovery (Matches your K8s Services) ---
   ADMIN_ADDRESS: "mailu-admin"
   ANTISPAM_ADDRESS: "mailu-rspamd:11334"
   IMAP_ADDRESS: "mailu-dovecot:143"
   SMTP_ADDRESS: "mailu-smtp:25"
   REDIS_ADDRESS: "redis.platform.svc.cluster.local:6379"
 
-  # --- The Syntax Fixers (Line 147 Fix) ---
+  # --- Mandatory Nginx Placeholders (Fixes Line 139/147/Undefined Errors) ---
   WEBMAIL_ADDRESS: "localhost"
   API_ADDRESS: "localhost"
   WELCOME_ADDRESS: "localhost"
   WEBSOCKET_ADDRESS: "localhost"
-
-  # --- Pathing & Identity ---
+  
+  # --- Resource & Limit Settings ---
+  MESSAGE_SIZE_LIMIT: "52428800"
+  RECIPIENT_DELIMITER: "+"
+  AUTH_RATELIMIT: "10/minute;100/hour"
+  
+  # --- Pathing ---
   WEBROOT: "/"
   WEB_ADMIN: "/admin"
-  SITENAME: "Churchlify Mail"
+
+  # --- Network Handling ---
+  REAL_IP_HEADER: "X-Forwarded-For"
+  REAL_IP_FROM: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+
+  # --- Relay (Brevo) ---
+  RELAYHOST: "smtp-relay.brevo.com"
+  RELAYPORT: "587"
+  RELAYNETS: "0.0.0.0/0"
+  OUTBOUND_TLS_LEVEL: "encrypt"
+  DKIM_SELECTOR: "mailu"
