@@ -7,18 +7,18 @@ data:
   DOMAIN: "churchlify.com"
   HOSTNAMES: "mail.churchlify.com mailadmin.churchlify.com"
 
-  TLS_FLAVOR: "notls"   # ✅ FIX
+  TLS_FLAVOR: "notls"
 
   WEBROOT: "/"
   WEB_ADMIN: "/admin"
   SITENAME: "Churchlify Mail"
 
   ADMIN_ADDRESS: "mailu-admin"
-  ANTISPAM_ADDRESS: "mailu-rspamd"
   IMAP_ADDRESS: "mailu-dovecot"
+  ANTISPAM_ADDRESS: "mailu-rspamd"
   SMTP_ADDRESS: "mailu-smtp"
 
-  WEBMAIL_ADDRESS: "none"   # ✅ cleaner
+  WEBMAIL_ADDRESS: "none"
 
   REDIS_ADDRESS: "redis.platform.svc.cluster.local:6379"
 

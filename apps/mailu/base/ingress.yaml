@@ -3,10 +3,19 @@ kind: Ingress
 metadata:
   name: mailu-web
   namespace: mailu
-  annotations:
+  annotations:  
     kubernetes.io/ingress.class: nginx
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    nginx.ingress.kubernetes.io/proxy-body-size: "50m" 
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/use-forwarded-headers: "true"
+    nginx.ingress.kubernetes.io/proxy-redirect-from: "http://"
+    nginx.ingress.kubernetes.io/proxy-redirect-to: "https://"
+
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Forwarded-Host $host;
+      proxy_set_header Host $host;
 spec:
   tls:
     - hosts:
