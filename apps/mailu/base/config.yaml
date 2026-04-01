@@ -6,7 +6,6 @@ metadata:
 data:
   
   # Ensure these are still here to keep 'front' happy
-  WEBMAIL_ADDRESS: "localhost"
   DOMAIN: "churchlify.com"
   HOSTNAMES: "mail.churchlify.com,mailadmin.churchlify.com"
   HOSTNAME: "mail.churchlify.com"
@@ -21,8 +20,16 @@ data:
   IMAP_ADDRESS: "mailu-dovecot"
   ANTISPAM_ADDRESS: "mailu-rspamd"
   SMTP_ADDRESS: "mailu-smtp"
-  
   REDIS_ADDRESS: "redis.platform.svc.cluster.local:6379"
+
+  WEBMAIL_ADDRESS: "localhost"
+  API_ADDRESS: "localhost"
+  WELCOME_ADDRESS: "localhost"
+  
+  # --- Network & SSL ---
+  REAL_IP_HEADER: "X-Forwarded-For"
+  REAL_IP_FROM: "10.0.0.0/8,192.168.0.0/16,172.16.0.0/12" # Trust internal K8s IPs
+  
   
   RELAYHOST: "smtp-relay.brevo.com"
   RELAYPORT: "587"
