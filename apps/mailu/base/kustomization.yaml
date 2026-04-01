@@ -9,6 +9,7 @@ resources:
   - pvc_rspamd.yaml
   - config.yaml
   - secrets.yaml
+  - rbac.yaml
   - service_admin.yaml
   - service_dovecot.yaml
   - service_rspamd.yaml

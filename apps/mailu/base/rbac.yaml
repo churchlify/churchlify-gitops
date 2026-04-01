@@ -1,0 +1,23 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mailu-admin-role
+  namespace: mailu
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mailu-admin-rb
+  namespace: mailu
+subjects:
+  - kind: ServiceAccount
+    name: mailu-admin-sa
+    namespace: mailu
+roleRef:
+  kind: Role
+  name: mailu-admin-role
+  apiGroup: rbac.authorization.k8s.io
