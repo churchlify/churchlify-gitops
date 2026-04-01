@@ -20,7 +20,7 @@ data:
   IMAP_ADDRESS: "mailu-dovecot"
   ANTISPAM_ADDRESS: "mailu-rspamd"
   SMTP_ADDRESS: "mailu-smtp"
-  REDIS_ADDRESS: "redis.platform.svc.cluster.local:6379"
+  REDIS_ADDRESS: "redis.platform.svc.cluster.local"
 
   WEBMAIL_ADDRESS: "localhost"
   API_ADDRESS: "localhost"
