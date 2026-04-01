@@ -3,13 +3,13 @@ kind: ConfigMap
 metadata:
   name: mailu-config
   namespace: mailu
-ddata:
+data: # Fixed typo: was 'ddata'
   # --- Standard Config ---
   DOMAIN: "churchlify.com"
   HOSTNAMES: "mail.churchlify.com,mailadmin.churchlify.com"
   TLS_FLAVOR: "notls"
   
-  # --- Service Discovery (Must match your K8s Service names) ---
+  # --- Service Discovery ---
   ADMIN_ADDRESS: "mailu-admin"
   ANTISPAM_ADDRESS: "mailu-rspamd:11334"
   IMAP_ADDRESS: "mailu-dovecot:143"
@@ -17,7 +17,6 @@ ddata:
   REDIS_ADDRESS: "redis.platform.svc.cluster.local:6379"
 
   # --- The Syntax Fixers (Line 147 Fix) ---
-  # These MUST be defined as strings to prevent "empty" Nginx directives
   WEBMAIL_ADDRESS: "localhost"
   API_ADDRESS: "localhost"
   WELCOME_ADDRESS: "localhost"
