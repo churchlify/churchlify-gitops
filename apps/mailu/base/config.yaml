@@ -8,7 +8,8 @@ data:
   # Ensure these are still here to keep 'front' happy
   WEBMAIL_ADDRESS: "localhost"
   DOMAIN: "churchlify.com"
-  HOSTNAME: "mail.churchlify.com"  # <-- THIS IS CRITICAL
+  HOSTNAMES: "mail.churchlify.com,mailadmin.churchlify.com"
+  HOSTNAME: "mail.churchlify.com"
   
   TLS_FLAVOR: "notls"
   
