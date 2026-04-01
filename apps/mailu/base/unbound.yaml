@@ -18,6 +18,16 @@ spec:
         envFrom:
         - configMapRef:
             name: mailu-config
+        ports:
+        - containerPort: 53
+          protocol: UDP
+        - containerPort: 53
+          protocol: TCP
+        livenessProbe:
+          udp:
+            port: 53
+          initialDelaySeconds: 10
+          periodSeconds: 20
 ---
 apiVersion: v1
 kind: Service
@@ -26,8 +36,13 @@ metadata:
   namespace: mailu
 spec:
   ports:
-  - port: 53
+  - name: dns-udp
+    port: 53
     protocol: UDP
+    targetPort: 53
+  - name: dns-tcp
+    port: 53
+    protocol: TCP
     targetPort: 53
   selector:
     app: mailu-resolver
