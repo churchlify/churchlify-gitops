@@ -24,7 +24,7 @@ spec:
         - containerPort: 53
           protocol: TCP
         livenessProbe:
-          udp:
+          tcpSocket:
             port: 53
           initialDelaySeconds: 10
           periodSeconds: 20
