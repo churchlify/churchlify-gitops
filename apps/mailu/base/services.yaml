@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin
+  namespace: mailu
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: admin
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: imap
+  namespace: mailu
+spec:
+  ports:
+  - port: 143
+    targetPort: 143
+  - port: 993
+    targetPort: 993
+  - port: 4190
+    targetPort: 4190
+  selector:
+    app: imap
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smtp
+  namespace: mailu
+spec:
+  ports:
+  - port: 25
+    targetPort: 25
+  - port: 465
+    targetPort: 465
+  - port: 587
+    targetPort: 587
+  selector:
+    app: mailu-smtp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: antispam
+  namespace: mailu
+spec:
+  ports:
+  - port: 11332
+    targetPort: 11332
+  - port: 11334
+    targetPort: 11334
+  selector:
+    app: mailu-antispam
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: antivirus
+  namespace: mailu
+spec:
+  ports:
+  - port: 3310
+    targetPort: 3310
+  selector:
+    app: mailu-antivirus
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webmail
+  namespace: mailu
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: mailu-webmail

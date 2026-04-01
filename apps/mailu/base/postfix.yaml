@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailu-smtp
+  namespace: mailu
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mailu-smtp
+  template:
+    metadata:
+      labels:
+        app: mailu-smtp
+    spec:
+      containers:
+      - name: smtp
+        [cite_start]image: ghcr.io/mailu/postfix:2024.06 [cite: 2]
+        envFrom:
+        - configMapRef:
+            name: mailu-config
+        - secretRef:
+            name: mailu-secrets
+        volumeMounts:
+        - name: mailqueue
+          mountPath: /queue
+      volumes:
+      - name: mailqueue
+        persistentVolumeClaim:
+          claimName: mailu-smtp-pvc

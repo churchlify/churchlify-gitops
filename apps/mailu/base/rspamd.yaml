@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailu-antispam
+  namespace: mailu
+spec:
+  selector:
+    matchLabels:
+      app: mailu-antispam
+  template:
+    metadata:
+      labels:
+        app: mailu-antispam
+    spec:
+      containers:
+      - name: antispam
+        [cite_start]image: ghcr.io/mailu/rspamd:2024.06 [cite: 2]
+        envFrom:
+        - configMapRef:
+            name: mailu-config
+        - secretRef:
+            name: mailu-secrets
+        volumeMounts:
+        - name: filter
+          mountPath: /var/lib/rspamd
+      volumes:
+      - name: filter
+        persistentVolumeClaim:
+          claimName: mailu-filter-pvc

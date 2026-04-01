@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mailu
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mailu-secrets
+  namespace: mailu
+type: Opaque
+stringData:
+  [cite_start]SECRET_KEY: "EQDBJFW1BF8GQH94" # [cite: 1]
+  [cite_start]API_TOKEN: "F917B38H162PRYTXSIGC0R9XTK02PKP7" # [cite: 17]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mailu-config
+  namespace: mailu
+data:
+  [cite_start]DOMAIN: "mail.churchlify.com" # [cite: 1]
+  [cite_start]HOSTNAMES: "mail.churchlify.com" # [cite: 1]
+  [cite_start]SITENAME: "Churchlify Mails" # [cite: 1]
+  REDIS_ADDRESS: "redis.platform.svc.cluster.local" # External Redis
+  [cite_start]TLS_FLAVOR: "mail" # [cite: 1]
+  [cite_start]ADMIN: "true" # [cite: 1]
+  [cite_start]WEBMAIL: "roundcube" # [cite: 6]
+  [cite_start]WEBDAV: "radicale" # [cite: 7]
+  [cite_start]ANTIVIRUS: "clamav" # [cite: 8]
+  [cite_start]MESSAGE_SIZE_LIMIT: "50000000" # [cite: 1]
+  [cite_start]WELCOME: "false" # [cite: 12]
+  [cite_start]LOG_LEVEL: "INFO" # [cite: 1]
+  [cite_start]TZ: "Etc/UTC" # [cite: 16]

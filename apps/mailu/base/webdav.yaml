@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailu-webdav
+  namespace: mailu
+spec:
+  selector:
+    matchLabels:
+      app: mailu-webdav
+  template:
+    metadata:
+      labels:
+        app: mailu-webdav
+    spec:
+      containers:
+      - name: webdav
+        image: ghcr.io/mailu/radicale:2024.06
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: mailu-webdav-pvc

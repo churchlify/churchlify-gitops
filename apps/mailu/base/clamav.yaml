@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailu-antivirus
+  namespace: mailu
+spec:
+  selector:
+    matchLabels:
+      app: mailu-antivirus
+  template:
+    metadata:
+      labels:
+        app: mailu-antivirus
+    spec:
+      containers:
+      - name: antivirus
+        [cite_start]image: clamav/clamav-debian:1.4 [cite: 2]
+        livenessProbe:
+          exec:
+            [cite_start]command: ["/bin/sh", "-c", "kill -0 `cat /tmp/clamd.pid`"] [cite: 2]
+          initialDelaySeconds: 20
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/clamav
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: mailu-clamav-pvc
