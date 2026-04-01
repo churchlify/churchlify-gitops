@@ -4,16 +4,12 @@ metadata:
   name: mailu-web
   namespace: mailu
   annotations:  
-    kubernetes.io/ingress.class: nginx
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/use-forwarded-headers: "true"
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header X-Forwarded-Proto $scheme;
-      proxy_set_header X-Forwarded-Host $host;
-      proxy_set_header Host $host;
+    # Removing the manual snippet to see if Argo validates the simple version first
 spec:
+  ingressClassName: nginx # Use this instead of the annotation
   tls:
     - hosts:
         - mail.churchlify.com
@@ -37,6 +33,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: mailu-front # Redirect to front, it proxies to admin UI
+                name: mailu-front
                 port:
                   number: 80
