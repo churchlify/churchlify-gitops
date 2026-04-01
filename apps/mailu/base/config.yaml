@@ -3,38 +3,27 @@ kind: ConfigMap
 metadata:
   name: mailu-config
   namespace: mailu
-data:
-  # Variables MUST be direct key-value pairs here
+ddata:
+  # --- Standard Config ---
   DOMAIN: "churchlify.com"
   HOSTNAMES: "mail.churchlify.com,mailadmin.churchlify.com"
   TLS_FLAVOR: "notls"
   
-  # Admin & Discovery
+  # --- Service Discovery (Must match your K8s Service names) ---
   ADMIN_ADDRESS: "mailu-admin"
-  IMAP_ADDRESS: "mailu-dovecot"
-  ANTISPAM_ADDRESS: "mailu-rspamd"
-  SMTP_ADDRESS: "mailu-smtp"
+  ANTISPAM_ADDRESS: "mailu-rspamd:11334"
+  IMAP_ADDRESS: "mailu-dovecot:143"
+  SMTP_ADDRESS: "mailu-smtp:25"
   REDIS_ADDRESS: "redis.platform.svc.cluster.local:6379"
-  
-  # Fill the Nginx holes to fix "Line 139"
+
+  # --- The Syntax Fixers (Line 147 Fix) ---
+  # These MUST be defined as strings to prevent "empty" Nginx directives
   WEBMAIL_ADDRESS: "localhost"
   API_ADDRESS: "localhost"
   WELCOME_ADDRESS: "localhost"
+  WEBSOCKET_ADDRESS: "localhost"
 
-  # Pathing
+  # --- Pathing & Identity ---
   WEBROOT: "/"
   WEB_ADMIN: "/admin"
   SITENAME: "Churchlify Mail"
-
-  # IP Handling
-  REAL_IP_HEADER: "X-Forwarded-For"
-  REAL_IP_FROM: "10.0.0.0/8,192.168.0.0/16,172.16.0.0/12"
-
-  # Relay & Limits
-  RELAYHOST: "smtp-relay.brevo.com"
-  RELAYPORT: "587"
-  RELAYNETS: "0.0.0.0/0"
-  OUTBOUND_TLS_LEVEL: "encrypt"
-  AUTH_RATELIMIT: "10/minute;100/hour"
-  DKIM_SELECTOR: "mailu"
-  MESSAGE_SIZE_LIMIT: "52428800"
