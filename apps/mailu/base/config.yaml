@@ -10,28 +10,28 @@ data:
   SITENAME: "Churchlify Mail"
   TLS_FLAVOR: "notls"
   
-  # --- Service Discovery (Must be valid strings) ---
+  # --- Service Discovery (REMOVE THE PORTS HERE) ---
+  # Mailu's scripts append :143, :11334, etc., automatically.
+  # Adding them manually causes the "143:4190" double-port error.
   ADMIN_ADDRESS: "mailu-admin"
-  ANTISPAM_ADDRESS: "mailu-rspamd:11334"
-  IMAP_ADDRESS: "mailu-dovecot:143"
-  SMTP_ADDRESS: "mailu-smtp:25"
+  ANTISPAM_ADDRESS: "mailu-rspamd"
+  IMAP_ADDRESS: "mailu-dovecot"
+  SMTP_ADDRESS: "mailu-smtp"
   REDIS_ADDRESS: "redis.platform.svc.cluster.local:6379"
 
-  # --- THE FIX FOR LINE 147 (Mandatory Placeholders) ---
-  # If these are empty, the Nginx 'location' directive fails.
+  # --- Placeholders (Ensures Nginx Syntax is valid) ---
   WEBMAIL: "none"
   WEBMAIL_ADDRESS: "127.0.0.1"
-  WEB_WEBMAIL: "/webmail"
   API_ADDRESS: "127.0.0.1"
   WELCOME_ADDRESS: "127.0.0.1"
   WEBSOCKET_ADDRESS: "127.0.0.1"
   
-  # --- Template Logic Variables ---
+  # --- Resource & Pathing ---
   MESSAGE_SIZE_LIMIT: "52428800"
   RECIPIENT_DELIMITER: "+"
   WEBROOT: "/"
   WEB_ADMIN: "/admin"
   
-  # --- Networking ---
+  # --- Network ---
   REAL_IP_HEADER: "X-Forwarded-For"
   REAL_IP_FROM: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
