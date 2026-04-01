@@ -16,10 +16,11 @@ spec:
       containers:
         - name: front
           image: ghcr.io/mailu/nginx:2.0
-          volumeMounts:
-            - name: mailu-config
-              mountPath: /mailu.env
-              subPath: config.env
+          # REMOVE volumeMounts for the config file
+          # ADD envFrom to inject the ConfigMap keys as variables
+          envFrom:
+            - configMapRef:
+                name: mailu-config
           ports:
             - containerPort: 80
             - containerPort: 443
@@ -28,7 +29,4 @@ spec:
             - containerPort: 587
             - containerPort: 143
             - containerPort: 993
-      volumes:
-        - name: mailu-config
-          configMap:
-            name: mailu-config
+      # REMOVE the config volume from the volumes list if not used elsewhere

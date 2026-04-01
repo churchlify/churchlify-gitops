@@ -4,34 +4,37 @@ metadata:
   name: mailu-config
   namespace: mailu
 data:
-  config.env: |
-    DOMAIN=churchlify.com
-    HOSTNAMES=mail.churchlify.com
-    HOSTNAMES=mailadmin.churchlify.com
-    HOSTNAME=mail.churchlify.com
+  # Variables MUST be direct key-value pairs here
+  DOMAIN: "churchlify.com"
+  HOSTNAMES: "mail.churchlify.com,mailadmin.churchlify.com"
+  TLS_FLAVOR: "notls"
+  
+  # Admin & Discovery
+  ADMIN_ADDRESS: "mailu-admin"
+  IMAP_ADDRESS: "mailu-dovecot"
+  ANTISPAM_ADDRESS: "mailu-rspamd"
+  SMTP_ADDRESS: "mailu-smtp"
+  REDIS_ADDRESS: "redis.platform.svc.cluster.local:6379"
+  
+  # Fill the Nginx holes to fix "Line 139"
+  WEBMAIL_ADDRESS: "localhost"
+  API_ADDRESS: "localhost"
+  WELCOME_ADDRESS: "localhost"
 
-    TLS_FLAVOR=notls
+  # Pathing
+  WEBROOT: "/"
+  WEB_ADMIN: "/admin"
+  SITENAME: "Churchlify Mail"
 
-    WEBROOT=/
-    WEB_ADMIN=/admin
-    SITENAME=Churchlify Mail
+  # IP Handling
+  REAL_IP_HEADER: "X-Forwarded-For"
+  REAL_IP_FROM: "10.0.0.0/8,192.168.0.0/16,172.16.0.0/12"
 
-    ADMIN_ADDRESS=mailu-admin
-    IMAP_ADDRESS=mailu-dovecot
-    ANTISPAM_ADDRESS=mailu-rspamd
-    SMTP_ADDRESS=mailu-smtp
-    REDIS_ADDRESS=redis.platform.svc.cluster.local:6379
-
-    REAL_IP_HEADER=X-Forwarded-For
-    REAL_IP_FROM=10.0.0.0/8
-    REAL_IP_FROM=192.168.0.0/16
-    REAL_IP_FROM=172.16.0.0/12
-
-    RELAYHOST=smtp-relay.brevo.com
-    RELAYPORT=587
-    RELAYNETS=0.0.0.0/0
-    OUTBOUND_TLS_LEVEL=encrypt
-
-    AUTH_RATELIMIT=10/minute;100/hour
-    DKIM_SELECTOR=mailu
-    MESSAGE_SIZE_LIMIT=52428800
+  # Relay & Limits
+  RELAYHOST: "smtp-relay.brevo.com"
+  RELAYPORT: "587"
+  RELAYNETS: "0.0.0.0/0"
+  OUTBOUND_TLS_LEVEL: "encrypt"
+  AUTH_RATELIMIT: "10/minute;100/hour"
+  DKIM_SELECTOR: "mailu"
+  MESSAGE_SIZE_LIMIT: "52428800"
