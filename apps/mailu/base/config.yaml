@@ -7,6 +7,8 @@ data:
 # --- THE "STOP CRASHING" KEYS (Fixed Typos) ---
   KUBERNETES: "true"
   KUBERNETES_INGRESS: "true"
+  FLAVOR: "kubernetes"  # Explicitly set the flavor
+  CORE_ADDRESS: "mailu-admin"
   LOG_LEVEL: "DEBUG"            # Fixed: was OG_LEVEL
   DOCKER_ADDRESS: "127.0.0.1"
   SKIP_PROVISIONING: "true"

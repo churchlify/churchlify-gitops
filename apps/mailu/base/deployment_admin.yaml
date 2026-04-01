@@ -15,6 +15,9 @@ spec:
     spec:
       containers:
         - name: admin
+          securityContext:
+            runAsUser: 0
+            privileged: false # Keep it false for security, but user must be 0
           image: ghcr.io/mailu/admin:2.0
           envFrom:
             - configMapRef:
