@@ -32,3 +32,8 @@ data:
   WELCOME: false
   LOG_LEVEL: INFO 
   TZ: Etc/UTC
+  WEBROOT_REDIRECT: /webmail
+  WEB_ADMIN: /admin
+  WEB_WEBMAIL: /webmail
+  WEB_API: /api
+  REJECT_UNLISTED_RECIPIENT: "yes"
