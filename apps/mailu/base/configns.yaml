@@ -10,8 +10,8 @@ metadata:
   #namespace: mailu
 type: Opaque
 stringData:
-  SECRET_KEY: "EQDBJFW1BF8GQH94"
-  API_TOKEN: "F917B38H162PRYTXSIGC0R9XTK02PKP7"
+  SECRET_KEY: EQDBJFW1BF8GQH94
+  API_TOKEN: F917B38H162PRYTXSIGC0R9XTK02PKP7
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -19,16 +19,16 @@ metadata:
   name: mailu-config
  # namespace: mailu
 data:
-  DOMAIN: "mail.churchlify.com" 
-  HOSTNAMES: "mail.churchlify.com" 
-  SITENAME: "Churchlify Mails" 
-  REDIS_ADDRESS: "redis.platform.svc.cluster.local" # External Redis
-  TLS_FLAVOR: "mail" 
-  ADMIN: "true" 
-  WEBMAIL: "roundcube"
-  WEBDAV: "radicale"
-  ANTIVIRUS: "clamav"
-  MESSAGE_SIZE_LIMIT: "50000000" 
-  WELCOME: "false"
-  LOG_LEVEL: "INFO" 
-  TZ: "Etc/UTC"
+  DOMAIN: mail.churchlify.com
+  HOSTNAMES: mail.churchlify.com
+  SITENAME: Churchlify Mails
+  REDIS_ADDRESS: redis.platform.svc.cluster.local # External Redis
+  TLS_FLAVOR: mail 
+  ADMIN: true
+  WEBMAIL: roundcube
+  WEBDAV: radicale
+  ANTIVIRUS: clamav
+  MESSAGE_SIZE_LIMIT: 50000000
+  WELCOME: false
+  LOG_LEVEL: INFO 
+  TZ: Etc/UTC

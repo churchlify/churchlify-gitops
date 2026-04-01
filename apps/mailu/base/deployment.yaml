@@ -48,6 +48,7 @@ spec:
         image: ghcr.io/mailu/dovecot:2024.06
         envFrom:
         - configMapRef: { name: mailu-config }
+        - secretRef: { name: mailu-secrets } # <--- ADD THIS
         volumeMounts:
         - name: mail
           mountPath: /mail
