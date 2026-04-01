@@ -17,7 +17,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: mailu-config
-  namespace: mailu
+ # namespace: mailu
 data:
   DOMAIN: "mail.churchlify.com" 
   HOSTNAMES: "mail.churchlify.com" 
