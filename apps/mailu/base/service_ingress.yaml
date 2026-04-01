@@ -28,7 +28,11 @@ metadata:
   namespace: mailu
   annotations:
     kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    # This is critical for Mailu to know it's behind a proxy
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header X-Forwarded-Proto https;
 spec:
   rules:
   - host: mail.churchlify.com

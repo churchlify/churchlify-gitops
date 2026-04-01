@@ -23,7 +23,7 @@ data:
   HOSTNAMES: mail.churchlify.com
   SITENAME: Churchlify Mails
   REDIS_ADDRESS: redis.platform.svc.cluster.local # External Redis
-  TLS_FLAVOR: letsencrypt 
+  TLS_FLAVOR: mail-tls 
   ADMIN: true
   WEBMAIL: roundcube
   WEBDAV: radicale
@@ -37,3 +37,5 @@ data:
   WEB_WEBMAIL: /webmail
   WEB_API: /api
   REJECT_UNLISTED_RECIPIENT: "yes"
+  REAL_IP_HEADER: X-Forwarded-For
+  REAL_IP_FROM: 10.0.0.0/8
