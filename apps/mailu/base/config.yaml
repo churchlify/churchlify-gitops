@@ -4,7 +4,7 @@ metadata:
   name: mailu-config
   namespace: mailu
 data:
-  # --- Essential ---
+  # --- Core ---
   DOMAIN: "churchlify.com"
   HOSTNAMES: "mail.churchlify.com,mailadmin.churchlify.com"
   SITENAME: "Churchlify Mail"
@@ -17,12 +17,14 @@ data:
   SMTP_ADDRESS: "mailu-smtp:25"
   REDIS_ADDRESS: "redis.platform.svc.cluster.local:6379"
 
-  # --- THE FIX FOR LINE 147 ---
-  # These MUST NOT be empty. Use "localhost" as a placeholder.
-  WEBMAIL_ADDRESS: "localhost"
-  API_ADDRESS: "localhost"
-  WELCOME_ADDRESS: "localhost"
-  WEBSOCKET_ADDRESS: "localhost"
+  # --- THE FIX FOR LINE 147 (Mandatory Placeholders) ---
+  # If these are empty, the Nginx 'location' directive fails.
+  WEBMAIL: "none"
+  WEBMAIL_ADDRESS: "127.0.0.1"
+  WEB_WEBMAIL: "/webmail"
+  API_ADDRESS: "127.0.0.1"
+  WELCOME_ADDRESS: "127.0.0.1"
+  WEBSOCKET_ADDRESS: "127.0.0.1"
   
   # --- Template Logic Variables ---
   MESSAGE_SIZE_LIMIT: "52428800"
