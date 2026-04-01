@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: smtp
-        [cite_start]image: ghcr.io/mailu/postfix:2024.06 [cite: 2]
+        image: ghcr.io/mailu/postfix:2024.06
         envFrom:
         - configMapRef:
             name: mailu-config

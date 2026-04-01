@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: resolver
-        [cite_start]image: ghcr.io/mailu/unbound:2024.06 [cite: 2]
+        image: ghcr.io/mailu/unbound:2024.06
         envFrom:
         - configMapRef:
             name: mailu-config
