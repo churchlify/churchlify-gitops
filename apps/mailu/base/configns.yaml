@@ -7,7 +7,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: mailu-secrets
-  namespace: mailu
+  #namespace: mailu
 type: Opaque
 stringData:
   SECRET_KEY: "EQDBJFW1BF8GQH94"
