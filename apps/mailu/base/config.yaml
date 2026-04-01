@@ -1,3 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mailu-config
+  namespace: mailu
 data:
   DOMAIN: "churchlify.com"
   HOSTNAMES: "mail.churchlify.com mailadmin.churchlify.com"
