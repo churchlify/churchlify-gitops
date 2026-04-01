@@ -5,7 +5,8 @@ metadata:
   namespace: mailu
 spec:
   ports:
-  - port: 80
+  - name: admin
+    port: 80
     targetPort: 80
   selector:
     app: admin
@@ -17,12 +18,15 @@ metadata:
   namespace: mailu
 spec:
   ports:
-  - port: 143
-    targetPort: 143
-  - port: 993
-    targetPort: 993
-  - port: 4190
-    targetPort: 4190
+    - name: imap
+      port: 143
+      targetPort: 143
+    - name: imaps
+      port: 993
+      targetPort: 993
+    - name: sieve
+      port: 4190
+      targetPort: 4190
   selector:
     app: imap
 ---
@@ -33,12 +37,15 @@ metadata:
   namespace: mailu
 spec:
   ports:
-  - port: 25
-    targetPort: 25
-  - port: 465
-    targetPort: 465
-  - port: 587
-    targetPort: 587
+    - name: smtp
+      port: 25
+      targetPort: 25
+    - name: smtps
+      port: 465
+      targetPort: 465
+    - name: submission
+      port: 587
+      targetPort: 587
   selector:
     app: mailu-smtp
 ---
@@ -49,10 +56,12 @@ metadata:
   namespace: mailu
 spec:
   ports:
-  - port: 11332
-    targetPort: 11332
-  - port: 11334
-    targetPort: 11334
+    - name: rspamd
+      port: 11332
+      targetPort: 11332
+    - name: rspamd-controller
+      port: 11334
+      targetPort: 11334
   selector:
     app: mailu-antispam
 ---
@@ -63,8 +72,9 @@ metadata:
   namespace: mailu
 spec:
   ports:
-  - port: 3310
-    targetPort: 3310
+    - name: clamd
+      port: 3310
+      targetPort: 3310
   selector:
     app: mailu-antivirus
 ---
@@ -75,7 +85,8 @@ metadata:
   namespace: mailu
 spec:
   ports:
-  - port: 80
-    targetPort: 80
+    - name: http
+      port: 80
+      targetPort: 80
   selector:
     app: mailu-webmail
