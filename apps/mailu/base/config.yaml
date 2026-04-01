@@ -13,8 +13,8 @@ data:
   # --- Discovery Fixes ---
   # Use the service names you defined in your other manifests
   ADMIN_ADDRESS: "mailu-admin"
-  ANTISPAM_ADDRESS: "mailu-rspamd:11334"
-  IMAP_ADDRESS: "mailu-dovecot:143"
+  ANTISPAM_ADDRESS: "mailu-rspamd"
+  IMAP_ADDRESS: "mailu-dovecot"
   
   # Ensure these are NOT empty and NOT "none"
   # Pointing to 127.0.0.1 effectively disables them without breaking Nginx syntax
