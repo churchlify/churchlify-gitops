@@ -14,12 +14,15 @@ spec:
         app: mailu-admin
     spec:
       serviceAccountName: mailu-admin-sa
+      # Ensure the token is actually injected for Socrate to find
+      automountServiceAccountToken: true 
       containers:
         - name: admin
+          image: ghcr.io/mailu/admin:2024.06.49
           securityContext:
             runAsUser: 0
-            privileged: false # Keep it false for security, but user must be 0
-          image: ghcr.io/mailu/admin:2024.06.49
+            capabilities:
+              add: ["NET_ADMIN"] # Fixed indentation here
           envFrom:
             - configMapRef:
                 name: mailu-config
