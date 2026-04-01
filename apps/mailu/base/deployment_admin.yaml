@@ -13,6 +13,7 @@ spec:
       labels:
         app: mailu-admin
     spec:
+      serviceAccountName: mailu-admin-sa
       containers:
         - name: admin
           securityContext:
