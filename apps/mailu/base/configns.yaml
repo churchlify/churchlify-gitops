@@ -27,7 +27,7 @@ data:
   # CRITICAL FIXES
   PROXY_PROTOCOL: "none"
   REAL_IP_HEADER: "X-Forwarded-For"
-  REAL_IP_FROM: "10.0.0.0/0"
+  REAL_IP_FROM: "0.0.0.0/0"
   # Mailu features
   ADMIN: "true"
   WEBMAIL: "roundcube"
