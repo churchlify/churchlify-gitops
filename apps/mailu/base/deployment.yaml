@@ -6,19 +6,21 @@ metadata:
 spec:
   replicas: 1
   selector:
-    matchLabels: { app: mailu-front }
+    matchLabels:
+      app: mailu-front
   template:
-    metadata: { labels: { app: mailu-front } }
+    metadata:
+      labels:
+        app: mailu-front
     spec:
       containers:
       - name: front
         image: ghcr.io/mailu/nginx:2024.06
-        env:
-          - name: SKIP_HARDENED_MALLOC
-            value: "true"
         envFrom:
-        - configMapRef: { name: mailu-config }
-        - secretRef: { name: mailu-secrets }
+        - configMapRef:
+            name: mailu-config
+        - secretRef:
+            name: mailu-secrets
         ports:
         - containerPort: 80
         - containerPort: 25
@@ -34,7 +36,7 @@ spec:
           mountPath: /certs
       volumes:
       - name: certs
-        persistentVolumeClaim: { claimName: mailu-data-pvc }
+        emptyDir: {}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -42,19 +44,20 @@ metadata:
   name: mailu-imap
   namespace: mailu
 spec:
-  selector: { matchLabels: { app: mailu-imap } }
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mailu-imap
   template:
-    metadata: { labels: { app: mailu-imap } }
+    metadata:
+      labels:
+        app: mailu-imap
     spec:
       containers:
       - name: imap
         image: ghcr.io/mailu/dovecot:2024.06
         envFrom:
-        - configMapRef: { name: mailu-config }
-        - secretRef: { name: mailu-secrets } # <--- ADD THIS
-        volumeMounts:
-        - name: mail
-          mountPath: /mail
-      volumes:
-      - name: mail
-        persistentVolumeClaim: { claimName: mailu-mail-pvc }
+        - configMapRef:
+            name: mailu-config
+        - secretRef:
+            name: mailu-secrets

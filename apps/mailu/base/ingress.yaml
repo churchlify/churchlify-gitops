@@ -1,24 +1,3 @@
-apiVersion: v1
-kind: Service
-metadata:
-  name: mailu-external
-  namespace: mailu
-  annotations:
-    metallb.universe.tf/address-pool: default
-spec:
-  type: LoadBalancer
-  ports:
-  - { name: smtp, port: 25, targetPort: 25 }
-  - { name: smtps, port: 465, targetPort: 465 }
-  - { name: submission, port: 587, targetPort: 587 }
-  - { name: pop3, port: 110, targetPort: 110 }
-  - { name: pop3s, port: 995, targetPort: 995 }
-  - { name: imap, port: 143, targetPort: 143 }
-  - { name: imaps, port: 993, targetPort: 993 }
-  - { name: sieve, port: 4190, targetPort: 4190 }
-  selector:
-    app: mailu-front
----
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

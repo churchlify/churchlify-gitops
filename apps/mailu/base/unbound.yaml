@@ -4,6 +4,7 @@ metadata:
   name: mailu-resolver
   namespace: mailu
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: mailu-resolver
@@ -15,21 +16,6 @@ spec:
       containers:
       - name: resolver
         image: ghcr.io/mailu/unbound:2024.06
-        envFrom:
-        - configMapRef:
-            name: mailu-config
-        - secretRef:
-            name: mailu-secrets
-        ports:
-        - containerPort: 53
-          protocol: UDP
-        - containerPort: 53
-          protocol: TCP
-        livenessProbe:
-          tcpSocket:
-            port: 53
-          initialDelaySeconds: 10
-          periodSeconds: 20
 ---
 apiVersion: v1
 kind: Service
