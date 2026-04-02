@@ -13,6 +13,9 @@ spec:
       containers:
       - name: front
         image: ghcr.io/mailu/nginx:2024.06
+        env:
+          - name: SKIP_HARDENED_MALLOC
+            value: "true"
         envFrom:
         - configMapRef: { name: mailu-config }
         - secretRef: { name: mailu-secrets }
