@@ -36,6 +36,6 @@ data:
   WEB_ADMIN: /admin
   WEB_WEBMAIL: /webmail
   WEB_API: /api
-  REJECT_UNLISTED_RECIPIENT: "yes"
+  REJECT_UNLISTED_RECIPIENT: yes
   REAL_IP_HEADER: X-Forwarded-For
   REAL_IP_FROM: 10.0.0.0/8
