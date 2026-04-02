@@ -1,13 +1,5 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: mailu
 
 resources:
   - ../../base
-
-# Use this section to override the Redis address for production if needed
-configMapGenerator:
-- name: mailu-config
-  behavior: merge
-  literals:
-  - REDIS_ADDRESS=redis.platform.svc.cluster.local
