@@ -23,7 +23,7 @@ data:
   HOSTNAMES: "mail.churchlify.com"
   SITENAME: "Churchlify Mails"
   REDIS_ADDRESS: "redis.platform.svc.cluster.local"
-  TLS_FLAVOR: "notls"
+  PROXY_PROTOCOL: "true"
   ADMIN: "true"
   WEBMAIL: "roundcube"
   WEBDAV: "radicale"
