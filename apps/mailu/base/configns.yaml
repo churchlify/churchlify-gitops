@@ -19,7 +19,7 @@ metadata:
   name: mailu-config
   namespace: mailu
 data:
-  TLS_FLAVOR: proxy
+  TLS_FLAVOR: "proxy"
   DOMAIN: "churchlify.com"
   HOSTNAMES: "mail.churchlify.com"
   SITENAME: "Churchlify Mails"
@@ -27,7 +27,7 @@ data:
   # CRITICAL FIXES
   PROXY_PROTOCOL: "nginx"
   REAL_IP_HEADER: "X-Forwarded-For"
-  REAL_IP_FROM: "0.0.0.0/0"
+  REAL_IP_FROM: "10.0.0.0/0"
   # Mailu features
   ADMIN: "true"
   WEBMAIL: "roundcube"
