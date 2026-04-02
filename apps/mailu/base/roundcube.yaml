@@ -18,6 +18,8 @@ spec:
         envFrom:
         - configMapRef:
             name: mailu-config
+        - secretRef:
+            name: mailu-secrets
         volumeMounts:
         - name: data
           mountPath: /data

@@ -18,6 +18,8 @@ spec:
         envFrom:
         - configMapRef:
             name: mailu-config
+        - secretRef:
+            name: mailu-secrets
         ports:
         - containerPort: 53
           protocol: UDP
