@@ -16,8 +16,6 @@ spec:
   - { name: imap, port: 143, targetPort: 143 }
   - { name: imaps, port: 993, targetPort: 993 }
   - { name: sieve, port: 4190, targetPort: 4190 }
-  - { name: http, port: 80, targetPort: 80 }
-  - { name: https, port: 443, targetPort: 443 }
   selector:
     app: mailu-front
 ---
@@ -40,6 +38,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: mailu-front
+            name: front
             port:
               number: 80
