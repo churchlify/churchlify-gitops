@@ -90,3 +90,19 @@ spec:
       targetPort: 80
   selector:
     app: mailu-webmail
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: front
+  namespace: mailu
+spec:
+  selector:
+    app: mailu-front
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+    - name: https
+      port: 443
+      targetPort: 443
