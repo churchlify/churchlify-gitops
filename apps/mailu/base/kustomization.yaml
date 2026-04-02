@@ -8,7 +8,6 @@ resources:
   - unbound.yaml
   - webdav.yaml
   - services.yaml
-  - service_ingress.yaml
   - pvc.yaml
   - configns.yaml
   - deployment.yaml
