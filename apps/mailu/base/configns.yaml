@@ -19,7 +19,7 @@ metadata:
   name: mailu-config
   namespace: mailu
 data:
-  TLS_FLAVOR: "proxy"
+  TLS_FLAVOR: "mail-tls"
   DOMAIN: "churchlify.com"
   HOSTNAMES: "mail.churchlify.com"
   SITENAME: "Churchlify Mails"
