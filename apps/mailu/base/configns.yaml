@@ -19,13 +19,11 @@ metadata:
   name: mailu-config
   namespace: mailu
 data:
-  TLS_FLAVOR: "mail-tls"
   DOMAIN: "churchlify.com"
   HOSTNAMES: "mail.churchlify.com"
   SITENAME: "Churchlify Mails"
   REDIS_ADDRESS: "redis.platform.svc.cluster.local"
   # CRITICAL FIXES
-  PROXY_PROTOCOL: "none"
   REAL_IP_HEADER: "X-Forwarded-For"
   REAL_IP_FROM: "0.0.0.0/0"
   # Mailu features
