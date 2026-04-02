@@ -19,26 +19,32 @@ metadata:
   name: mailu-config
   namespace: mailu
 data:
-  DOMAIN: "mail.churchlify.com"
+  DOMAIN: "churchlify.com"
   HOSTNAMES: "mail.churchlify.com"
   SITENAME: "Churchlify Mails"
   REDIS_ADDRESS: "redis.platform.svc.cluster.local"
-  PROXY_PROTOCOL: "true"
+  # CRITICAL FIXES
+  PROXY_PROTOCOL: "nginx"
+  REAL_IP_HEADER: "X-Forwarded-For"
+  REAL_IP_FROM: "0.0.0.0/0"
+  # Mailu features
   ADMIN: "true"
   WEBMAIL: "roundcube"
   WEBDAV: "radicale"
   ANTIVIRUS: "clamav"
+
   MESSAGE_SIZE_LIMIT: "50000000"
   WELCOME: "false"
   LOG_LEVEL: "INFO"
   TZ: "Etc/UTC"
+  # Web paths
   WEBROOT_REDIRECT: "/webmail"
   WEB_ADMIN: "/admin"
   WEB_WEBMAIL: "/webmail"
   WEB_API: "/api"
+  # Anti‑spam / routing
   REJECT_UNLISTED_RECIPIENT: "yes"
-  REAL_IP_HEADER: "X-Forwarded-For"
-  REAL_IP_FROM: "10.0.0.0/8"
   SUBNET: "10.0.0.0/8"
   TRUSTED_NETWORKS: "10.0.0.0/8"
+  # DNS
   DNS_RESOLVERS: "8.8.8.8 1.1.1.1"
