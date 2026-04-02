@@ -6,30 +6,35 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: antivirus
+      app: mailu-antivirus
   template:
     metadata:
       labels:
-        app: antivirus
+        app: mailu-antivirus
     spec:
       containers:
       - name: antivirus
-        image: clamav/clamav-debian:1.4
-        livenessProbe:
-          exec:
-            command: 
-            - /bin/sh
-            - -c
-            - "kill -0 `cat /tmp/clamd.pid`"
-          initialDelaySeconds: 20
+        image: ghcr.io/mailu/clamav:2024.06
+        envFrom:
+        - configMapRef:
+            name: mailu-config
+        - secretRef:
+            name: mailu-secrets
         resources:
           requests:
-            memory: "1Gi"
             cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2"
+            memory: "2Gi"
         volumeMounts:
         - name: clamav-data
           mountPath: /var/lib/clamav
+        - name: clamav-run
+          mountPath: /var/run/clamav
       volumes:
       - name: clamav-data
         persistentVolumeClaim:
           claimName: mailu-clamav-pvc
+      - name: clamav-run
+        emptyDir: {}
