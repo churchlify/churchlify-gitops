@@ -41,7 +41,6 @@ spec:
         app: mongodb
     spec:
       terminationGracePeriodSeconds: 30
-      # Ensure pods spread across your HPE nodes (worker-01, 02, 04)
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -54,7 +53,8 @@ spec:
             topologyKey: "kubernetes.io/hostname"
       containers:
       - name: mongodb
-        image: bitnami/mongodb:latest
+        # Using the AWS Mirror because Docker Hub is currently failing
+        image: public.ecr.aws/bitnami/mongodb:7.0 
         ports:
         - containerPort: 27017
           name: mongodb
@@ -63,10 +63,14 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        - name: MONGODB_REPLICA_SET_MODE
-          value: "replicaset"
         - name: MONGODB_REPLICA_SET_NAME
           value: "rs0"
+        # FIX: Changed from 'replicaset' to 'primary'
+        - name: MONGODB_REPLICA_SET_MODE
+          value: "primary"
+        # New helper env to ensure stability during the first election
+        - name: MONGODB_INITIAL_PRIMARY_HOST
+          value: "mongodb-0.mongodb-headless.platform.svc.cluster.local"
         - name: MONGODB_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -85,7 +89,7 @@ spec:
       name: datadir
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "longhorn" # Using Longhorn for cross-node replication
+      storageClassName: "longhorn"
       resources:
         requests:
           storage: 20Gi
