@@ -41,20 +41,22 @@ spec:
         app: mongodb
     spec:
       terminationGracePeriodSeconds: 30
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: app
-                operator: In
-                values:
-                - mongodb
-            topologyKey: "kubernetes.io/hostname"
+      # 1. Add this InitContainer to fix permissions
+      initContainers:
+      - name: volume-permissions
+        image: busybox:latest
+        command: ["sh", "-c", "chown -R 1001:1001 /bitnami/mongodb"]
+        volumeMounts:
+        - name: datadir
+          mountPath: /bitnami/mongodb
+      
+      # 2. Add SecurityContext to ensure the pod keeps these permissions
+      securityContext:
+        fsGroup: 1001
+
       containers:
       - name: mongodb
-        # Using the AWS Mirror because Docker Hub is currently failing
-        image: public.ecr.aws/bitnami/mongodb:7.0 
+        image: public.ecr.aws/bitnami/mongodb:7.0
         ports:
         - containerPort: 27017
           name: mongodb
