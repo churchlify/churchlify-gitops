@@ -54,7 +54,7 @@ spec:
             topologyKey: "kubernetes.io/hostname"
       containers:
       - name: mongodb
-        image: bitnami/mongodb:7.0 # Or your preferred version
+        image: bitnami/mongodb:7.0.8-debian-12-r7
         ports:
         - containerPort: 27017
           name: mongodb
