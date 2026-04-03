@@ -11,7 +11,7 @@ spec:
     name: platform-secrets
     kind: ClusterSecretStore
   target:
-    name: mongodb-creds # This is the name of the secret created in 'platform'
+    name: mongodb
   data:
   - secretKey: mongodb-root-password
     remoteRef:
@@ -70,12 +70,12 @@ spec:
         - name: MONGODB_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: mongodb-creds
+              name: mongodb
               key: mongodb-root-password
         - name: MONGODB_REPLICA_SET_KEY
           valueFrom:
             secretKeyRef:
-              name: mongodb-creds
+              name: mongodb
               key: mongodb-replica-set-key
         volumeMounts:
         - name: datadir
