@@ -69,7 +69,7 @@ spec:
           value: "rs0"
         # FIX: Changed from 'replicaset' to 'primary'
         - name: MONGODB_REPLICA_SET_MODE
-          value: "primary"
+          value: "dynamic"
         # New helper env to ensure stability during the first election
         - name: MONGODB_INITIAL_PRIMARY_HOST
           value: "mongodb-0.mongodb-headless.platform.svc.cluster.local"
