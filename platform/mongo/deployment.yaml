@@ -16,7 +16,7 @@ spec:
   - secretKey: mongodb-root-password
     remoteRef:
       key: global-db-secrets
-      property: MONGO_PASSWORD
+      property: MONGO_ROOT_PASSWORD
   - secretKey: mongodb-replica-set-key
     remoteRef:
       key: global-db-secrets
