@@ -1,0 +1,91 @@
+---
+# 1. Map the Global Secrets to the Local Namespace
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: mongodb-passwords
+  namespace: platform
+spec:
+  refreshInterval: "1h"
+  secretStoreRef:
+    name: platform-secrets
+    kind: ClusterSecretStore
+  target:
+    name: mongodb-creds # This is the name of the secret created in 'platform'
+  data:
+  - secretKey: mongodb-root-password
+    remoteRef:
+      key: global-db-secrets
+      property: MONGO_ROOT_PASSWORD
+  - secretKey: mongodb-replica-set-key
+    remoteRef:
+      key: global-db-secrets
+      property: MONGO_REPLICA_SET_KEY
+
+---
+# 2. The MongoDB 3-Node Replica Set
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+  namespace: platform
+spec:
+  serviceName: mongodb-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      terminationGracePeriodSeconds: 30
+      # Ensure pods spread across your HPE nodes (worker-01, 02, 04)
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - mongodb
+            topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: mongodb
+        image: bitnami/mongodb:7.0 # Or your preferred version
+        ports:
+        - containerPort: 27017
+          name: mongodb
+        env:
+        - name: MONGODB_ADVERTISED_HOSTNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MONGODB_REPLICA_SET_MODE
+          value: "replicaset"
+        - name: MONGODB_REPLICA_SET_NAME
+          value: "rs0"
+        - name: MONGODB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-creds
+              key: mongodb-root-password
+        - name: MONGODB_REPLICA_SET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-creds
+              key: mongodb-replica-set-key
+        volumeMounts:
+        - name: datadir
+          mountPath: /bitnami/mongodb
+  volumeClaimTemplates:
+  - metadata:
+      name: datadir
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "longhorn" # Using Longhorn for cross-node replication
+      resources:
+        requests:
+          storage: 20Gi
