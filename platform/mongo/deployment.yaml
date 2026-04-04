@@ -112,11 +112,13 @@ spec:
 
           if [[ "$POD_NAME" == "mongodb-0" ]]; then
             export MONGODB_REPLICA_SET_MODE=primary
+            echo "Configuring as PRIMARY"
           else
             export MONGODB_REPLICA_SET_MODE=secondary
+            export MONGODB_INITIAL_PRIMARY_ROOT_PASSWORD="$MONGODB_ROOT_PASSWORD"
+            unset MONGODB_ROOT_PASSWORD
+            echo "Configuring as SECONDARY"
           fi
-
-          echo "Replica set mode: $MONGODB_REPLICA_SET_MODE"
 
           exec /opt/bitnami/scripts/mongodb/entrypoint.sh /opt/bitnami/scripts/mongodb/run.sh
 
