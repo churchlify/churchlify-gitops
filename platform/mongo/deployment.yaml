@@ -92,7 +92,7 @@ spec:
         - name: MONGODB_INITIAL_PRIMARY_HOST
           value: "mongodb-0.mongodb-headless.platform.svc.cluster.local"
 
-        - name: MONGODB_ROOT_PASSWORD
+        - name: MONGO_ROOT_PASSWORD_RAW
           valueFrom:
             secretKeyRef:
               name: mongodb
@@ -112,13 +112,15 @@ spec:
 
           if [[ "$POD_NAME" == "mongodb-0" ]]; then
             export MONGODB_REPLICA_SET_MODE=primary
+            export MONGODB_ROOT_PASSWORD="$MONGO_ROOT_PASSWORD_RAW"
             echo "Configuring as PRIMARY"
           else
             export MONGODB_REPLICA_SET_MODE=secondary
-            export MONGODB_INITIAL_PRIMARY_ROOT_PASSWORD="$MONGODB_ROOT_PASSWORD"
-            unset MONGODB_ROOT_PASSWORD
+            export MONGODB_INITIAL_PRIMARY_ROOT_PASSWORD="$MONGO_ROOT_PASSWORD_RAW"
             echo "Configuring as SECONDARY"
           fi
+
+          export MONGODB_REPLICA_SET_KEY="$MONGODB_REPLICA_SET_KEY"
 
           exec /opt/bitnami/scripts/mongodb/entrypoint.sh /opt/bitnami/scripts/mongodb/run.sh
 
