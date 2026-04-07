@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: biblora-api-ingress
+  namespace: biblora
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m" # Important for Admin Upload Tool
+spec:
+  tls:
+  - hosts:
+    - biblora.churchlify.com # Replace with your local or public domain
+    secretName: biblora-api-tls
+  rules:
+  - host: biblora.churchlify.com # Replace with your local or public domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: agogos-api
+            port:
+              number: 3000

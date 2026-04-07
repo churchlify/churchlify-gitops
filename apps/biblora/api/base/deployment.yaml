@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: biblora-api
+  namespace: biblora
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: biblora-api
+  template:
+    metadata:
+      labels:
+        app: biblora-api
+    spec:
+      # Required for GHCR private images
+      imagePullSecrets:
+        - name: ghcr-creds
+      containers:
+      - name: api
+        image: ghcr.io/your-username/biblora:latest # ArgoCD will update this tag
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - secretRef:
+            name: biblora-secrets
+        - configMapRef:
+            name: biblora-config
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+        # QE Must-Have: Health Checks
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
