@@ -1,2 +1,8 @@
 resources:
 - ../../base
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: ghcr.io/churchlify/churchlify/biblora-api
+  newName: ghcr.io/churchlify/churchlify/biblora-api
+  newTag: f8eacb499fb3da72e2c32540730475ecc705fa4b
