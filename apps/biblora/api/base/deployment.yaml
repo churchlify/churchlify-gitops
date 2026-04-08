@@ -33,6 +33,7 @@ spec:
 
       - name: prisma-migrate
         image: ghcr.io/churchlify/biblora-api:latest
+        workingDir: /app
         command: ["/bin/sh", "-c"]
         args:
           - |
