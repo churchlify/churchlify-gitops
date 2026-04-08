@@ -37,6 +37,7 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
           - |
+            set -ex
             echo "Waiting for DB..."
             until nc -z $PGSQL_HOST $PGSQL_PORT; do
               sleep 2
@@ -46,7 +47,7 @@ spec:
             npx prisma migrate deploy
 
             echo "Running seed..."
-            npx prisma db seed || echo "Seed failed (continuing)"
+            node dist/prisma/seed.js || echo "Seed failed (continuing)"
         envFrom:
         - secretRef:
             name: biblora-secrets
