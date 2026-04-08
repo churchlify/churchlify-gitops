@@ -18,6 +18,20 @@ spec:
       labels:
         app: biblora-api
     spec:
+      initContainers:
+      - name: db-init
+        image: ghcr.io/churchlify/biblora-api:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            # Same script as the Job
+            export PGPASSWORD=$PGSQL_PASSWORD
+            psql -h $PGSQL_HOST -p $PGSQL_PORT -U $PGSQL_USER -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'biblora'" | grep -q 1 || \
+            psql -h $PGSQL_HOST -p $PGSQL_PORT -U $PGSQL_USER -d postgres -c "CREATE DATABASE biblora"
+            npx prisma db push
+        envFrom:
+          - secretRef:
+              name: biblora-secrets
       containers:
       - name: api
         image: ghcr.io/churchlify/biblora-api:latest # ArgoCD will update this tag
