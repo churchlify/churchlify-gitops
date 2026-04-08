@@ -27,8 +27,6 @@ spec:
         envFrom:
         - secretRef:
             name: biblora-secrets
-        - configMapRef:
-            name: biblora-config
         resources:
           limits:
             cpu: "500m"
