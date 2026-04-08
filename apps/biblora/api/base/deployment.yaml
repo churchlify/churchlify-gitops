@@ -18,9 +18,6 @@ spec:
       labels:
         app: biblora-api
     spec:
-      # Required for GHCR private images
-      imagePullSecrets:
-        - name: ghcr-creds
       containers:
       - name: api
         image: ghcr.io/churchlify/biblora-api:latest # ArgoCD will update this tag
