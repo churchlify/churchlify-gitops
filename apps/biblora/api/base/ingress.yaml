@@ -10,16 +10,16 @@ metadata:
 spec:
   tls:
   - hosts:
-    - biblora.churchlify.com # Replace with your local or public domain
+    - biblora-api.churchlify.com # Replace with your local or public domain
     secretName: biblora-api-tls
   rules:
-  - host: biblora.churchlify.com # Replace with your local or public domain
+  - host: biblora-api.churchlify.com # Replace with your local or public domain
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: agogos-api
+            name: biblora-api
             port:
               number: 3000
