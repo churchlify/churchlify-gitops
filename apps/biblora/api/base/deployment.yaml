@@ -33,21 +33,24 @@ spec:
 
       - name: prisma-migrate
         image: ghcr.io/churchlify/biblora-api:latest
-        workingDir: /app
         command: ["/bin/sh", "-c"]
         args:
           - |
             set -ex
-            echo "Waiting for DB..."
-            until nc -z $PGSQL_HOST $PGSQL_PORT; do
-              sleep 2
-            done
+            # 1. Standard safety check
+            until nc -z $PGSQL_HOST $PGSQL_PORT; do echo "Waiting for DB..."; sleep 2; done
 
-            echo "Running migrations..."
+            # 2. Apply the schema changes (Add Quiz, drop interaction)
+            echo "Applying Migrations..."
             npx prisma migrate deploy
 
+            # 3. Regenerate the client inside the container environment
+            # This ensures the internal Node engine is synced with the DB
+            npx prisma generate
+
+            # 4. Seed new content
             echo "Running seed..."
-            node dist/prisma/seed.js || echo "Seed failed (continuing)"
+            node dist/prisma/seed.js
         envFrom:
         - secretRef:
             name: biblora-secrets
