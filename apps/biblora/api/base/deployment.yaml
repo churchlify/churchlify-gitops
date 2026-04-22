@@ -41,7 +41,9 @@ spec:
             until nc -z $PGSQL_HOST $PGSQL_PORT; do echo "Waiting for DB..."; sleep 2; done
 
             # 2. Apply the schema changes (Add Quiz, drop interaction)
+            echo "Resetting DB..."
             npx prisma migrate reset --force
+            
             echo "Applying Migrations..."
             npx prisma migrate deploy
 
