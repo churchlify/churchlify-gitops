@@ -33,7 +33,7 @@ spec:
 
       - name: prisma-migrate
         image: ghcr.io/churchlify/biblora-api:latest
-        command: ["sh", "-c", "npx prisma db push --accept-data-loss"]
+        command: ["sh", "-c"]
         args:
           - |
             set -ex
