@@ -41,9 +41,9 @@ spec:
             until nc -z $PGSQL_HOST $PGSQL_PORT; do echo "Waiting for DB..."; sleep 2; done
 
             # 2. Apply the schema changes (Add Quiz, drop interaction)
-            echo "Resetting DB..."
-            npx prisma migrate reset --force
-            
+            # echo "Resetting DB..."
+            # npx prisma migrate reset --force
+
             echo "Applying Migrations..."
             npx prisma migrate deploy
 
@@ -52,8 +52,8 @@ spec:
             npx prisma generate
 
             # 4. Seed new content
-            echo "Running seed..."
-            node dist/prisma/seed.js
+           # echo "Running seed..."
+            #vnode dist/prisma/seed.js
         envFrom:
         - secretRef:
             name: biblora-secrets
