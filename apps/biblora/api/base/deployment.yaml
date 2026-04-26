@@ -35,11 +35,7 @@ spec:
           command: ["sh", "-c"]
           args:
             - |
-              echo "Waiting for DB..."
-              until echo > /dev/tcp/pgsql-postgresql.platform.svc.cluster.local/5432 2>/dev/null; do
-                sleep 2
-              done
-              echo "DB is ready!"
+              echo "Running prisma migrations"
               npx prisma migrate deploy
 
 
