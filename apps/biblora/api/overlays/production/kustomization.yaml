@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: ghcr.io/churchlify/churchlify/biblora-api
   newName: ghcr.io/churchlify/churchlify/biblora-api
-  newTag: 77c1d885e2cc3322b0887299b10c50d863d18876
+  newTag: ae59e537fd7bef2242d6c9762782d58c6d10446b
