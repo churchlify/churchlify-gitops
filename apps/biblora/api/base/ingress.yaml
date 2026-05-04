@@ -9,17 +9,30 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-body-size: "50m" # Important for Admin Upload Tool
 spec:
   tls:
-  - hosts:
-    - biblora-api.churchlify.com # Replace with your local or public domain
-    secretName: biblora-api-tls
+    - hosts:
+        - biblora-api.churchlify.com # Replace with your local or public domain
+      secretName: biblora-api-tls
+    - hosts:
+        - api.biblora.cc
+      secretName: biblora-cc-tls
   rules:
-  - host: biblora-api.churchlify.com # Replace with your local or public domain
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: biblora-api
-            port:
-              number: 3000
+    - host: biblora-api.churchlify.com # Replace with your local or public domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: biblora-api
+                port:
+                  number: 3000
+    - host: api.biblora.cc
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: biblora-api # Points to the same service
+                port:
+                  number: 3000
