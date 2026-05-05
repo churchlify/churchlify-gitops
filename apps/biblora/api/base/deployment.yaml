@@ -50,25 +50,25 @@ spec:
           envFrom:
             - secretRef:
                 name: biblora-secrets
-          env:
-            # Explicitly set the path where the file will be mounted
-            - name: OPUS_AUTH_FILE
-              value: "/app/auth.json"
-          resources:
-            limits:
-              cpu: "1000m" # Bumped for Playwright/Chromium stability
-              memory: "1Gi" # Chromium is hungry; 512Mi might OOM on Opus
-            requests:
-              cpu: "500m"
-              memory: "512Mi"
-          volumeMounts:
-            # Mount the specific auth file
-            - name: opus-auth-config
-              mountPath: "/app/auth.json"
-              subPath: "auth.json"
-            # Mandatory for Chromium in Containers
-            - name: dshm
-              mountPath: /dev/shm
+          # env:
+          #   # Explicitly set the path where the file will be mounted
+          #   - name: OPUS_AUTH_FILE
+          #     value: "/app/auth.json"
+          # resources:
+          #   limits:
+          #     cpu: "1000m" # Bumped for Playwright/Chromium stability
+          #     memory: "1Gi" # Chromium is hungry; 512Mi might OOM on Opus
+          #   requests:
+          #     cpu: "500m"
+          #     memory: "512Mi"
+          # volumeMounts:
+          #   # Mount the specific auth file
+          #   - name: opus-auth-config
+          #     mountPath: "/app/auth.json"
+          #     subPath: "auth.json"
+          #   # Mandatory for Chromium in Containers
+          #   - name: dshm
+          #     mountPath: /dev/shm
           livenessProbe:
             httpGet:
               path: /health
@@ -82,15 +82,15 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
 
-      volumes:
-        # Volume 1: Projecting the Secret as a file
-        - name: opus-auth-config
-          secret:
-            secretName: biblora-secrets
-            items:
-              - key: "auth.json"
-                path: "auth.json"
-        # Volume 2: Shared Memory (Prevents 'Protocol Error' in Playwright)
-        - name: dshm
-          emptyDir:
-            medium: Memory
+      # volumes:
+      #   # Volume 1: Projecting the Secret as a file
+      #   - name: opus-auth-config
+      #     secret:
+      #       secretName: biblora-secrets
+      #       items:
+      #         - key: "auth.json"
+      #           path: "auth.json"
+      #   # Volume 2: Shared Memory (Prevents 'Protocol Error' in Playwright)
+      #   - name: dshm
+      #     emptyDir:
+      #       medium: Memory
