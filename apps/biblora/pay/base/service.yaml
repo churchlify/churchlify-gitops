@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: biblora-pay
+  namespace: biblora
+spec:
+  selector:
+    app: biblora-pay
+  ports:
+    - port: 80
+      targetPort: 3000
