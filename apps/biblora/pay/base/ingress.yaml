@@ -14,7 +14,7 @@ spec:
       secretName: biblora-pay-tls
     - hosts:
         - pay.biblora.cc
-      secretName: biblora-cc-tls
+      secretName: biblora-pay-cc-tls
   rules:
     - host: biblora-pay.churchlify.com # Replace with your local or public domain
       http:
