@@ -35,7 +35,7 @@ spec:
           args: |
             echo "Waiting for DB..."
             until nc -z pgsql-postgresql.platform.svc.cluster.local 5432; do
-              sleep 2
+              sleep 3
             done
             echo "DB is ready!"
             echo "Running prisma migrations"
