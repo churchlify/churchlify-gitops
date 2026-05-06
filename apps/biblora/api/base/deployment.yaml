@@ -22,12 +22,13 @@ spec:
         - name: db-init
           image: postgres:15
           command: ["sh", "-c"]
-          args: |
-            echo "Waiting for DB..."
-            until pg_isready -h pgsql-postgresql.platform.svc.cluster.local -p 5432; do
-              sleep 2
-            done
-            echo "DB is ready!"
+          args:
+            - |
+              echo "Waiting for DB..."
+              until pg_isready -h pgsql-postgresql.platform.svc.cluster.local -p 5432; do
+                sleep 2
+              done
+              echo "DB is ready!"
 
         - name: prisma-migrate
           image: ghcr.io/churchlify/biblora-api:latest
