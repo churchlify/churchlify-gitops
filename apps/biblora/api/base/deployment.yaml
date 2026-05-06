@@ -22,21 +22,24 @@ spec:
         - name: db-init
           image: postgres:15
           command: ["sh", "-c"]
-          args:
-            - |
-              echo "Waiting for DB..."
-              until pg_isready -h pgsql-postgresql.platform.svc.cluster.local -p 5432; do
-                sleep 2
-              done
-              echo "DB is ready!"
+          args: |
+            echo "Waiting for DB..."
+            until pg_isready -h pgsql-postgresql.platform.svc.cluster.local -p 5432; do
+              sleep 2
+            done
+            echo "DB is ready!"
 
         - name: prisma-migrate
           image: ghcr.io/churchlify/biblora-api:latest
           command: ["sh", "-c"]
-          args:
-            - |
-              echo "Running prisma migrations"
-              npx prisma migrate deploy --schema ./prisma/schema.prisma
+          args: |
+            echo "Waiting for DB..."
+            until nc -z pgsql-postgresql.platform.svc.cluster.local 5432; do
+              sleep 2
+            done
+            echo "DB is ready!"
+            echo "Running prisma migrations"
+            npx prisma migrate deploy --schema ./prisma/schema.prisma
           envFrom:
             - secretRef:
                 name: biblora-secrets
@@ -47,6 +50,9 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
+          env:
+            - name: NODE_OPTIONS
+              value: "--dns-result-order=ipv4first"
           envFrom:
             - secretRef:
                 name: biblora-secrets
