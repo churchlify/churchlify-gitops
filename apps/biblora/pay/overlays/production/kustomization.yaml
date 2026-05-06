@@ -1,2 +1,8 @@
 resources:
-  - ../../base
+- ../../base
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: ghcr.io/churchlify/biblora-pay
+  newName: ghcr.io/churchlify/biblora-pay
+  newTag: 266b90daf637ca669194b0b160be080c3ca18bdc
