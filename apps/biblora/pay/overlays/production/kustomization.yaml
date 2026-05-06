@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: ghcr.io/churchlify/biblora-pay
   newName: ghcr.io/churchlify/biblora-pay
-  newTag: 266b90daf637ca669194b0b160be080c3ca18bdc
+  newTag: dae45e22bbe252750f67238de64209caf7c18e41
