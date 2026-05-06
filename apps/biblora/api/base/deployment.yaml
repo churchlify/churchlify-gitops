@@ -18,6 +18,10 @@ spec:
       labels:
         app: biblora-api
     spec:
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "1"
       initContainers:
         - name: db-init
           image: postgres:15
