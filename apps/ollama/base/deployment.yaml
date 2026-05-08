@@ -27,9 +27,9 @@ spec:
               value: "4" # Allows 4 parallel test suites
             - name: OLLAMA_MAX_LOADED_MODELS
               value: "2" # Keeps both Llama and CodeLlama in VRAM if possible
-          resources:
-            limits:
-              nvidia.com/gpu: 1 # Requests your passthrough GPU
+          # resources:
+          #   limits:
+          #     nvidia.com/gpu: 1 # Requests your passthrough GPU
           volumeMounts:
             - name: ollama-storage
               mountPath: /root/.ollama
