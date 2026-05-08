@@ -1,0 +1,7 @@
+resources:
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - configmap-bootstrap.yaml
+  - network-policy.yaml
+  - pvc.yaml
