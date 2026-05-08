@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ollama-bootstrap
+  namespace: qe-infra
+data:
+  bootstrap.sh: |
+    #!/bin/sh
+    # Start Ollama in the background
+    ollama serve &
+    # Wait for the server to be ready
+    sleep 5
+    # Pull the models needed for QE automation
+    echo "Pulling models..."
+    ollama pull llama3.2
+    ollama pull codellama
+    # Keep the process running
+    wait

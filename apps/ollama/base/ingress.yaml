@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ollama-ingress
+  namespace: qe-infra
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod" # Optional: for SSL
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+    - host: ollama.biblora.cc
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ollama-service
+                port:
+                  number: 80
