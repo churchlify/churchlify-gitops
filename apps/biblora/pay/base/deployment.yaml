@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: pay
-          image: ghcr.io/churchlify/biblora-pay:latest
+          image: ghcr.io/agogos-llc/biblora-pay:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
