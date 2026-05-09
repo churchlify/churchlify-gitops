@@ -3,6 +3,9 @@ resources:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
+- name: ghcr.io/agogos-llc/biblora-api
+  newName: ghcr.io/agogos-llc/biblora-api
+  newTag: 50ab30b496b1db670a4f9643569b4fa672e56abd
 - name: ghcr.io/churchlify/biblora-api
   newName: ghcr.io/churchlify/biblora-api
   newTag: 95d549f8957ba5815363ee0de3d04fad41a5cfda
