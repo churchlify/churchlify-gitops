@@ -35,7 +35,7 @@ spec:
               echo "DB is ready!"
 
         - name: prisma-migrate
-          image: ghcr.io/churchlify/biblora-api:latest
+          image: ghcr.io/agogos-llc/biblora-api:latest
           command: ["sh", "-c"]
           args:
             - |
@@ -47,7 +47,7 @@ spec:
 
       containers:
         - name: api
-          image: ghcr.io/churchlify/biblora-api:latest
+          image: ghcr.io/agogos-llc/biblora-api:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
