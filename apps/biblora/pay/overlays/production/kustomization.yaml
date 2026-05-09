@@ -3,6 +3,9 @@ resources:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
+- name: ghcr.io/agogos-llc/biblora-pay
+  newName: ghcr.io/agogos-llc/biblora-pay
+  newTag: db406e228fe51dabbcabc33e8dd33bf603661957
 - name: ghcr.io/churchlify/biblora-pay
   newName: ghcr.io/churchlify/biblora-pay
   newTag: dae45e22bbe252750f67238de64209caf7c18e41
