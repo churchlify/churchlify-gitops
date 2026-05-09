@@ -25,16 +25,16 @@ spec:
               app: churchlify-pay
 
       containers:
-      - name: churchlify-pay
-        image: ghcr.io/churchlify/churchlify-pay:latest
-        ports:
-        - containerPort: 3000
+        - name: churchlify-pay
+          image: ghcr.io/agogos-llc/churchlify-pay:latest
+          ports:
+            - containerPort: 3000
 
-        # Load app-specific env vars
-        envFrom:
-        - secretRef:
-            name: churchlify-secrets
+          # Load app-specific env vars
+          envFrom:
+            - secretRef:
+                name: churchlify-secrets
 
-        env:
-        - name: MONGO_URI
-          value: "mongodb://$(MONGO_USER):$(MONGO_PASSWORD)@$(MONGO_HOST):$(MONGO_PORT)/$(APP_DB_NAME)?authSource=admin"
+          env:
+            - name: MONGO_URI
+              value: "mongodb://$(MONGO_USER):$(MONGO_PASSWORD)@$(MONGO_HOST):$(MONGO_PORT)/$(APP_DB_NAME)?authSource=admin"

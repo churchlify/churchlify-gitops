@@ -27,12 +27,12 @@ spec:
               app: churchlify-api
 
       containers:
-      - name: churchlify-api
-        image: ghcr.io/churchlify/churchlify-api:latest
-        ports:
-        - containerPort: 3000
+        - name: churchlify-api
+          image: ghcr.io/agogos-llc/churchlify-api:latest
+          ports:
+            - containerPort: 3000
 
-        # Load app-specific env vars
-        envFrom:
-        - secretRef:
-            name: churchlify-secrets
+          # Load app-specific env vars
+          envFrom:
+            - secretRef:
+                name: churchlify-secrets
