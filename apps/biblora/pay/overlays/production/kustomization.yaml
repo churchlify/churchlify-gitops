@@ -5,7 +5,7 @@ kind: Kustomization
 images:
 - name: ghcr.io/agogos-llc/biblora-pay
   newName: ghcr.io/agogos-llc/biblora-pay
-  newTag: db406e228fe51dabbcabc33e8dd33bf603661957
+  newTag: 3d49d711685dfcef05e54ecb70e730f50889c90c
 - name: ghcr.io/churchlify/biblora-pay
   newName: ghcr.io/churchlify/biblora-pay
   newTag: dae45e22bbe252750f67238de64209caf7c18e41
