@@ -4,6 +4,9 @@ metadata:
   name: ollama-ingress
   namespace: qe-infra
   annotations:
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
     cert-manager.io/cluster-issuer: "letsencrypt-prod" # Optional: for SSL
     kubernetes.io/ingress.class: "nginx"
 spec:
