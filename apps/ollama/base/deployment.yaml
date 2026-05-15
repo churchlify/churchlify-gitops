@@ -27,6 +27,8 @@ spec:
               value: "4" # Allows 4 parallel test suites
             - name: OLLAMA_MAX_LOADED_MODELS
               value: "2" # Keeps both Llama and CodeLlama in VRAM if possible
+            - name: OLLAMA_KEEP_ALIVE
+              value: "24h" # Keeps the model cached in memory for 24 hours
           # resources:
           #   limits:
           #     nvidia.com/gpu: 1 # Requests your passthrough GPU
