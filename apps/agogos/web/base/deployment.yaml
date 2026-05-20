@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agogos-web
+  namespace: agogos
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: agogos-web
+  template:
+    metadata:
+      labels:
+        app: agogos-web
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/agogos-llc/agogos-web:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: biblora-secrets
