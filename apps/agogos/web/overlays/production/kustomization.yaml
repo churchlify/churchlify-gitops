@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: ghcr.io/agogos-llc/agogos-web
   newName: ghcr.io/agogos-llc/agogos-web
-  newTag: 776a4f7298846022a670198b200312ec8982aeb9
+  newTag: 4e814f7de9857c464682a14b19053171b15f369f
