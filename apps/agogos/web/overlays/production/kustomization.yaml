@@ -1,2 +1,8 @@
 resources:
-  - ../../base
+- ../../base
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: ghcr.io/agogos-llc/agogos-web
+  newName: ghcr.io/agogos-llc/agogos-web
+  newTag: c7b5ed5d7ea945839cc1e70633b4a90efece4352
