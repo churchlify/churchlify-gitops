@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: churchlify-api-v3
+  namespace: churchlify
+spec:
+  replicas: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: churchlify-api-v3
+  template:
+    metadata:
+      labels:
+        app: churchlify-api-v3
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/worker: worker
+
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: "kubernetes.io/hostname"
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: churchlify-api-v3
+
+      containers:
+        - name: churchlify-api-v3
+          image: ghcr.io/agogos-llc/churchlify-api-v3:latest
+          ports:
+            - containerPort: 3000
+
+          # Load app-specific env vars
+          envFrom:
+            - secretRef:
+                name: churchlify-secrets
