@@ -10,7 +10,7 @@ spec:
   tls:
     - hosts:
         - v3.api.churchlify.com
-      secretName: churchlify-api-tls
+      secretName: churchlify-api-v3-tls
   rules:
     - host: v3.api.churchlify.com
       http:
