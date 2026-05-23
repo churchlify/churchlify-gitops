@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: ghcr.io/agogos-llc/churchlify-api-v3
   newName: ghcr.io/agogos-llc/churchlify-api-v3
-  newTag: 516fc77f709cba707aabc955486b6f9c58929f3c
+  newTag: 0ffd225610f23721ac78d8f47c3aee8bc75b73c9
