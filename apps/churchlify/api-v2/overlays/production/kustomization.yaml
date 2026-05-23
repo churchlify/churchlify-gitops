@@ -1,2 +1,8 @@
 resources:
-  - ../../base
+- ../../base
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: ghcr.io/agogos-llc/churchlify-api-v2
+  newName: ghcr.io/agogos-llc/churchlify-api-v2
+  newTag: e6ebf1ce4f5828f61e1b221580f87c5b7440006b
