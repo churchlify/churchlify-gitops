@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: biblora-web
+  namespace: biblora
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: biblora-web
+  template:
+    metadata:
+      labels:
+        app: biblora-web
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/agogos-llc/biblora-web:latest
+          imagePullPolicy: Always
+          # command: ["node", "dist/src/server.js"]
+          ports:
+            - containerPort: 80
+          envFrom:
+            - secretRef:
+                name: biblora-secrets
