@@ -29,8 +29,8 @@ spec:
               value: "http://sport-track-service.sports-tracking.svc.cluster.local:8000/crop-x"
           resources:
             requests:
-              memory: "1Gi"
-              cpu: "1500m"
-            limits:
               memory: "2Gi"
-              cpu: "3000m"
+              cpu: "2500m" # Increased to guarantee full thread capacity
+            limits:
+              memory: "4Gi"
+              cpu: "5000m" # Extra compute overhead matching for multi-stream spatial tracking
