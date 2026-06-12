@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: tracker
-          image: ghcr.io/agogos-llc/sport-track:latest
+          image: ghcr.io/agogos-llc/sport-track-tracker:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
