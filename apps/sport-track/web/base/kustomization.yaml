@@ -5,4 +5,4 @@ resources:
   - service-ai.yaml
   - ingress.yaml
   - nginx-patch.yaml
-  - sticher.yaml
+  - stitcher.yaml
