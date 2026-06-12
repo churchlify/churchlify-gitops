@@ -18,6 +18,8 @@ spec:
           image: ghcr.io/agogos-llc/sport-track-stitcher:latest
           imagePullPolicy: Always
           env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
             - name: YOUTUBE_STREAM_KEY
               valueFrom:
                 secretKeyRef:
@@ -31,4 +33,4 @@ spec:
               cpu: "1500m"
             limits:
               memory: "2Gi"
-              cpu: "3000m" # Perfect overhead matching for concurrent hstack and crop calculations
+              cpu: "3000m"
