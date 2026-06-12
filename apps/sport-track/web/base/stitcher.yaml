@@ -16,7 +16,7 @@ spec:
       containers:
         - name: ffmpeg-engine
           # Using an image that packages python3, ffmpeg, and zmq bindings cleanly together
-          image: linuxserver/ffmpeg:version-6.0
+          image: ghcr.io/linuxserver/ffmpeg:latest
           command: ["/bin/bash", "-c"]
           args:
             - |
