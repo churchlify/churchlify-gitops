@@ -15,7 +15,6 @@ spec:
     spec:
       containers:
         - name: ffmpeg-engine
-          # Pointing explicitly to your lowercase GitHub monorepo package target
           image: ghcr.io/agogos-llc/sport-track-stitcher:latest
           imagePullPolicy: Always
           env:
@@ -32,4 +31,4 @@ spec:
               cpu: "1500m"
             limits:
               memory: "2Gi"
-              cpu: "3000m" # Video stitching and cropping on standard CPU nodes requires core overhead
+              cpu: "3000m" # Perfect overhead matching for concurrent hstack and crop calculations
