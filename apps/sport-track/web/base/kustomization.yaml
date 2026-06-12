@@ -1,0 +1,8 @@
+resources:
+  - deployment.yaml
+  - deployment-ai.yaml
+  - service.yaml
+  - service-ai.yaml
+  - ingress.yaml
+  - nginx-patch.yaml
+  - sticher.yaml

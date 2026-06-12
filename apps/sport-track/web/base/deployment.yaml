@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: media-ingest
+  namespace: sports-tracking
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: media-ingest
+  template:
+    metadata:
+      labels:
+        app: media-ingest
+    spec:
+      containers:
+        - name: srs-server
+          image: ossrs/srs:5
+          ports:
+            - containerPort: 1935
+            - containerPort: 8080

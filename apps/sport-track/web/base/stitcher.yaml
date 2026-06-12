@@ -1,0 +1,132 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-stitcher
+  namespace: sports-tracking
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: video-stitcher
+  template:
+    metadata:
+      labels:
+        app: video-stitcher
+    spec:
+      containers:
+        - name: ffmpeg-engine
+          # Using an image that packages python3, ffmpeg, and zmq bindings cleanly together
+          image: linuxserver/ffmpeg:version-6.0
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              # 1. Install pyzmq inline for communication (or bundle this into your custom ghcr.io image)
+              python3 -m pip install --no-cache-dir pyzmq requests
+
+              # 2. Write the Python ZeroMQ orchestrator script inline
+              cat << 'EOF' > live_bridge.py
+              import subprocess
+              import time
+              import requests
+              import zmq
+              import os
+
+              # Establish stream targets
+              STREAM_KEY = os.getenv("YOUTUBE_STREAM_KEY", "YOUR_FALLBACK_KEY")
+              YOUTUBE_URL = f"rtmp://a.rtmp.youtube.com/live2/{STREAM_KEY}"
+              API_URL = "http://ai-tracker-service:8000/crop-x"
+
+              # ZeroMQ communication endpoint mapping inside the pod
+              ZMQ_BIND_ADDRESS = "tcp://127.0.0.1:5555"
+
+              def start_pipeline():
+                  # Define the complex filtergraph with an active zmq listener mapped to an aliased 'crop_layer'
+                  # parsed format: [instream] zmq=b=tcp\://127.0.0.1\:5555, crop=w=1920:h=1080:x='in_w*0.5-960':y=0@crop_layer [outstream]
+                  filter_graph = (
+                      "[0:v][1:v]hstack=inputs=2[stitched];"
+                      "[stitched]zmq=b=tcp\\://127.0.0.1\\:5555,"
+                      "crop=w=1920:h=1080:x='parsed_x':y=0:exact=1@crop_layer[outv]"
+                  )
+
+                  cmd = [
+                      'ffmpeg', '-y',
+                      '-i', 'rtmp://media-ingest-service:1935/live/left',
+                      '-i', 'rtmp://media-ingest-service:1935/live/right',
+                      '-filter_complex', filter_graph,
+                      '-map', '[outv]',
+                      '-c:v', 'libx264', '-preset', 'ultrafast', '-tune', 'zerolatency',
+                      '-g', '60', '-f', 'flv', YOUTUBE_URL
+                  ]
+                  
+                  # Boot FFmpeg as an independent asynchronous process
+                  process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+                  return process
+
+              def monitor_and_steer():
+                  # Set up ZMQ client context to transmit commands into FFmpeg's engine runtime
+                  context = zmq.Context()
+                  socket = context.socket(zmq.REQ)
+                  
+                  # Give FFmpeg 3 seconds to boot up and open its listening port before connecting
+                  time.sleep(3)
+                  socket.connect(ZMQ_BIND_ADDRESS)
+                  
+                  ffmpeg_proc = start_pipeline()
+                  
+                  # Smoothing variable to prevent jittery camera movements
+                  smooth_x = 0.5 
+
+                  while True:
+                      if ffmpeg_proc.poll() is not None:
+                          print("FFmpeg process exited abnormally. Re-instantiating pipeline...")
+                          break
+                          
+                      try:
+                          # Query your K8s AI backend for the target cluster's center point
+                          res = requests.get(API_URL, timeout=0.5).json()
+                          target_x = res.get("normalized_x", 0.5)
+                          
+                          # Apply a low-pass filter for smooth panning (90% old position, 10% new position)
+                          smooth_x = (smooth_x * 0.9) + (target_x * 0.1)
+                          
+                          # Calculate pixel position based on double-wide master canvas (3840 wide total)
+                          # Center of 1920 width box requires shifting left by 960 pixels
+                          pixel_x = int((3840 * smooth_x) - 960)
+                          pixel_x = max(0, min(pixel_x, 1920)) # Hard bound constraints so frame doesn't clip off-screen
+                          
+                          # Send the runtime variable command to the crop filter via ZMQ
+                          # Syntax format: [Target Layer] [Command] [Arguments]
+                          cmd_string = f"crop_layer x {pixel_x}"
+                          socket.send_string(cmd_string)
+                          
+                          # Catch the acknowledgment return string from FFmpeg engine
+                          response = socket.recv_string()
+                          
+                      except Exception as err:
+                          # Log communication failures or timeouts without breaking the loop
+                          print(f"Tracking Sync Warning: {err}")
+                          
+                      time.sleep(0.05) # Poll coordinates 20 times per second for responsive tracking
+
+              while True:
+                  try:
+                      monitor_and_steer()
+                  except Exception as container_err:
+                      print(f"Core runtime exception: {container_err}")
+                      time.sleep(5)
+              EOF
+
+              python3 live_bridge.py
+          env:
+            - name: YOUTUBE_STREAM_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sport-secrets
+                  key: stream-key
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "1500m"
+            limits:
+              memory: "2Gi"
+              cpu: "3000m"

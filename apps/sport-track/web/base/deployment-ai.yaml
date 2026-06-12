@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sport-track
+  namespace: sports-tracking
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sport-track
+  template:
+    metadata:
+      labels:
+        app: sport-track
+    spec:
+      containers:
+        - name: tracker
+          image: ghcr.io/agogos-llc/sport-track:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          env:
+            - name: STREAM_INPUT_URL
+              value: "rtmp://media-ingest-service.sports-tracking.svc.cluster.local:1935/live/left"
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "1000m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
