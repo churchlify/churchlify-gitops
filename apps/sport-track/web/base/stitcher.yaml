@@ -17,7 +17,7 @@ spec:
         # Container A: The Core Video Engine
         - name: ffmpeg-engine
           image: ghcr.io/agogos-llc/sport-track-stitcher:latest
-          command: ["python", "/app/stream_engine.py"]
+          command: ["python", "live-bridge.py"]
           imagePullPolicy: Always
           env:
             - name: PYTHONUNBUFFERED
