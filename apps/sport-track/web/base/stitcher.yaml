@@ -14,14 +14,17 @@ spec:
         app: video-stitcher
     spec:
       containers:
-        # Container A: The Core Video Engine
+        # The Unified Video Engine & Controller Link
         - name: ffmpeg-engine
-          image: ghcr.io/agogos-llc/sport-track-stitcher:latest
+          image: ghcr.io/agogos-llc/sport-track-stitcher:sha-c35e907
           command: ["python", "live-bridge.py"]
           imagePullPolicy: Always
           env:
             - name: PYTHONUNBUFFERED
               value: "1"
+            # Point straight to the other deployment's Kubernetes service
+            - name: AI_TRACKER_URL
+              value: "http://sport-track-service.sports-tracking.svc.cluster.local:8000/crop-x"
             - name: YOUTUBE_STREAM_KEY
               valueFrom:
                 secretKeyRef:
@@ -34,21 +37,3 @@ spec:
             limits:
               memory: "4Gi"
               cpu: "4000m"
-
-        # Container B: The AI Tracking Coordinate Link (The Sidecar)
-        - name: tracker-orchestrator
-          image: ghcr.io/agogos-llc/sport-track-stitcher:sha-c35e907
-          command: ["python", "/app/tracker_orchestrator.py"]
-          imagePullPolicy: Always
-          env:
-            - name: PYTHONUNBUFFERED
-              value: "1"
-            - name: AI_TRACKER_URL
-              value: "http://sport-track-service.sports-tracking.svc.cluster.local:8000/crop-x"
-          resources:
-            requests:
-              memory: "512Mi"
-              cpu: "500m"
-            limits:
-              memory: "1Gi"
-              cpu: "1000m"
