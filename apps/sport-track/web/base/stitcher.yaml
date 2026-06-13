@@ -14,8 +14,10 @@ spec:
         app: video-stitcher
     spec:
       containers:
+        # Container A: The Core Video Engine
         - name: ffmpeg-engine
           image: ghcr.io/agogos-llc/sport-track-stitcher:latest
+          command: ["python", "/app/stream_engine.py"]
           imagePullPolicy: Always
           env:
             - name: PYTHONUNBUFFERED
@@ -25,12 +27,28 @@ spec:
                 secretKeyRef:
                   name: sport-secrets
                   key: stream-key
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "2000m"
+            limits:
+              memory: "4Gi"
+              cpu: "4000m"
+
+        # Container B: The AI Tracking Coordinate Link (The Sidecar)
+        - name: tracker-orchestrator
+          image: ghcr.io/agogos-llc/sport-track-stitcher:sha-c35e907
+          command: ["python", "/app/tracker_orchestrator.py"]
+          imagePullPolicy: Always
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
             - name: AI_TRACKER_URL
               value: "http://sport-track-service.sports-tracking.svc.cluster.local:8000/crop-x"
           resources:
             requests:
-              memory: "2Gi"
-              cpu: "2000m" # Increased to guarantee full thread capacity
+              memory: "512Mi"
+              cpu: "500m"
             limits:
-              memory: "4Gi"
-              cpu: "4000m" # Extra compute overhead matching for multi-stream spatial tracking
+              memory: "1Gi"
+              cpu: "1000m"
