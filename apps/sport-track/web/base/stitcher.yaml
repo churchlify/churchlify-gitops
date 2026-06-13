@@ -16,7 +16,7 @@ spec:
       containers:
         # The Unified Video Engine & Controller Link
         - name: ffmpeg-engine
-          image: ghcr.io/agogos-llc/sport-track-stitcher:sha-c35e907
+          image: ghcr.io/agogos-llc/sport-track-stitcher:latest
           command: ["python", "live-bridge.py"]
           imagePullPolicy: Always
           env:
