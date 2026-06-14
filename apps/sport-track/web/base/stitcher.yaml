@@ -22,7 +22,6 @@ spec:
           env:
             - name: PYTHONUNBUFFERED
               value: "1"
-            # Point straight to the other deployment's Kubernetes service
             - name: AI_TRACKER_URL
               value: "http://sport-track-service.sports-tracking.svc.cluster.local:8000/crop-x"
             - name: YOUTUBE_STREAM_KEY
@@ -30,10 +29,18 @@ spec:
                 secretKeyRef:
                   name: sport-secrets
                   key: stream-key
+            - name: VIDEO_BITRATE
+              value: "4500k"
+            - name: VIDEO_MAXRATE
+              value: "4500k"
+            - name: VIDEO_BUFSIZE
+              value: "9000k"
+            - name: SMOOTHING
+              value: "0.90"
           resources:
             requests:
-              memory: "2Gi"
-              cpu: "2000m"
-            limits:
-              memory: "4Gi"
+              memory: "3Gi"
               cpu: "4000m"
+            limits:
+              memory: "6Gi"
+              cpu: "6000m"
