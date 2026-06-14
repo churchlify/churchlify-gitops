@@ -17,7 +17,8 @@ spec:
         # The Unified Video Engine & Controller Link
         - name: ffmpeg-engine
           image: ghcr.io/agogos-llc/sport-track-stitcher:latest
-          command: ["python", "live-bridge.py"]
+          command: ["python"]
+          args: ["-u", "/app/live-bridge.py"]
           imagePullPolicy: Always
           env:
             - name: PYTHONUNBUFFERED
