@@ -8,4 +8,4 @@ images:
   newTag: sha-9dcc1c9
 - name: ghcr.io/agogos-llc/sport-track-tracker
   newName: ghcr.io/agogos-llc/sport-track-tracker
-  newTag: sha-41b2683
+  newTag: sha-9dcc1c9
