@@ -13,6 +13,16 @@ spec:
       labels:
         app: sport-track
     spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - media-ingest
+              topologyKey: "kubernetes.io/hostname"
       containers:
         - name: tracker
           image: ghcr.io/agogos-llc/sport-track-tracker:latest

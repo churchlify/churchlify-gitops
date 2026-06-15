@@ -13,6 +13,16 @@ spec:
       labels:
         app: video-stitcher
     spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - media-ingest
+              topologyKey: "kubernetes.io/hostname"
       containers:
         # The Unified Video Engine & Controller Link
         - name: ffmpeg-engine
