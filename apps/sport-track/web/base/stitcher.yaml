@@ -24,7 +24,6 @@ spec:
                       - media-ingest
               topologyKey: "kubernetes.io/hostname"
       containers:
-        # The Unified Video Engine & Controller Link
         - name: ffmpeg-engine
           image: ghcr.io/agogos-llc/sport-track-stitcher:latest
           command: ["python"]
@@ -40,18 +39,19 @@ spec:
                 secretKeyRef:
                   name: sport-secrets
                   key: stream-key
+            # --- CONSTRAINED LOWER OVERHEAD LIVE BITRATES ---
             - name: VIDEO_BITRATE
-              value: "4500k"
+              value: "3000k"
             - name: VIDEO_MAXRATE
-              value: "4500k"
+              value: "3000k"
             - name: VIDEO_BUFSIZE
-              value: "9000k"
+              value: "3000k"
             - name: SMOOTHING
               value: "0.90"
           resources:
             requests:
-              memory: "3Gi"
-              cpu: "4000m"
+              memory: "2Gi"
+              cpu: "2000m" # <--- Scaled down to allow the host VM node to breathe
             limits:
-              memory: "6Gi"
-              cpu: "6000m"
+              memory: "4Gi"
+              cpu: "4000m"
