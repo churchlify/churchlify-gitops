@@ -13,19 +13,16 @@ spec:
       labels:
         app: video-stitcher
     spec:
-      # --- RELAXED TO SOFT AFFINITY ---
       affinity:
         podAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchExpressions:
-                    - key: app
-                      operator: In
-                      values:
-                        - media-ingest
-                topologyKey: "kubernetes.io/hostname"
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - media-ingest
+              topologyKey: "kubernetes.io/hostname"
       containers:
         - name: ffmpeg-engine
           image: ghcr.io/agogos-llc/sport-track-stitcher:latest
@@ -42,6 +39,7 @@ spec:
                 secretKeyRef:
                   name: sport-secrets
                   key: stream-key
+            # --- CONSTRAINED LOWER OVERHEAD LIVE BITRATES ---
             - name: VIDEO_BITRATE
               value: "3000k"
             - name: VIDEO_MAXRATE
@@ -53,7 +51,7 @@ spec:
           resources:
             requests:
               memory: "2Gi"
-              cpu: "2000m"
+              cpu: "2000m" # <--- Scaled down to allow the host VM node to breathe
             limits:
               memory: "4Gi"
               cpu: "4000m"
