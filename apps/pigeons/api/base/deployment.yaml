@@ -20,7 +20,7 @@ spec:
           workingDir: /app/apps/api
           command: ["/bin/sh", "-c"]
           args:
-            - ./node_modules/.bin/prisma migrate deploy
+            - /app/node_modules/.bin/prisma migrate deploy --schema /app/apps/api/prisma/schema.prisma
           envFrom:
             - secretRef:
                 name: pigeons-secrets
@@ -40,14 +40,12 @@ spec:
               port: 3000
             initialDelaySeconds: 10
             periodSeconds: 10
-
           startupProbe:
             httpGet:
               path: /health
               port: 3000
             failureThreshold: 30
             periodSeconds: 10
-
           livenessProbe:
             httpGet:
               path: /health
