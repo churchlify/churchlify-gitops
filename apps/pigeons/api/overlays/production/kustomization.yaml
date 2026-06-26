@@ -1,2 +1,8 @@
 resources:
-  - ../../base
+- ../../base
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: ghcr.io/agogos-llc/pigeons-api
+  newName: ghcr.io/agogos-llc/pigeons-api
+  newTag: d162edafc99b79befee2583387171cef17eadfef
