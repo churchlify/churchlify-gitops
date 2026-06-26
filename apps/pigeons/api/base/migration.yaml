@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pigeons-migrate
+  namespace: pigeons
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: ghcr.io/agogos-llc/pigeons-api:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              npx prisma migrate deploy --schema ./prisma/schema.prisma
+          envFrom:
+            - secretRef:
+                name: pigeons-secrets
