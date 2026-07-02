@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: ghcr.io/agogos-llc/pigeons-api
   newName: ghcr.io/agogos-llc/pigeons-api
-  newTag: 8ca4389536b5df4513b4371f911a7bba738a4802
+  newTag: 75ec1657e60b4777d02911c54dbb267cb3f341cd
