@@ -16,73 +16,77 @@ spec:
       hostNetwork: true # Recommended for TURN to avoid NAT issues with UDP ranges
       dnsPolicy: ClusterFirstWithHostNet
       containers:
-      - name: coturn
-        image: coturn/coturn:4.6.2-alpine
-        ports:
-        - containerPort: 3478
-          protocol: UDP
-          name: turn-udp
-        - containerPort: 3478
-          protocol: TCP
-          name: turn-tcp
-        - containerPort: 5349
-          protocol: TCP
-          name: turns-tcp
-        env:
-        - name: TURN_SHARED_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: coturn-secrets
-              key: TURN_SECRET
-        - name: TURN_REALM
-          value: "turn.churchlify.com"
-        - name: TURN_EXTERNAL_IP
-          valueFrom:
-            secretKeyRef:
-              name: coturn-secrets
-              key: TURN_EXTERNAL_IP
-              optional: true
-        - name: NODE_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.hostIP
-        - name: TURN_MIN_PORT
-          value: "49160"
-        - name: TURN_MAX_PORT
-          value: "49200"
-        volumeMounts:
-        - name: coturn-tls
-          mountPath: /etc/coturn/tls
-          readOnly: true
-        command: ["/bin/sh", "-c"]
-        args:
-          - |
-            if [ -z "$NODE_IP" ]; then
-              echo "ERROR: NODE_IP is empty; cannot configure coturn listener/relay addresses"
-              exit 1
-            fi
-            EXTERNAL_IP_ARG=""
-            if [ -n "$TURN_EXTERNAL_IP" ]; then
-              EXTERNAL_IP_ARG="--external-ip=${TURN_EXTERNAL_IP}/${NODE_IP}"
-              echo "Coturn using external IP mapping: ${TURN_EXTERNAL_IP}/${NODE_IP}"
-            fi
-            exec turnserver \
-              --listening-port=3478 \
-              --tls-listening-port=5349 \
-              --listening-ip=${NODE_IP} \
-              --relay-ip=${NODE_IP} \
-              ${EXTERNAL_IP_ARG} \
-              --cert=/etc/coturn/tls/tls.crt \
-              --pkey=/etc/coturn/tls/tls.key \
-              --min-port=${TURN_MIN_PORT} \
-              --max-port=${TURN_MAX_PORT} \
-              --realm=${TURN_REALM} \
-              --use-auth-secret \
-              --static-auth-secret=${TURN_SHARED_SECRET} \
-              --fingerprint \
-              --no-cli \
-              --log-file=stdout
+        - name: coturn
+          image: coturn/coturn:4.6.2-alpine
+          ports:
+            - containerPort: 3478
+              protocol: UDP
+              name: turn-udp
+            - containerPort: 3478
+              protocol: TCP
+              name: turn-tcp
+            - containerPort: 5349
+              protocol: TCP
+              name: turns-tcp
+          env:
+            - name: TURN_SHARED_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: coturn-secrets
+                  key: TURN_SECRET
+            - name: TURN_REALM
+              value: "turn.churchlify.com"
+            - name: TURN_EXTERNAL_IP
+              valueFrom:
+                secretKeyRef:
+                  name: coturn-secrets
+                  key: TURN_EXTERNAL_IP
+                  optional: true
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: TURN_MIN_PORT
+              value: "49160"
+            - name: TURN_MAX_PORT
+              value: "49200"
+          volumeMounts:
+            - name: coturn-tls
+              mountPath: /etc/coturn/tls
+              readOnly: true
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              if [ -z "$NODE_IP" ]; then
+                echo "ERROR: NODE_IP is empty; cannot configure coturn listener/relay addresses"
+                exit 1
+              fi
+
+              # Use MetalLB IP if available, fallback to NODE_IP
+              LB_IP="192.168.88.246"
+
+              EXTERNAL_IP_ARG=""
+              if [ -n "$TURN_EXTERNAL_IP" ]; then
+                EXTERNAL_IP_ARG="--external-ip=${TURN_EXTERNAL_IP}/${LB_IP}"
+                echo "Coturn using external IP mapping: ${TURN_EXTERNAL_IP}/${LB_IP}"
+              fi
+              exec turnserver \
+                --listening-port=3478 \
+                --tls-listening-port=5349 \
+                --listening-ip=0.0.0.0 \
+                --relay-ip=${NODE_IP} \
+                ${EXTERNAL_IP_ARG} \
+                --cert=/etc/coturn/tls/tls.crt \
+                --pkey=/etc/coturn/tls/tls.key \
+                --min-port=${TURN_MIN_PORT} \
+                --max-port=${TURN_MAX_PORT} \
+                --realm=${TURN_REALM} \
+                --use-auth-secret \
+                --static-auth-secret=${TURN_SHARED_SECRET} \
+                --fingerprint \
+                --no-cli \
+                --log-file=stdout
       volumes:
-      - name: coturn-tls
-        secret:
-          secretName: coturn-tls
+        - name: coturn-tls
+          secret:
+            secretName: coturn-tls
