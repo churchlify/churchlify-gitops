@@ -13,55 +13,52 @@ spec:
       labels:
         app: mediasoup
     spec:
+      # Bypass Kubernetes Pod Overlay NAT for WebRTC UDP performance
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+
       containers:
-      - name: mediasoup
-        image: ghcr.io/churchlify/mediasoup:latest
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 3000
-          name: api
-        - containerPort: 42000
-          protocol: UDP
-          name: media-udp
-        env:
-        - name: MEDIASOUP_LISTEN_IP
-          value: "0.0.0.0"
-        - name: MEDIASOUP_ANNOUNCED_IP
-          valueFrom:
-            secretKeyRef:
-              name: global-db-secrets
-              key: MEDIASOUP_ANNOUNCED_IP
-              optional: true
-        - name: MEDIASOUP_ANNOUNCED_IP_DEFAULT
-          value: "mediasoup.churchlify.com"
-        - name: NODE_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.hostIP
-        - name: MEDIASOUP_MIN_PORT
-          value: "42000"
-        - name: MEDIASOUP_MAX_PORT
-          value: "42100"
-        command: ["/bin/sh", "-c"]
-        args:
-          - |
-            ANNOUNCED_IP="${MEDIASOUP_ANNOUNCED_IP:-$MEDIASOUP_ANNOUNCED_IP_DEFAULT}"
-            if [ -z "$MEDIASOUP_ANNOUNCED_IP" ]; then
-              echo "WARN: MEDIASOUP_ANNOUNCED_IP secret is empty; using default announced host: $ANNOUNCED_IP"
-            fi
-            ANNOUNCED_IP="${ANNOUNCED_IP:-$NODE_IP}"
-            if [ -z "$ANNOUNCED_IP" ]; then
-              echo "ERROR: MEDIASOUP_ANNOUNCED_IP is empty and NODE_IP fallback is unavailable"
-              exit 1
-            fi
-            export MEDIASOUP_ANNOUNCED_IP="$ANNOUNCED_IP"
-            echo "Mediasoup starting with announced IP: $MEDIASOUP_ANNOUNCED_IP"
-            # Start your compiled entrypoint
-            node mediasoup-worker.js
-        resources:
-          requests:
-            cpu: "500m"
-            memory: "512Mi"
-          limits:
-            cpu: "1000m"
-            memory: "1Gi"
+        - name: mediasoup
+          image: ghcr.io/churchlify/mediasoup:latest
+          imagePullPolicy: Always
+          env:
+            - name: MEDIASOUP_LISTEN_IP
+              value: "0.0.0.0"
+            - name: MEDIASOUP_ANNOUNCED_IP
+              valueFrom:
+                secretKeyRef:
+                  name: mediasoup-secrets # Fixed: matches ExternalSecret target name
+                  key: MEDIASOUP_ANNOUNCED_IP
+                  optional: true
+            - name: MEDIASOUP_ANNOUNCED_IP_DEFAULT
+              value: "99.242.213.235" # Set directly to public IP or resolve hostname beforehand
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: MEDIASOUP_MIN_PORT
+              value: "42000"
+            - name: MEDIASOUP_MAX_PORT
+              value: "42100"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              ANNOUNCED_IP="${MEDIASOUP_ANNOUNCED_IP:-$MEDIASOUP_ANNOUNCED_IP_DEFAULT}"
+              ANNOUNCED_IP="${ANNOUNCED_IP:-$NODE_IP}"
+
+              if [ -z "$ANNOUNCED_IP" ]; then
+                echo "ERROR: MEDIASOUP_ANNOUNCED_IP could not be resolved."
+                exit 1
+              fi
+
+              export MEDIASOUP_ANNOUNCED_IP="$ANNOUNCED_IP"
+              echo "Mediasoup starting with announced IP: $MEDIASOUP_ANNOUNCED_IP"
+
+              node mediasoup-worker.js
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
