@@ -13,9 +13,9 @@ spec:
       labels:
         app: coturn
     spec:
-      hostNetwork: true # Recommended for TURN to avoid NAT issues with UDP ranges
+      hostNetwork: true
       nodeSelector:
-      kubernetes.io/hostname: k8s-worker-04
+        kubernetes.io/hostname: k8s-worker-04
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: coturn
@@ -64,7 +64,6 @@ spec:
                 exit 1
               fi
 
-              # Use MetalLB IP if available, fallback to NODE_IP
               LB_IP="192.168.88.246"
 
               EXTERNAL_IP_ARG=""
@@ -72,6 +71,7 @@ spec:
                 EXTERNAL_IP_ARG="--external-ip=${TURN_EXTERNAL_IP}/${LB_IP}"
                 echo "Coturn using external IP mapping: ${TURN_EXTERNAL_IP}/${LB_IP}"
               fi
+
               exec turnserver \
                 --listening-port=3478 \
                 --tls-listening-port=5349 \
