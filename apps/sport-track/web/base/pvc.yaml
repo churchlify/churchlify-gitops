@@ -6,7 +6,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: longhorn-nvme # Update this to match your exact NVMe StorageClass name
+  storageClassName: longhorn-nvme
   resources:
     requests:
       storage: 50Gi
