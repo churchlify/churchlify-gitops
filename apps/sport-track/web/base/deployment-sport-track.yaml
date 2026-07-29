@@ -32,6 +32,8 @@ spec:
           env:
             - name: STREAM_INPUT_URL
               value: "rtmp://media-ingest-service.sports-tracking.svc.cluster.local:1935/live/left"
+            - name: PREVIEW_RTSP_OUT
+              value: "rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/tracked_preview"
           resources:
             requests:
               memory: "1Gi"
@@ -39,3 +41,19 @@ spec:
             limits:
               memory: "2Gi"
               cpu: "2000m"
+          volumeMounts:
+            # Shared memory access for reading/writing numpy frame buffers
+            - name: dshm
+              mountPath: /dev/shm
+            # Persistent clip/reel generation output
+            - name: media-storage
+              mountPath: /var/reels
+              subPath: reels
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: sports-media-pvc

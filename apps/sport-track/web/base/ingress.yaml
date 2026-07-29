@@ -5,7 +5,11 @@ metadata:
   namespace: sports-tracking
   annotations:
     kubernetes.io/ingress.class: nginx
-    cert-manager.io/cluster-issuer: "letsencrypt-prod" # Automatically provisions free SSL certificates
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # Enable WebSocket upgrades for low-latency WebRTC signals
+    nginx.ingress.kubernetes.io/websocket-services: "preview-streamer-service"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
 spec:
   tls:
     - hosts:
@@ -15,6 +19,7 @@ spec:
     - host: sports-ai.churchlify.com
       http:
         paths:
+          # AI Tracking Crop Endpoint
           - path: /crop-x
             pathType: Prefix
             backend:
@@ -22,3 +27,11 @@ spec:
                 name: sport-track-service
                 port:
                   number: 8000
+          # Real-time WebRTC Live Preview Stream
+          - path: /preview
+            pathType: Prefix
+            backend:
+              service:
+                name: preview-streamer-service
+                port:
+                  number: 8889

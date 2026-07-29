@@ -25,7 +25,8 @@ spec:
               topologyKey: "kubernetes.io/hostname"
       containers:
         - name: ffmpeg-engine
-          image: ghcr.io/agogos-llc/sport-track-stitcher:latest
+          # --- UPDATED V2 IMAGE PIPELINE ---
+          image: ghcr.io/agogos-llc/sport-track-stitch-v2:latest
           command: ["python"]
           args: ["-u", "/app/live-bridge.py"]
           imagePullPolicy: Always
@@ -34,12 +35,13 @@ spec:
               value: "1"
             - name: AI_TRACKER_URL
               value: "http://sport-track-service.sports-tracking.svc.cluster.local:8000/crop-x"
+            - name: PREVIEW_RTSP_URL
+              value: "rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/stitched_preview"
             - name: YOUTUBE_STREAM_KEY
               valueFrom:
                 secretKeyRef:
                   name: sport-secrets
                   key: stream-key
-            # --- CONSTRAINED LOWER OVERHEAD LIVE BITRATES ---
             - name: VIDEO_BITRATE
               value: "3000k"
             - name: VIDEO_MAXRATE
@@ -51,7 +53,26 @@ spec:
           resources:
             requests:
               memory: "2Gi"
-              cpu: "2000m" # <--- Scaled down to allow the host VM node to breathe
+              cpu: "2000m"
             limits:
               memory: "4Gi"
               cpu: "4000m"
+          volumeMounts:
+            # 1. RAM Shared Memory for zero-latency frame buffers
+            - name: dshm
+              mountPath: /dev/shm
+            # 2. Longhorn persistent mounts
+            - name: media-storage
+              mountPath: /var/recordings
+              subPath: recordings
+            - name: media-storage
+              mountPath: /var/reels
+              subPath: reels
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: sports-media-pvc

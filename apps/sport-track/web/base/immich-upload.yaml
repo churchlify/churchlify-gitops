@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: immich-reel-sync
+  namespace: sports-tracking
+spec:
+  schedule: "*/15 * * * *" # Runs every 15 minutes
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: immich-cli
+              image: ghcr.io/immich-app/immich-cli:latest
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  immich upload \
+                    --album-name "Soccer Match Reels" \
+                    --recursive \
+                    --skip-hash \
+                    /var/reels
+              env:
+                - name: IMMICH_INSTANCE_URL
+                  value: "https://your-immich-instance.com/api"
+                - name: IMMICH_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: sport-secrets
+                      key: immich-api-key
+              volumeMounts:
+                - name: media-storage
+                  mountPath: /var/reels
+                  subPath: reels
+          volumes:
+            - name: media-storage
+              persistentVolumeClaim:
+                claimName: sports-media-pvc

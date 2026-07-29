@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: preview-streamer
+  namespace: sports-tracking
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: preview-streamer
+  template:
+    metadata:
+      labels:
+        app: preview-streamer
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - media-ingest
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+        - name: mediamtx
+          image: bluenviron/mediamtx:latest
+          ports:
+            - name: rtsp
+              containerPort: 8554
+            - name: webrtc
+              containerPort: 8889
+            - name: rtmp
+              containerPort: 1936
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: preview-streamer-service
+  namespace: sports-tracking
+spec:
+  type: ClusterIP
+  selector:
+    app: preview-streamer
+  ports:
+    - name: rtsp
+      protocol: TCP
+      port: 8554
+      targetPort: 8554
+    - name: webrtc
+      protocol: TCP
+      port: 8889
+      targetPort: 8889
+    - name: rtmp
+      protocol: TCP
+      port: 1936
+      targetPort: 1936
