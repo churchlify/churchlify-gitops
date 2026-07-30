@@ -10,6 +10,17 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          # --- ADD THIS AFFINITY BLOCK ---
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                      - key: app
+                        operator: In
+                        values:
+                          - media-ingest
+                  topologyKey:
           containers:
             - name: immich-cli
               image: ghcr.io/immich-app/immich-cli:latest
