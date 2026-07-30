@@ -14,6 +14,7 @@ spec:
         app: mediasoup
     spec:
       # Bypass Kubernetes Pod Overlay NAT for WebRTC UDP performance
+      nodeName: k8s-worker-01
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
 
