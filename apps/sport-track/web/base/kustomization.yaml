@@ -2,10 +2,11 @@ resources:
   - deployment.yaml
   - deployment-sport-track.yaml
   - deployment-preview.yaml
+  - deployment-live-stitcher.yaml
   - service.yaml
   - service-ai.yaml
   - ingress.yaml
   - nginx-patch.yaml
-  - stitcher.yaml
+  - reels-job.yaml
   - pvc.yaml
   - immich-upload.yaml

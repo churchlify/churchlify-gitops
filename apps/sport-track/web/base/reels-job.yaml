@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: reels-game-01
+  namespace: sports-tracking
+spec:
+  ttlSecondsAfterFinished: 3600 # Clean up job after 1 hr
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: ffmpeg-engine
+          image: ghcr.io/agogos-llc/sport-track-stitch-v2:latest
+          command: ["python", "/app/pipeline.py"]
+          args:
+            - "--match-id"
+            - "game-01"
+            - "--left"
+            - "/var/recordings/game-01_left.mp4"
+            - "--right"
+            - "/var/recordings/game-01_right.mp4"
+            - "--jerseys"
+            - "7,10,11"
+            - "--gpu"
+          volumeMounts:
+            - name: media-storage
+              mountPath: /var/recordings
+              subPath: recordings
+            - name: media-storage
+              mountPath: /var/reels
+              subPath: reels
+      volumes:
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: sports-media-pvc

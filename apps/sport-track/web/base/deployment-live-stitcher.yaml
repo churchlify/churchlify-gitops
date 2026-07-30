@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: live-stitcher
+  namespace: sports-tracking
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: live-stitcher
+  template:
+    metadata:
+      labels:
+        app: live-stitcher
+    spec:
+      containers:
+        - name: live-engine
+          image: ghcr.io/agogos-llc/sport-track-stitch-v2:latest
+          command: ["python", "/app/live_stitcher.py"] # Script tailored for RTSP + /crop-x
+          env:
+            - name: LEFT_CAMERA_URL
+              value: "rtsp://media-ingest:8554/left"
+            - name: RIGHT_CAMERA_URL
+              value: "rtsp://media-ingest:8554/right"
+            - name: AI_TRACKER_URL
+              value: "http://sport-track-service.sports-tracking.svc.cluster.local:8000/crop-x"
+            - name: PREVIEW_RTSP_URL
+              value: "rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/stitched_preview"
+          volumeMounts:
+            - name: media-storage
+              mountPath: /var/recordings
+              subPath: recordings
+      volumes:
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: sports-media-pvc
