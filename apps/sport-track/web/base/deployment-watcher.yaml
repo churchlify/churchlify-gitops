@@ -50,7 +50,11 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              # Install inotify-tools on container startup
+              apt-get update && apt-get install -y inotify-tools
+
               echo "Starting recording watcher..."
+
               # Watch for completed/closed MP4 files in /var/recordings
               inotifywait -m /var/recordings -e close_write --format '%f' | while read FILE
               do
