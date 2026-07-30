@@ -3,10 +3,9 @@ resources:
   - deployment-sport-track.yaml
   - deployment-preview.yaml
   - deployment-live-stitcher.yaml
-  - deployment-watcher.yaml
+  - deployment-reel-generator.yaml # <--- Added API Service Deployment
   - service.yaml
   - service-ai.yaml
   - ingress.yaml
   - nginx-patch.yaml
-  # - reels-job.yaml
   - pvc.yaml

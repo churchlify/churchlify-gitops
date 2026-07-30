@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reel-generator
+  namespace: sports-tracking
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reel-generator
+  template:
+    metadata:
+      labels:
+        app: reel-generator
+    spec:
+      containers:
+        - name: reel-api
+          image: ghcr.io/agogos-llc/sport-track-stitch-v2:sha-5a32562
+          command:
+            ["uvicorn", "app.api:app", "--host", "0.0.0.0", "--port", "8000"]
+          ports:
+            - containerPort: 8000
+          env:
+            - name: IMMICH_INSTANCE_URL
+              value: "https://photos.churchlify.com/api"
+            - name: IMMICH_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sport-secrets
+                  key: immich-api-key
+          volumeMounts:
+            - mountPath: /var/recordings
+              name: media-storage
+              subPath: recordings
+            - mountPath: /var/reels
+              name: media-storage
+              subPath: reels
+      volumes:
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: sports-media-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reel-generator-service
+  namespace: sports-tracking
+spec:
+  type: ClusterIP
+  selector:
+    app: reel-generator
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000

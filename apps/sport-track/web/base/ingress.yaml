@@ -35,3 +35,11 @@ spec:
                 name: preview-streamer-service
                 port:
                   number: 8889
+          # Dedicated Reel Creation API
+          - path: /reels
+            pathType: Prefix
+            backend:
+              service:
+                name: reel-generator-service
+                port:
+                  number: 8000
