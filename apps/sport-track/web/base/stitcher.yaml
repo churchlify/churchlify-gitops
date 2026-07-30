@@ -27,8 +27,8 @@ spec:
         - name: ffmpeg-engine
           image: ghcr.io/agogos-llc/sport-track-stitch-v2:latest
           imagePullPolicy: Always
-          # --- ENTRYPOINT OVERRIDE WITH REQUIRED CLI FLAGS ---
           command: ["python", "/app/pipeline.py"]
+          # --- ADJUSTED CLI ARGS ---
           args:
             - "--match-id"
             - "$(MATCH_ID)"
@@ -37,23 +37,20 @@ spec:
             - "--right"
             - "$(RIGHT_CAMERA_URL)"
             - "--jerseys"
-            - "$(JERSEY_COLORS)"
+            - "white" # Passed as distinct arguments for nargs='+'
+            - "black" # Add additional colors as separate list items here
             - "--output-dir"
             - "/var/recordings"
             - "--gpu"
           env:
             - name: PYTHONUNBUFFERED
               value: "1"
-            # --- REQUIRED PARAMETERS FOR PIPELINE.PY ---
             - name: MATCH_ID
               value: "game-01"
             - name: LEFT_CAMERA_URL
               value: "rtsp://media-ingest:8554/left"
             - name: RIGHT_CAMERA_URL
               value: "rtsp://media-ingest:8554/right"
-            - name: JERSEY_COLORS
-              value: "red,blue" # Adjust team primary colors as needed
-            # --- EXISTING CONFIGURATION ---
             - name: AI_TRACKER_URL
               value: "http://sport-track-service.sports-tracking.svc.cluster.local:8000/crop-x"
             - name: PREVIEW_RTSP_URL
