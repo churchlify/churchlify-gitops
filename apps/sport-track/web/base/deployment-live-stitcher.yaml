@@ -15,22 +15,28 @@ spec:
     spec:
       containers:
         - name: live-engine
-          image: ghcr.io/agogos-llc/sport-track-stitch-v2:latest
-          command: ["python", "/app/live_stitcher.py"] # Script tailored for RTSP + /crop-x
+          image: ghcr.io/agogos-llc/sport-track-stitch-v2:sha-5a32562
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - /app/post_stitcher.py
+          args:
+            - --left
+            - $(LEFT_CAMERA_URL)
+            - --right
+            - $(RIGHT_CAMERA_URL)
+            - --output
+            - $(PREVIEW_RTSP_URL)
           env:
             - name: LEFT_CAMERA_URL
-              value: "rtsp://media-ingest:8554/left"
+              value: rtsp://media-ingest:8554/left
             - name: RIGHT_CAMERA_URL
-              value: "rtsp://media-ingest:8554/right"
-            - name: AI_TRACKER_URL
-              value: "http://sport-track-service.sports-tracking.svc.cluster.local:8000/crop-x"
+              value: rtsp://media-ingest:8554/right
             - name: PREVIEW_RTSP_URL
-              value: "rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/stitched_preview"
+              value: rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/stitched_preview
+            - name: AI_TRACKER_URL
+              value: http://sport-track-service.sports-tracking.svc.cluster.local:8000/crop-x
           volumeMounts:
-            - name: media-storage
-              mountPath: /var/recordings
+            - mountPath: /var/recordings
+              name: media-storage
               subPath: recordings
-      volumes:
-        - name: media-storage
-          persistentVolumeClaim:
-            claimName: sports-media-pvc
