@@ -28,7 +28,6 @@ spec:
           image: ghcr.io/agogos-llc/sport-track-stitch-v2:latest
           imagePullPolicy: Always
           command: ["python", "/app/pipeline.py"]
-          # --- ADJUSTED CLI ARGS ---
           args:
             - "--match-id"
             - "$(MATCH_ID)"
@@ -37,8 +36,7 @@ spec:
             - "--right"
             - "$(RIGHT_CAMERA_URL)"
             - "--jerseys"
-            - "WHITE" # Passed as distinct arguments for nargs='+'
-            - "BLACK" # Add additional colors as separate list items here
+            - "$(JERSEY_NUMBERS)"
             - "--output-dir"
             - "/var/recordings"
             - "--gpu"
@@ -51,6 +49,9 @@ spec:
               value: "rtsp://media-ingest:8554/left"
             - name: RIGHT_CAMERA_URL
               value: "rtsp://media-ingest:8554/right"
+            # --- COMMA-SEPARATED INTEGER JERSEY NUMBERS ---
+            - name: JERSEY_NUMBERS
+              value: "7,10,99"
             - name: AI_TRACKER_URL
               value: "http://sport-track-service.sports-tracking.svc.cluster.local:8000/crop-x"
             - name: PREVIEW_RTSP_URL
