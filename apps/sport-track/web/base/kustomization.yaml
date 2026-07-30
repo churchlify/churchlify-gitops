@@ -3,9 +3,10 @@ resources:
   - deployment-sport-track.yaml
   - deployment-preview.yaml
   - deployment-live-stitcher.yaml
+  - deployment-watcher.yaml
   - service.yaml
   - service-ai.yaml
   - ingress.yaml
   - nginx-patch.yaml
-  - reels-job.yaml
+  # - reels-job.yaml
   - pvc.yaml

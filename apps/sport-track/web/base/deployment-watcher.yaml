@@ -1,0 +1,123 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: reels-trigger-sa
+  namespace: sports-tracking
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: reels-job-creator
+  namespace: sports-tracking
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: reels-job-creator-binding
+  namespace: sports-tracking
+subjects:
+  - kind: ServiceAccount
+    name: reels-trigger-sa
+    namespace: sports-tracking
+roleRef:
+  kind: Role
+  name: reels-job-creator
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: match-watcher
+  namespace: sports-tracking
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: match-watcher
+  template:
+    metadata:
+      labels:
+        app: match-watcher
+    spec:
+      serviceAccountName: reels-trigger-sa
+      containers:
+        - name: watcher
+          image: bitnami/kubectl:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Starting recording watcher..."
+              # Watch for completed/closed MP4 files in /var/recordings
+              inotifywait -m /var/recordings -e close_write --format '%f' | while read FILE
+              do
+                if echo "$FILE" | grep -q "_left.mp4"; then
+                  MATCH_ID=$(echo "$FILE" | sed 's/_left.mp4//')
+                  RIGHT_FILE="${MATCH_ID}_right.mp4"
+                  
+                  # Check if matching right camera recording exists
+                  if [ -f "/var/recordings/${RIGHT_FILE}" ]; then
+                    echo "[watcher] Detected completed match pair: ${MATCH_ID}"
+                    
+                    cat <<EOF | kubectl apply -f -
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: reels-${MATCH_ID}
+                namespace: sports-tracking
+              spec:
+                ttlSecondsAfterFinished: 3600
+                template:
+                  spec:
+                    restartPolicy: Never
+                    containers:
+                      - name: ffmpeg-engine
+                        image: ghcr.io/agogos-llc/sport-track-stitch-v2:sha-5a32562
+                        command: ["python", "/app/pipeline.py"]
+                        args:
+                          - "--match-id"
+                          - "${MATCH_ID}"
+                          - "--left"
+                          - "/var/recordings/${FILE}"
+                          - "--right"
+                          - "/var/recordings/${RIGHT_FILE}"
+                          - "--jerseys"
+                          - "7,10,11"
+                          - "--upload-immich"
+                          - "--gpu"
+                        env:
+                          - name: PYTHONUNBUFFERED
+                            value: "1"
+                          - name: IMMICH_INSTANCE_URL
+                            value: "https://photos.churchlify.com/api"
+                          - name: IMMICH_API_KEY
+                            valueFrom:
+                              secretKeyRef:
+                                name: sport-secrets
+                                key: immich-api-key
+                        volumeMounts:
+                          - mountPath: /var/recordings
+                            name: media-storage
+                            subPath: recordings
+                          - mountPath: /var/reels
+                            name: media-storage
+                            subPath: reels
+                    volumes:
+                      - name: media-storage
+                        persistentVolumeClaim:
+                          claimName: sports-media-pvc
+              EOF
+                  fi
+                fi
+              done
+          volumeMounts:
+            - mountPath: /var/recordings
+              name: media-storage
+              subPath: recordings
+      volumes:
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: sports-media-pvc
