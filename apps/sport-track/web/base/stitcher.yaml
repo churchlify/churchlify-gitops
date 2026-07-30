@@ -37,8 +37,8 @@ spec:
             - "--right"
             - "$(RIGHT_CAMERA_URL)"
             - "--jerseys"
-            - "white" # Passed as distinct arguments for nargs='+'
-            - "black" # Add additional colors as separate list items here
+            - "WHITE" # Passed as distinct arguments for nargs='+'
+            - "BLACK" # Add additional colors as separate list items here
             - "--output-dir"
             - "/var/recordings"
             - "--gpu"
