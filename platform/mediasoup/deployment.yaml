@@ -24,11 +24,13 @@ spec:
           imagePullPolicy: Always
           env:
             - name: MEDIASOUP_LISTEN_IP
-              value: "0.0.0.0"
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP # Binds explicitly to 192.168.88.87
             - name: MEDIASOUP_ANNOUNCED_IP
               valueFrom:
                 secretKeyRef:
-                  name: mediasoup-secrets # Fixed: matches ExternalSecret target name
+                  name: mediasoup-secrets
                   key: MEDIASOUP_ANNOUNCED_IP
                   optional: true
             - name: MEDIASOUP_ANNOUNCED_IP_DEFAULT
