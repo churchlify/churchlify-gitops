@@ -16,12 +16,13 @@ spec:
       containers:
         - name: reel-api
           image: ghcr.io/agogos-llc/sport-track-stitch-v2:sha-5a32562
+          workingDir: /app
           command:
             [
               "python",
               "-m",
               "uvicorn",
-              "app.api:app",
+              "api:app",
               "--host",
               "0.0.0.0",
               "--port",
@@ -30,6 +31,8 @@ spec:
           ports:
             - containerPort: 8000
           env:
+            - name: PYTHONPATH
+              value: "/app"
             - name: IMMICH_INSTANCE_URL
               value: "https://photos.churchlify.com/api"
             - name: IMMICH_API_KEY
