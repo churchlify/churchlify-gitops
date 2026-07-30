@@ -17,7 +17,16 @@ spec:
         - name: reel-api
           image: ghcr.io/agogos-llc/sport-track-stitch-v2:sha-5a32562
           command:
-            ["uvicorn", "app.api:app", "--host", "0.0.0.0", "--port", "8000"]
+            [
+              "python",
+              "-m",
+              "uvicorn",
+              "app.api:app",
+              "--host",
+              "0.0.0.0",
+              "--port",
+              "8000",
+            ]
           ports:
             - containerPort: 8000
           env:
