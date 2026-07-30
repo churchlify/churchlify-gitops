@@ -40,3 +40,7 @@ spec:
             - mountPath: /var/recordings
               name: media-storage
               subPath: recordings
+      volumes:
+        - name: media-storage
+          persistentVolumeClaim:
+            claimName: sports-media-pvc
