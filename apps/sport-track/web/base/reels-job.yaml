@@ -21,7 +21,16 @@ spec:
             - "/var/recordings/game-01_right.mp4"
             - "--jerseys"
             - "7,10,11"
+            - "--upload-immich"
             - "--gpu"
+          env:
+            - name: IMMICH_INSTANCE_URL
+              value: "https://photos.churchlify.com/api"
+            - name: IMMICH_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sport-secrets
+                  key: immich-api-key
           volumeMounts:
             - name: media-storage
               mountPath: /var/recordings

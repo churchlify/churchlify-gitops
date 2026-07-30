@@ -29,9 +29,9 @@ spec:
             - $(PREVIEW_RTSP_URL)
           env:
             - name: LEFT_CAMERA_URL
-              value: rtsp://media-ingest:8554/left
+              value: rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/left
             - name: RIGHT_CAMERA_URL
-              value: rtsp://media-ingest:8554/right
+              value: rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/right
             - name: PREVIEW_RTSP_URL
               value: rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/stitched_preview
             - name: AI_TRACKER_URL

@@ -9,4 +9,3 @@ resources:
   - nginx-patch.yaml
   - reels-job.yaml
   - pvc.yaml
-  - immich-upload.yaml
