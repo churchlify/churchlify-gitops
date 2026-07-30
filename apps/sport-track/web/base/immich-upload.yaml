@@ -10,7 +10,7 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
-          # --- ADD THIS AFFINITY BLOCK ---
+          # --- FIXED AFFINITY BLOCK ---
           affinity:
             podAffinity:
               requiredDuringSchedulingIgnoredDuringExecution:
@@ -20,7 +20,7 @@ spec:
                         operator: In
                         values:
                           - media-ingest
-                  topologyKey:
+                  topologyKey: "kubernetes.io/hostname"
           containers:
             - name: immich-cli
               image: ghcr.io/immich-app/immich-cli:latest
