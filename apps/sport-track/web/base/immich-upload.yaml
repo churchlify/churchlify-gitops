@@ -4,13 +4,14 @@ metadata:
   name: immich-reel-sync
   namespace: sports-tracking
 spec:
-  schedule: "*/15 * * * *" # Runs every 15 minutes
+  # Slow schedule down to every 2 hours (or run on-demand after match jobs)
+  schedule: "0 */1 * * *"
+  concurrencyPolicy: Forbid # <--- CRITICAL: Prevents a new job from starting if the previous one is still uploading!
   jobTemplate:
     spec:
       template:
         spec:
           restartPolicy: OnFailure
-          # --- FIXED AFFINITY BLOCK ---
           affinity:
             podAffinity:
               requiredDuringSchedulingIgnoredDuringExecution:
@@ -27,14 +28,14 @@ spec:
               command: ["/bin/sh", "-c"]
               args:
                 - |
+                  # REMOVED --skip-hash so Immich deduplicates existing reels!
                   immich upload \
                     --album-name "Soccer Match Reels" \
                     --recursive \
-                    --skip-hash \
                     /var/reels
               env:
                 - name: IMMICH_INSTANCE_URL
-                  value: "https://your-immich-instance.com/api"
+                  value: "https://photos.churchlify.com/api"
                 - name: IMMICH_API_KEY
                   valueFrom:
                     secretKeyRef:
