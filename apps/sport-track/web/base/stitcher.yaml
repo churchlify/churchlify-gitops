@@ -27,9 +27,8 @@ spec:
         - name: ffmpeg-engine
           # --- UPDATED V2 IMAGE PIPELINE ---
           image: ghcr.io/agogos-llc/sport-track-stitch-v2:latest
-          command: ["python"]
-          args: ["-u", "/app/live-bridge.py"]
           imagePullPolicy: Always
+          # (command and args removed to use image ENTRYPOINT/CMD)
           env:
             - name: PYTHONUNBUFFERED
               value: "1"
