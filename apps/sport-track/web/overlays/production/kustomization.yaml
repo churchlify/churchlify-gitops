@@ -1,2 +1,8 @@
 resources:
-  - ../../base
+- ../../base
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: ghcr.io/agogos-llc/sport-track-stitch-v2
+  newName: ghcr.io/agogos-llc/sport-track-stitch-v2
+  newTag: sha-160d450
