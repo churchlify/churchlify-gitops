@@ -50,23 +50,25 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              # Install inotify-tools on container startup
-              apt-get update && apt-get install -y inotify-tools
+              echo "Starting recording polling watcher..."
+              PROCESSED_DIR="/var/recordings/.processed"
+              mkdir -p "$PROCESSED_DIR"
 
-              echo "Starting recording watcher..."
+              while true; do
+                for LEFT_FILE in /var/recordings/*_left.mp4; do
+                  # Check if matching files exist
+                  if [ -f "$LEFT_FILE" ]; then
+                    FILE=$(basename "$LEFT_FILE")
+                    MATCH_ID=$(echo "$FILE" | sed 's/_left.mp4//')
+                    RIGHT_FILE="${MATCH_ID}_right.mp4"
+                    MARKER="$PROCESSED_DIR/${MATCH_ID}.done"
 
-              # Watch for completed/closed MP4 files in /var/recordings
-              inotifywait -m /var/recordings -e close_write --format '%f' | while read FILE
-              do
-                if echo "$FILE" | grep -q "_left.mp4"; then
-                  MATCH_ID=$(echo "$FILE" | sed 's/_left.mp4//')
-                  RIGHT_FILE="${MATCH_ID}_right.mp4"
-                  
-                  # Check if matching right camera recording exists
-                  if [ -f "/var/recordings/${RIGHT_FILE}" ]; then
-                    echo "[watcher] Detected completed match pair: ${MATCH_ID}"
-                    
-                    cat <<EOF | kubectl apply -f -
+                    # Ensure right file exists and job hasn't been triggered yet
+                    if [ -f "/var/recordings/${RIGHT_FILE}" ] && [ ! -f "$MARKER" ]; then
+                      echo "[watcher] Found completed match pair: ${MATCH_ID}. Triggering reels job..."
+                      touch "$MARKER"
+
+                      cat <<EOF | kubectl apply -f -
               apiVersion: batch/v1
               kind: Job
               metadata:
@@ -114,8 +116,10 @@ spec:
                         persistentVolumeClaim:
                           claimName: sports-media-pvc
               EOF
+                    fi
                   fi
-                fi
+                done
+                sleep 10
               done
           volumeMounts:
             - mountPath: /var/recordings
