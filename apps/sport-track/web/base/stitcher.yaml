@@ -25,13 +25,35 @@ spec:
               topologyKey: "kubernetes.io/hostname"
       containers:
         - name: ffmpeg-engine
-          # --- UPDATED V2 IMAGE PIPELINE ---
           image: ghcr.io/agogos-llc/sport-track-stitch-v2:latest
           imagePullPolicy: Always
-          # (command and args removed to use image ENTRYPOINT/CMD)
+          # --- ENTRYPOINT OVERRIDE WITH REQUIRED CLI FLAGS ---
+          command: ["python", "/app/pipeline.py"]
+          args:
+            - "--match-id"
+            - "$(MATCH_ID)"
+            - "--left"
+            - "$(LEFT_CAMERA_URL)"
+            - "--right"
+            - "$(RIGHT_CAMERA_URL)"
+            - "--jerseys"
+            - "$(JERSEY_COLORS)"
+            - "--output-dir"
+            - "/var/recordings"
+            - "--gpu"
           env:
             - name: PYTHONUNBUFFERED
               value: "1"
+            # --- REQUIRED PARAMETERS FOR PIPELINE.PY ---
+            - name: MATCH_ID
+              value: "game-01"
+            - name: LEFT_CAMERA_URL
+              value: "rtsp://media-ingest:8554/left"
+            - name: RIGHT_CAMERA_URL
+              value: "rtsp://media-ingest:8554/right"
+            - name: JERSEY_COLORS
+              value: "red,blue" # Adjust team primary colors as needed
+            # --- EXISTING CONFIGURATION ---
             - name: AI_TRACKER_URL
               value: "http://sport-track-service.sports-tracking.svc.cluster.local:8000/crop-x"
             - name: PREVIEW_RTSP_URL
@@ -41,14 +63,6 @@ spec:
                 secretKeyRef:
                   name: sport-secrets
                   key: stream-key
-            - name: VIDEO_BITRATE
-              value: "3000k"
-            - name: VIDEO_MAXRATE
-              value: "3000k"
-            - name: VIDEO_BUFSIZE
-              value: "3000k"
-            - name: SMOOTHING
-              value: "0.90"
           resources:
             requests:
               memory: "2Gi"
@@ -57,10 +71,8 @@ spec:
               memory: "4Gi"
               cpu: "4000m"
           volumeMounts:
-            # 1. RAM Shared Memory for zero-latency frame buffers
             - name: dshm
               mountPath: /dev/shm
-            # 2. Longhorn persistent mounts
             - name: media-storage
               mountPath: /var/recordings
               subPath: recordings
