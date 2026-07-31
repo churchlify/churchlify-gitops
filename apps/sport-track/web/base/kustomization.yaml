@@ -8,6 +8,6 @@ resources:
   - service-ai.yaml
   - ingress.yaml
   - nginx-patch.yaml
-  - pvc.yaml
+  # - pvc.yaml
   - pvc-rwx.yaml
   - migration-pod.yaml
