@@ -9,3 +9,4 @@ resources:
   - ingress.yaml
   - nginx-patch.yaml
   - pvc.yaml
+  - pvc-rwx.yaml
