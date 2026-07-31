@@ -25,7 +25,7 @@ spec:
               topologyKey: "kubernetes.io/hostname"
       containers:
         - name: tracker
-          image: ghcr.io/agogos-llc/sport-track-tracker:latest
+          image: ghcr.io/agogos-llc/sport-track-stitch-v2:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
