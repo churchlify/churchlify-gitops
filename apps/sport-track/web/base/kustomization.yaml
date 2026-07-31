@@ -10,3 +10,4 @@ resources:
   - nginx-patch.yaml
   - pvc.yaml
   - pvc-rwx.yaml
+  - migration-pod.yaml
