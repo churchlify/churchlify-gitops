@@ -5,7 +5,7 @@ kind: Kustomization
 images:
 - name: ghcr.io/agogos-llc/sport-track-stitch-v2
   newName: ghcr.io/agogos-llc/sport-track-stitch-v2
-  newTag: sha-f26a695
+  newTag: sha-ac30ec3
 - name: ghcr.io/agogos-llc/sport-track-tracker
   newName: ghcr.io/agogos-llc/sport-track-tracker
   newTag: sha-5758ae8
