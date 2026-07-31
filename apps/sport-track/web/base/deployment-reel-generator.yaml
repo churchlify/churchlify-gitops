@@ -5,6 +5,9 @@ metadata:
   namespace: sports-tracking
 spec:
   replicas: 1
+  # Recreate strategy ensures old pod terminates and unmounts RWO volume BEFORE new pod starts
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: reel-generator
@@ -17,9 +20,9 @@ spec:
         - name: reel-api
           image: ghcr.io/agogos-llc/sport-track-stitch-v2:latest
           workingDir: /app
-          command:
-            [
+          command: [
               "python",
+              "-u", # Unbuffered output flag for Python
               "-m",
               "uvicorn",
               "api:app",
@@ -31,6 +34,9 @@ spec:
           ports:
             - containerPort: 8000
           env:
+            # Prevents Python stdout/stderr buffering inside Kubernetes logs
+            - name: PYTHONUNBUFFERED
+              value: "1"
             - name: PYTHONPATH
               value: "/app"
             - name: IMMICH_INSTANCE_URL
@@ -40,6 +46,21 @@ spec:
                 secretKeyRef:
                   name: sport-secrets
                   key: immich-api-key
+
+          # Healthchecks to prevent NGINX 502 Bad Gateway during startup
+          readinessProbe:
+            httpGet:
+              path: /docs
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /docs
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+
           volumeMounts:
             - mountPath: /var/recordings
               name: media-storage
@@ -50,7 +71,7 @@ spec:
       volumes:
         - name: media-storage
           persistentVolumeClaim:
-            claimName: sports-media-pvc
+            claimName: sports-media-pvc-rwx
 ---
 apiVersion: v1
 kind: Service

@@ -56,4 +56,4 @@ spec:
             sizeLimit: 2Gi
         - name: media-storage
           persistentVolumeClaim:
-            claimName: sports-media-pvc
+            claimName: sports-media-pvc-rwx
