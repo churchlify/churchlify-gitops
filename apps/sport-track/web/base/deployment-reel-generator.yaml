@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: reel-api
-          image: ghcr.io/agogos-llc/sport-track-stitch-v2:sha-5a32562
+          image: ghcr.io/agogos-llc/sport-track-stitch-v2:latest
           workingDir: /app
           command:
             [

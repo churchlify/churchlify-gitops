@@ -81,7 +81,7 @@ spec:
                     restartPolicy: Never
                     containers:
                       - name: ffmpeg-engine
-                        image: ghcr.io/agogos-llc/sport-track-stitch-v2:sha-5a32562
+                        image: ghcr.io/agogos-llc/sport-track-stitch-v2:latest
                         command: ["python", "/app/pipeline.py"]
                         args:
                           - "--match-id"
