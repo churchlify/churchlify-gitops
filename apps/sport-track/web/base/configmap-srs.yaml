@@ -16,12 +16,20 @@ data:
     }
 
     vhost __defaultVhost__ {
-        # Fix iPhone timestamp jitter & out-of-order audio packets
+        # Fix iPhone timestamp jitter & audio sync
         mix_correct     on;
         time_jitter     full;
 
-        # Disable publish merge-read to prevent mobile network buffer stalls
+        # Mobile-friendly buffer settings
         publish {
             mr          off;
+            parse_sps   on;
+        }
+
+        # Enable default live application routing
+        app live {
+            live        on;
+            gop_cache   off;
+            queue_length 10;
         }
     }
