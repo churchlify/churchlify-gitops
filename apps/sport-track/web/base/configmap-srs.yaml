@@ -16,20 +16,18 @@ data:
     }
 
     vhost __defaultVhost__ {
-        # Fix iPhone timestamp jitter & audio sync
         mix_correct     on;
         time_jitter     full;
 
-        # Mobile-friendly buffer settings
         publish {
             mr          off;
             parse_sps   on;
+            # Enable query string parsing for RTMP stream keys
+            parse_query on;
         }
 
-        # Enable default live application routing
         app live {
             live        on;
             gop_cache   off;
-            queue_length 10;
         }
     }
