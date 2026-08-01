@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: srs-config
+  namespace: sports-tracking
+data:
+  srs.conf: |
+    listen              1935;
+    max_connections     1000;
+    srs_log_tank        console;
+    srs_log_level       info;
+
+    http_api {
+        enabled         on;
+        listen          8080;
+    }
+
+    vhost __defaultVhost__ {
+        # Fix iPhone timestamp jitter & out-of-order audio packets
+        mix_correct     on;
+        time_jitter     full;
+
+        # Disable publish merge-read to prevent mobile network buffer stalls
+        publish {
+            mr          off;
+        }
+    }

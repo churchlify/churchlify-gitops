@@ -19,3 +19,11 @@ spec:
           ports:
             - containerPort: 1935
             - containerPort: 8080
+          volumeMounts:
+            - name: srs-config-volume
+              mountPath: /usr/local/srs/conf/srs.conf
+              subPath: srs.conf
+      volumes:
+        - name: srs-config-volume
+          configMap:
+            name: srs-config
