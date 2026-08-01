@@ -6,12 +6,18 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: nginx
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    # Enable large video file uploads via POST
     nginx.ingress.kubernetes.io/proxy-body-size: "4G"
-    # Enable WebSocket upgrades for low-latency WebRTC signals
-    nginx.ingress.kubernetes.io/websocket-services: "preview-streamer-service"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+
+    # Path Rewrite for MediaMTX root mapping
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+
+    # WebSocket & WebRTC Upgrade Handshakes
+    nginx.ingress.kubernetes.io/websocket-services: "preview-streamer-service"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "Upgrade";
 spec:
   tls:
     - hosts:
@@ -22,24 +28,24 @@ spec:
       http:
         paths:
           # AI Tracking Crop Endpoint
-          - path: /crop-x
-            pathType: Prefix
+          - path: /crop-x(/|$)(.*)
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: sport-track-service
                 port:
                   number: 8000
           # Real-time WebRTC Live Preview Stream
-          - path: /preview
-            pathType: Prefix
+          - path: /preview(/|$)(.*)
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: preview-streamer-service
                 port:
                   number: 8889
           # Dedicated Reel Creation API
-          - path: /reels
-            pathType: Prefix
+          - path: /reels(/|$)(.*)
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: reel-generator-service
