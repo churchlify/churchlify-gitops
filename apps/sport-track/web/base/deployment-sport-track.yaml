@@ -39,13 +39,21 @@ spec:
               memory: "1Gi"
               cpu: "1000m"
             limits:
-              memory: "2Gi"
-              cpu: "2000m"
+              memory: "4Gi"
+              cpu: "4000m"
+          readinessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 15
           volumeMounts:
-            # Shared memory access for reading/writing numpy frame buffers
             - name: dshm
               mountPath: /dev/shm
-            # Persistent clip/reel generation output
             - name: media-storage
               mountPath: /var/reels
               subPath: reels

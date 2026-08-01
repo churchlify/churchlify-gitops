@@ -8,6 +8,7 @@ spec:
   selector:
     app: sport-track
   ports:
-    - protocol: TCP
+    - name: http-api
+      protocol: TCP
       port: 8000
       targetPort: 8000

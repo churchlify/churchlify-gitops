@@ -4,7 +4,7 @@ metadata:
   name: media-ingest-service
   namespace: sports-tracking
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: media-ingest
   ports:
@@ -12,7 +12,30 @@ spec:
       protocol: TCP
       port: 1935
       targetPort: 1935
-    - name: http
+    - name: http-api
       protocol: TCP
       port: 8080
       targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: preview-streamer-service
+  namespace: sports-tracking
+spec:
+  type: ClusterIP
+  selector:
+    app: preview-streamer
+  ports:
+    - name: rtsp
+      protocol: TCP
+      port: 8554
+      targetPort: 8554
+    - name: webrtc
+      protocol: TCP
+      port: 8889
+      targetPort: 8889
+    - name: rtmp
+      protocol: TCP
+      port: 1936
+      targetPort: 1936
