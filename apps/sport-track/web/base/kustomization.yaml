@@ -1,5 +1,6 @@
 resources:
   - configmap-mediamtx.yaml
+  - configmap-srs.yaml
   - deployment.yaml
   - deployment-sport-track.yaml
   - deployment-preview.yaml
