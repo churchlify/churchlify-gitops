@@ -10,7 +10,7 @@ data:
 
     paths:
       all:
-        runOnPublish: >
+        runOnReady: >
           sh -c '
             if echo "$MTX_PATH" | grep -q "_left"; then
               (
