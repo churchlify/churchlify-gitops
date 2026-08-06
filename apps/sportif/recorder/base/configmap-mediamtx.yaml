@@ -6,7 +6,6 @@ metadata:
   labels:
     app: media-ingest
     component: ingest
-    chunk: c06-ingest
 data:
   mediamtx.yml: |
     logLevel: info

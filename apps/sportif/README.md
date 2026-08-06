@@ -1,299 +1,264 @@
-# Sportif Kubernetes Manifests
+# Sportif - GitOps Manifests
 
-This directory contains Kustomize-organized Kubernetes manifests for the Sportif platform, structured for GitOps deployment via ArgoCD.
+Sportif is a comprehensive sports tracking and streaming platform with multi-camera support, live stitching, and AI-based analytics.
 
-## Directory Structure
+## Component Structure
 
 ```
-manifest/
-├── kustomization.yaml              # Root kustomization (references all chunks)
-├── argocd-application-*.yaml       # ArgoCD Application resources
-├── namespace.yaml                  # Shared namespace definition
-├── service.yaml                    # Shared API service
-├── service-ai.yaml                 # Shared AI service
-├── ingress.yaml                    # Shared ingress configuration
-├── pvc-rwx.yaml                    # Shared persistent volume claims
-│
-├── base/                           # Shared base resources
-│   └── kustomization.yaml          # References all shared resources
-│
-├── c06-ingest/                     # C06 — Ingest, segmented recording, and stream health
-│   ├── kustomization.yaml
-│   ├── deployment-recorder.yaml    # Recorder worker + ConfigMaps + HPA + PDB
-│   ├── deployment-media-ingest.yaml
-│   ├── configmap-srs.yaml
-│   ├── configmap-mediamtx.yaml
-│   ├── pvc-recorder.yaml
-│   └── rbac-recorder.yaml
-│
-├── c07-preview/                    # C07 — Preview and live two-camera stitching (NOT STARTED)
-│   └── kustomization.yaml
-│
-├── c09-tracking/                   # C09 — AI tracking, jersey OCR, face matching (NOT STARTED)
-│   └── kustomization.yaml
-│
-└── c10-processing/                 # C10 — Reels, captions, upload, cleanup (NOT STARTED)
-    └── kustomization.yaml
+apps/sportif/
+├── api/                    # NestJS Backend API (REST, WebSocket)
+├── recorder/               # Media ingest (SRS, MediaMTX)
+├── preview/                # Live two-camera stitching
+├── tracking/               # ML-based tracking (optional GPU)
+├── processing/             # Video stitching & reel generation
+├── cleanup/                # Job cleanup worker
+├── notification/           # Event notifications
+└── uploader/               # Cloud storage uploads
 ```
 
-## Usage
+## Deployment Architecture
+
+### Shared Resources
+- **Namespace**: `sports-tracking` (shared with `sport-track`)
+- **Secrets**: `api-secrets` (pre-created, shared)
+- **Database**: PostgreSQL (shared infrastructure)
+- **Redis**: Cache layer (shared infrastructure)
+
+### Per-Component Deployment
+Each component is deployed independently via ArgoCD:
+
+```bash
+kubectl apply -f /Volumes/Jasper/WebstormProjects/private/app_ops/platform/argocd/sportif/
+```
+
+## Components Overview
+
+### API (`api/`)
+- **Port**: 3000
+- **Domain**: sportif.churchlify.com (TLS via cert-manager)
+- **Replicas**: 2 (production), 1 (staging)
+- **Resources**: 250m-1000m CPU, 256Mi-1Gi memory
+- **Configuration**: ConfigMap for non-sensitive values
+- **Secrets**: JWT_SECRET (from api-secrets)
+- **RBAC**: ServiceAccount with ConfigMap/Pod read access
+
+### Recorder (`recorder/`)
+- **Port**: 8000
+- **Replicas**: 1 (with HPA: 1-4)
+- **Storage**: 500Gi Longhorn PVC for segments
+- **Components**:
+  - SRS (Simple RTMP Server)
+  - MediaMTX (RTSP/DASH streaming)
+  - Media-ingest worker
+- **Resources**: 500m-2000m CPU, 512Mi-2Gi memory
+- **Metrics**: Prometheus at /metrics
+
+### Preview (`preview/`)
+- **Type**: FastAPI worker
+- **Function**: Live two-camera stitching
+- **Resources**: 1-4 cores CPU, 1-4Gi memory
+- **Health**: Exec-based liveness/readiness probes
+- **Config**: API_BASE_URL, MEDIAMTX_OUTPUT_BASE
+
+### Tracking (`tracking/`)
+- **Type**: ML-based computer vision
+- **GPU Support**: Preferred but not required (nodeAffinity)
+- **Resources**: 1-4 cores CPU, 2-8Gi memory
+- **Note**: GPU resource requests commented out; uncomment if nodes available
+
+### Processing (`processing/`)
+- **Components**: Stitch worker + Reel generator
+- **Storage**: 100Gi Longhorn PVC for temporary files
+- **Function**: Video processing (concatenation, encoding)
+- **Resources**: 1-4 cores CPU, 1-4Gi memory
+
+### Cleanup (`cleanup/`)
+- **Function**: Remove completed job resources
+- **RBAC**: Pod delete, PVC read permissions
+- **Resources**: 100m-500m CPU, 128Mi-512Mi memory
+
+### Notification (`notification/`)
+- **Function**: Event webhooks and notifications
+- **Resources**: 100m-500m CPU, 128Mi-512Mi memory
+- **Config**: ConfigMap read access
+
+### Uploader (`uploader/`)
+- **Function**: Cloud storage (S3, Azure, etc.)
+- **Storage**: PVC read access
+- **Resources**: 250m-1000m CPU, 256Mi-1Gi memory
+
+## Secrets Management
+
+### Required Secrets in sports-tracking
+
+These secrets must be created before deployment:
+
+```bash
+kubectl create secret generic api-secrets \
+  --from-literal=JWT_SECRET='your-jwt-secret-key' \
+  -n sports-tracking
+```
+
+### Optional Secrets (per component)
+
+- `recorder-credentials`: RTMP auth
+- `s3-credentials`: Cloud storage access
+- `notification-webhooks`: Webhook URLs
+
+## Configuration
+
+### ConfigMaps
+- `api-config`: Non-sensitive API configuration
+- `recorder-config`: Recorder segment settings
+- `configmap-srs.yaml`: SRS server configuration
+- `configmap-mediamtx.yaml`: MediaMTX streaming settings
+
+### Network
+- **Ingress**: API at sportif.churchlify.com
+- **Services**: ClusterIP for internal communication
+- **Rate Limiting**: 100 requests/minute on API ingress
+
+## Deployment
 
 ### Prerequisites
+1. Namespace `sports-tracking` already created (shared with sport-track)
+2. Secrets (`api-secrets`) created
+3. Longhorn storage provisioned
+4. ArgoCD installed and configured
 
-- Kubernetes cluster 1.24+
-- `kubectl` configured to target your cluster
-- Kustomize 4.0+ (or `kubectl apply -k`)
-- (Optional) ArgoCD 2.0+ for GitOps-style deployments
-
-### Option 1: Deploy C06 Only (Recommended for Testing)
+### Deploy All Components
 
 ```bash
-# Validate the manifest
-kubectl kustomize manifest/c06-ingest
+# From app-ops repository
+kubectl apply -f platform/argocd/sportif/
 
-# Deploy
-kubectl apply -k manifest/c06-ingest
+# Verify deployment
+kubectl get applications -n argocd | grep sportif
+```
+
+### Deploy Single Component
+
+```bash
+# Example: Deploy only API
+kubectl apply -f platform/argocd/sportif/api.yaml
 
 # Check status
-kubectl get pods -n sports-tracking
-kubectl logs -f deployment/recorder-worker -n sports-tracking
+argocd app get sportif-api
 ```
 
-### Option 2: Deploy via ArgoCD
+## Monitoring
 
-**For C06 only:**
-
+### Check Pod Status
 ```bash
-kubectl apply -f manifest/argocd-application-c06.yaml
-```
-
-**For full stack (when ready):**
-
-```bash
-kubectl apply -f manifest/argocd-application-c06.yaml
-# Then uncomment chunks in manifest/kustomization.yaml and commit
-```
-
-### Option 3: Deploy Full Stack (All Chunks)
-
-```bash
-# Uncomment chunks in manifest/kustomization.yaml first
-kubectl apply -k manifest
-```
-
-## Chunk Dependencies
-
-```
-C06 ──→ C07 ──→ C08 ──→ C09
-              │           │
-              └─────┬─────┘
-                    ↓
-                   C10 ──→ C11
-```
-
-- **C06** is independent and can be deployed first
-- **C07** depends on C06 (preview stitching needs stable ingest)
-- **C08** depends on C06 and C07 (orchestration worker)
-- **C09** depends on C03 and C08 (tracking queue)
-- **C10** depends on C08 and C09 (reels/upload)
-- **C11** depends on C08 and C10 (notifications)
-
-## Enabling Chunks in kustomization.yaml
-
-As each chunk is completed, uncomment its base entry:
-
-```yaml
-bases:
-  - c06-ingest          # ✓ C06 — READY
-  # - c07-preview       # C07 — uncomment when ready
-  # - c09-tracking      # C09 — uncomment when ready
-  # - c10-processing    # C10 — uncomment when ready
-```
-
-## Customization
-
-### Environment-Specific Overlays
-
-To create staging/production overlays:
-
-```bash
-mkdir -p manifest/overlays/{staging,production}
-```
-
-**manifest/overlays/staging/kustomization.yaml:**
-
-```yaml
-bases:
-  - ../../c06-ingest
-
-images:
-  - name: ghcr.io/agogos-llc/sportif-recorder-worker
-    newTag: v1.0.0-staging
-
-replicas:
-  - name: recorder-worker
-    count: 2  # More replicas for load testing
-```
-
-**manifest/overlays/production/kustomization.yaml:**
-
-```yaml
-bases:
-  - ../../c06-ingest
-
-images:
-  - name: ghcr.io/agogos-llc/sportif-recorder-worker
-    newTag: v1.0.0
-
-commonAnnotations:
-  promotion.argocd.argoproj.io/from: staging
-```
-
-Deploy with:
-
-```bash
-kubectl apply -k manifest/overlays/staging
-kubectl apply -k manifest/overlays/production
-```
-
-### Image Updates
-
-Update the image tag in any `kustomization.yaml`:
-
-```yaml
-images:
-  - name: ghcr.io/agogos-llc/sportif-recorder-worker
-    newTag: v1.2.3
-```
-
-Then apply:
-
-```bash
-kubectl apply -k manifest/c06-ingest
-```
-
-Or use ArgoCD Image Updater (configured in Application spec):
-
-```yaml
-spec:
-  source:
-    plugin:
-      env:
-        - name: ARGOCD_COMPARE_RESULT
-          value: 'true'
-  # ... ArgoCD Image Updater will automatically update images in registry
-```
-
-## Common Tasks
-
-### Check Rollout Status
-
-```bash
-kubectl rollout status deployment/recorder-worker -n sports-tracking
+kubectl get pods -n sports-tracking -l part-of=sportif
+kubectl get pods -n sports-tracking -l app=api
+kubectl get pods -n sports-tracking -l app=recorder-worker
 ```
 
 ### View Logs
-
 ```bash
-# Recorder worker
-kubectl logs -f deployment/recorder-worker -n sports-tracking
+# API logs
+kubectl logs -n sports-tracking -l app=api --all-containers=true -f
 
-# All C06 pods
-kubectl logs -f -l chunk=c06-ingest -n sports-tracking
+# Recorder logs
+kubectl logs -n sports-tracking -l app=recorder-worker -f
+
+# Preview worker logs
+kubectl logs -n sports-tracking -l app=preview-worker -f
 ```
 
-### Verify PVC
-
+### Health Checks
 ```bash
-kubectl get pvc -n sports-tracking
-kubectl describe pvc recorder-segments-pvc -n sports-tracking
+# API health
+curl https://sportif.churchlify.com/health/live
+curl https://sportif.churchlify.com/health/ready
+
+# Recorder health
+curl http://recorder-worker:8000/health/live
 ```
 
-### Port Forward for Local Testing
+## Image Updates
+
+Images are automatically updated by the CI/CD pipeline in the sportif repository:
+
+1. Push to main branch → Images built as `sha-{commit-sha}`
+2. Workflow updates production overlays with new image tags
+3. ArgoCD detects changes and auto-syncs (2-3 minute delay)
+
+### Manual Image Update
 
 ```bash
-# Recorder worker API
-kubectl port-forward -n sports-tracking svc/recorder-worker 8000:8000
-
-# Media ingest RTMP
-kubectl port-forward -n sports-tracking svc/media-ingest 1935:1935
+cd apps/sportif/api/overlays/production
+kustomize edit set image ghcr.io/churchlify/sportif-api=ghcr.io/churchlify/sportif-api:sha-newsha
+git add kustomization.yaml
+git commit -m "update sportif-api image"
+git push
 ```
 
-### Rollback a Chunk
+## Scaling
 
+### Horizontal Pod Autoscaling
+
+**Recorder**: HPA configured (1-4 replicas)
 ```bash
-# Revert the manifest changes in git, then reapply
-git revert <commit-hash>
-kubectl apply -k manifest/c06-ingest
+kubectl get hpa -n sports-tracking
+kubectl describe hpa recorder-worker-hpa -n sports-tracking
 ```
 
-Or via ArgoCD:
-
+**API**: Manual scaling in overlays
 ```bash
-# View sync history
-argocd app history sportif-c06-ingest
+# Staging: 1 replica (in overlays/staging/kustomization.yaml)
+# Production: 2 replicas (in overlays/production/kustomization.yaml)
+```
 
-# Rollback to previous sync
-argocd app rollback sportif-c06-ingest <revision>
+### Vertical Scaling
+
+Adjust resource requests/limits in component base deployments:
+```yaml
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
 ```
 
 ## Troubleshooting
 
-### Manifest Validation
+### Pod CrashLoopBackOff
 
-```bash
-# Validate kustomization
-kubectl kustomize manifest/c06-ingest | kubectl apply --dry-run=client -f -
+1. Check logs: `kubectl logs -n sports-tracking <pod-name>`
+2. Check events: `kubectl describe pod -n sports-tracking <pod-name>`
+3. Verify secrets: `kubectl get secrets -n sports-tracking`
 
-# Or with kustomize directly
-kustomize build manifest/c06-ingest | kubectl apply --dry-run=client -f -
-```
+### PVC Not Binding
 
-### Missing Resources
+1. Check Longhorn status: `kubectl get pvc -n sports-tracking`
+2. Check node storage: `kubectl describe nodes`
 
-If a chunk references a resource that doesn't exist:
+### ArgoCD Sync Failing
 
-```bash
-# Check what resources kustomize will generate
-kubectl kustomize manifest/c06-ingest | grep -E "^kind:|^  name:"
-```
+1. Check kustomize build: `kustomize build apps/sportif/api/overlays/production`
+2. Check for invalid YAML: `kubectl apply -f ... --dry-run=client`
+3. ArgoCD logs: `argocd app logs sportif-api`
 
-### Namespace Issues
+### Network/Ingress Issues
 
-```bash
-# Verify namespace exists
-kubectl get ns sports-tracking
+1. Check ingress: `kubectl get ingress -n sports-tracking`
+2. Check DNS: `nslookup sportif.churchlify.com`
+3. Check cert: `kubectl get certificate -n sports-tracking`
 
-# Check labels
-kubectl get ns sports-tracking -o yaml
-```
+## Isolation from sport-track
 
-## Contributing
+- **No shared deployments**: Only namespace and pre-created secrets
+- **Independent scaling**: Each app scales independently
+- **Separate storage**: Different PVCs
+- **RBAC isolation**: Service accounts are app-specific
+- **Network policies**: Can be added per-app if needed
 
-When implementing a new chunk:
+## Related Documentation
 
-1. Create `manifest/<chunk-id>/kustomization.yaml` with:
-   - Base reference
-   - Chunk-specific resources
-   - Appropriate labels and annotations
-   - Image tags and replica counts
-
-2. Add chunk-specific manifests (deployments, configmaps, rbac)
-
-3. Update root `kustomization.yaml` with commented base reference
-
-4. Test locally:
-   ```bash
-   kubectl apply -k manifest/<chunk-id>
-   ```
-
-5. Verify in staging via ArgoCD
-
-6. Update `IMPLEMENTATION_CHECKLIST.md` with deployment evidence
-
-## References
-
-- [Kustomize Documentation](https://kustomize.io/)
-- [ArgoCD Documentation](https://argo-cd.readthedocs.io/)
-- [Kubernetes Manifests](./manifest/)
-- [C06 Deployment Guide](../docs/C06-DEPLOYMENT.md)
+- [GITOPS_SETUP.md](../../../sportif/GITOPS_SETUP.md) - CI/CD pipeline documentation
+- [sport-track](../sport-track) - Related sports platform
+- [app-ops](../..) - Platform operations repository

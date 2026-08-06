@@ -6,7 +6,6 @@ metadata:
   labels:
     app: media-ingest
     component: ingest
-    chunk: c06-ingest
 data:
   srs.conf: |
     listen              1935;

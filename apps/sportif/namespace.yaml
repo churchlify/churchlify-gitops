@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: sports-tracking
-  labels:
-    name: sports-tracking
-    app.kubernetes.io/part-of: sportif

@@ -4,7 +4,6 @@ kind: Kustomization
 namespace: sports-tracking
 
 resources:
-  - ../../../shared/namespace.yaml
   - deployment-preview-streamer.yaml
   - deployment-preview-worker.yaml
   - configmap-srs.yaml

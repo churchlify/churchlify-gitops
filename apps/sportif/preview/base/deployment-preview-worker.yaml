@@ -24,7 +24,6 @@ metadata:
   labels:
     app: preview-worker
     component: preview
-    chunk: c07-preview
 spec:
   replicas: 1
   strategy:

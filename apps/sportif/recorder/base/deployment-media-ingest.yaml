@@ -6,7 +6,6 @@ metadata:
   labels:
     app: media-ingest
     component: ingest
-    chunk: c06-ingest
 spec:
   replicas: 1
   strategy:

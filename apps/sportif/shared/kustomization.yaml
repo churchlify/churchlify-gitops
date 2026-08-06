@@ -5,8 +5,9 @@ metadata:
   name: sportif-shared
   namespace: sports-tracking
 
-resources:
-  - namespace.yaml
+# Note: Namespace is shared with sport-track and already created separately
+# Do not include namespace.yaml in resources to avoid conflicts
+resources: []
 
 commonLabels:
   app.kubernetes.io/part-of: sportif

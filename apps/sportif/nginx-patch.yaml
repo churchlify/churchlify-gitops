@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: tcp-services
-  namespace: ingress-nginx # Assumes your ingress controller lives here
-data:
-  # Format: <External-Port>: "<Namespace>/<Service-Name>:<Service-Port>"
-  "1935": "sports-tracking/sportif-media-ingest-service:1935"

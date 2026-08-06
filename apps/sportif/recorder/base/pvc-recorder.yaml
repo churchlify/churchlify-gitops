@@ -5,7 +5,6 @@ metadata:
   namespace: sports-tracking
   labels:
     app: recorder-worker
-    chunk: c06-ingest
 spec:
   accessModes:
     - ReadWriteOnce

@@ -9,7 +9,9 @@ metadata:
 data:
   NODE_ENV: "production"
   LOG_LEVEL: "info"
+  DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/sportif"
   REDIS_URL: "redis://redis:6379"
+  JWT_SECRET: "change-me-in-production"
   JWT_EXPIRY: "900"
   REFRESH_TOKEN_EXPIRY: "604800"
 
@@ -65,8 +67,8 @@ spec:
                   key: LOG_LEVEL
             - name: DATABASE_URL
               valueFrom:
-                secretKeyRef:
-                  name: sportif-secrets
+                configMapKeyRef:
+                  name: api-config
                   key: DATABASE_URL
             - name: REDIS_URL
               valueFrom:
@@ -76,7 +78,7 @@ spec:
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: sportif-secrets
+                  name: api-secrets
                   key: JWT_SECRET
             - name: JWT_EXPIRY
               valueFrom:
