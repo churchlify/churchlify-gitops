@@ -9,7 +9,8 @@ resources:
 # Note: SRS and MediaMTX are managed by sport-track application
 # Sportif's preview-worker consumes streams from sport-track's media stack
 
-commonLabels:
-  app: preview-worker
-  component: preview
-  part-of: sportif
+labels:
+  - pairs:
+      app: preview-worker
+      component: preview
+      part-of: sportif

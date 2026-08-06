@@ -9,7 +9,7 @@ metadata:
 # Components are managed as sub-charts with their own bases/overlays
 # Resources sharing within Sportif app; no conflicts with sport-track
 
-bases:
+resources:
   - api/overlays/production
   - recorder/overlays/production
   - preview/overlays/production
@@ -19,10 +19,11 @@ bases:
   - notification/overlays/production
   - uploader/overlays/production
 
-commonLabels:
-  app: sportif
-  part-of: sportif
-  app.kubernetes.io/managed-by: argocd
+labels:
+  - pairs:
+      app: sportif
+      part-of: sportif
+      app.kubernetes.io/managed-by: argocd
 
 commonAnnotations:
   argocd.argoproj.io/compare-result: 'true'

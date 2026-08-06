@@ -4,9 +4,10 @@ kind: Kustomization
 namespace: sports-tracking
 
 resources:
-  - deployment-tracking.yaml
+  - deployment.yaml
 
-commonLabels:
-  app: tracking-worker
-  component: tracking
-  part-of: sportif
+labels:
+  - pairs:
+      app: tracking-worker
+      component: worker
+      part-of: sportif

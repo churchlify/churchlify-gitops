@@ -1,22 +1,11 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-bases:
+resources:
   - ../../base
 
 namespace: sports-tracking-staging
 
-images:
-  - name: ghcr.io/agogos-llc/sportif-stitch-worker
-    newTag: latest
-  - name: ghcr.io/agogos-llc/sportif-reel-worker
-    newTag: latest
-
-replicas:
-  - name: stitch-worker
-    count: 1
-  - name: reel-worker
-    count: 1
-
-commonLabels:
-  environment: staging
+labels:
+  - pairs:
+      environment: staging

@@ -1,18 +1,15 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: sports-tracking
-
-bases:
+resources:
   - ../../base
 
-replicas:
-  - name: uploader-worker
-    count: 1
+namespace: sports-tracking
 
 images:
-  - name: ghcr.io/agogos-llc/sportif-uploader-worker
+  - name: ghcr.io/churchlify/sportif-uploader-worker
     newTag: latest
 
-commonLabels:
-  environment: production
+labels:
+  - pairs:
+      environment: production

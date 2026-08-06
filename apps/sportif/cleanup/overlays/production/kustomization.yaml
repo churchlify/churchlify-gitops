@@ -1,18 +1,15 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: sports-tracking
-
-bases:
+resources:
   - ../../base
 
-replicas:
-  - name: cleanup-worker
-    count: 1
+namespace: sports-tracking
 
 images:
-  - name: ghcr.io/agogos-llc/sportif-cleanup-worker
+  - name: ghcr.io/churchlify/sportif-cleanup-worker
     newTag: latest
 
-commonLabels:
-  environment: production
+labels:
+  - pairs:
+      environment: production

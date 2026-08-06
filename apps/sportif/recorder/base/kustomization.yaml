@@ -12,7 +12,8 @@ resources:
 # Note: SRS and MediaMTX are managed by sport-track application
 # Sportif's recorder consumes from sport-track's media stack
 
-commonLabels:
-  app: recorder-worker
-  component: media-ingest
-  part-of: sportif
+labels:
+  - pairs:
+      app: recorder-worker
+      component: media-ingest
+      part-of: sportif

@@ -6,7 +6,8 @@ namespace: sports-tracking
 resources:
   - deployment.yaml
 
-commonLabels:
-  app: uploader-worker
-  component: worker
-  part-of: sportif
+labels:
+  - pairs:
+      app: uploader-worker
+      component: worker
+      part-of: sportif

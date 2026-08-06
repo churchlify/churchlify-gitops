@@ -9,6 +9,7 @@ metadata:
 # Do not include namespace.yaml in resources to avoid conflicts
 resources: []
 
-commonLabels:
-  app.kubernetes.io/part-of: sportif
-  app.kubernetes.io/managed-by: argocd
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: sportif
+      app.kubernetes.io/managed-by: argocd
