@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uploader-worker
+  namespace: sports-tracking
+  labels:
+    app: uploader-worker
+    component: worker
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: uploader-worker
+  template:
+    metadata:
+      labels:
+        app: uploader-worker
+        component: worker
+    spec:
+      serviceAccountName: uploader-worker
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: uploader-worker
+          image: ghcr.io/churchlify/sportif-uploader-worker:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - test -f /tmp/alive
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - test -f /tmp/ready
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: uploader-worker
+  namespace: sports-tracking
+  labels:
+    app: uploader-worker
+    component: worker
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: uploader-worker
+  namespace: sports-tracking
+  labels:
+    app: uploader-worker
+    component: worker
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: uploader-worker
+  namespace: sports-tracking
+  labels:
+    app: uploader-worker
+    component: worker
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: uploader-worker
+subjects:
+  - kind: ServiceAccount
+    name: uploader-worker
+    namespace: sports-tracking
