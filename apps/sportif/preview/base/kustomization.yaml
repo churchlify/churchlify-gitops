@@ -4,10 +4,10 @@ kind: Kustomization
 namespace: sports-tracking
 
 resources:
-  - deployment-preview-streamer.yaml
   - deployment-preview-worker.yaml
-  - configmap-srs.yaml
-  - configmap-mediamtx.yaml
+
+# Note: SRS and MediaMTX are managed by sport-track application
+# Sportif's preview-worker consumes streams from sport-track's media stack
 
 commonLabels:
   app: preview-worker

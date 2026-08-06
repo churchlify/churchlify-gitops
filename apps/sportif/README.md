@@ -25,13 +25,19 @@ apps/sportif/
 - **Database**: PostgreSQL (shared infrastructure)
 - **Redis**: Cache layer (shared infrastructure)
 
-### Per-Component Deployment
+### Single Application Deployment
 
-Each component is deployed independently via ArgoCD:
+All components are managed by a single consolidated Sportif ArgoCD Application:
 
 ```bash
-kubectl apply -f /Volumes/Jasper/WebstormProjects/private/app_ops/platform/argocd/sportif/
+kubectl apply -f /Volumes/Jasper/WebstormProjects/private/app_ops/platform/argocd/sportif.yaml
 ```
+
+This ensures:
+- ✅ No resource conflicts with sport-track or other apps
+- ✅ Components can share resources within Sportif namespace
+- ✅ Single sync point for all 8 components
+- ✅ Simplified rollbacks and dependency management
 
 ## Components Overview
 
@@ -139,25 +145,21 @@ kubectl create secret generic api-secrets \
 3. Longhorn storage provisioned
 4. ArgoCD installed and configured
 
-### Deploy All Components
+### Deploy Sportif
 
 ```bash
 # From app-ops repository
-kubectl apply -f platform/argocd/sportif/
+kubectl apply -f platform/argocd/sportif.yaml
 
 # Verify deployment
 kubectl get applications -n argocd | grep sportif
+
+# Check Sportif application status
+argocd app get sportif
+argocd app wait sportif
 ```
 
-### Deploy Single Component
-
-```bash
-# Example: Deploy only API
-kubectl apply -f platform/argocd/sportif/api.yaml
-
-# Check status
-argocd app get sportif-api
-```
+All 8 components (api, recorder, preview, tracking, processing, cleanup, notification, uploader) are deployed together as a single application.
 
 ## Monitoring
 
@@ -270,11 +272,24 @@ resources:
 
 ## Isolation from sport-track
 
-- **No shared deployments**: Only namespace and pre-created secrets
-- **Independent scaling**: Each app scales independently
-- **Separate storage**: Different PVCs
-- **RBAC isolation**: Service accounts are app-specific
-- **Network policies**: Can be added per-app if needed
+- **Consolidated Application**: Single Sportif app manages all 8 components
+- **No resource conflicts**: Removed duplicate mediamtx, srs, preview-streamer configs
+- **Shared media stack**: Sportif components consume streams from sport-track's media infrastructure (SRS, MediaMTX)
+- **Independent scaling**: Sportif scales independently
+- **Separate storage**: Different PVCs (recorder-segments, processing-work)
+- **RBAC isolation**: Service accounts are Sportif-specific
+- **Namespace sharing**: sports-tracking namespace shared with sport-track (pre-created secrets only)
+- **Network policies**: Can be added if stricter isolation needed
+
+### Media Stack Dependency
+
+Sportif's recorder and preview components consume media from sport-track's infrastructure:
+- **SRS (RTMP Server)**: Managed by sport-track-web
+- **MediaMTX (Streaming)**: Managed by sport-track-web
+- **Sportif recorder**: Pulls RTMP streams from SRS
+- **Sportif preview**: Pulls streams via RTSP/DASH from MediaMTX
+
+This design avoids duplication and allows Sportif and sport-track to coexist peacefully.
 
 ## Related Documentation
 

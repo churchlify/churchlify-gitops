@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: sportif
+  namespace: sports-tracking
+
+# All Sportif components in a single application
+# Components are managed as sub-charts with their own bases/overlays
+# Resources sharing within Sportif app; no conflicts with sport-track
+
+bases:
+  - api/overlays/production
+  - recorder/overlays/production
+  - preview/overlays/production
+  - tracking/overlays/production
+  - processing/overlays/production
+  - cleanup/overlays/production
+  - notification/overlays/production
+  - uploader/overlays/production
+
+commonLabels:
+  app: sportif
+  part-of: sportif
+  app.kubernetes.io/managed-by: argocd
+
+commonAnnotations:
+  argocd.argoproj.io/compare-result: 'true'

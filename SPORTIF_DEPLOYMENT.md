@@ -38,45 +38,41 @@ kubectl get pvc -n sports-tracking
 
 ## Step 3: Deploy via ArgoCD
 
-### Option A: Deploy All Components at Once
+### Deploy Sportif (Single Consolidated Application)
 
 ```bash
 cd app-ops
 
-# Apply all Sportif ArgoCD applications
-kubectl apply -f platform/argocd/sportif/
+# Deploy Sportif - single application managing all 8 components
+kubectl apply -f platform/argocd/sportif.yaml
 
-# Verify applications created
+# Verify application created
 kubectl get applications -n argocd | grep sportif
+argocd app get sportif
 ```
 
-### Option B: Deploy Components Individually
-
-```bash
-# Deploy API only
-kubectl apply -f platform/argocd/sportif/api.yaml
-argocd app wait sportif-api
-
-# Deploy Recorder
-kubectl apply -f platform/argocd/sportif/recorder.yaml
-argocd app wait sportif-recorder
-
-# Deploy other components
-kubectl apply -f platform/argocd/sportif/{preview,tracking,processing,cleanup,notification,uploader}.yaml
-```
+All components (api, recorder, preview, tracking, processing, cleanup, notification, uploader) are deployed together as a single unified Sportif application. This ensures:
+- No resource conflicts with other apps (sport-track, etc.)
+- Components can share resources within the Sportif namespace
+- Single sync point for the entire platform
+- Simplified rollbacks and dependency management
 
 ## Step 4: Monitor Deployment Progress
 
 ### Watch ArgoCD Sync
 
 ```bash
-# Terminal 1: Watch all applications
+# Watch Sportif application
 watch 'kubectl get applications -n argocd | grep sportif'
 
-# Terminal 2: Check application details
-argocd app get sportif-api
-argocd app get sportif-recorder
-# ... etc for all apps
+# Check Sportif application details
+argocd app get sportif
+
+# Watch sync progress
+argocd app wait sportif
+
+# View detailed sync status
+argocd app get sportif --show-operation
 ```
 
 ### Monitor Pod Deployment
@@ -236,20 +232,23 @@ kubectl get certificate -n sports-tracking
 ### Application Won't Sync
 
 ```bash
-# Check ArgoCD application details
-argocd app get sportif-api
+# Check Sportif application details
+argocd app get sportif
 
 # Check sync status
-argocd app get sportif-api --show-operation
+argocd app get sportif --show-operation
 
 # View ArgoCD logs
-argocd app logs sportif-api
+argocd app logs sportif
 
 # Manually trigger sync
-argocd app sync sportif-api
+argocd app sync sportif
 
-# Force sync if needed
-argocd app sync sportif-api --force
+# Force sync if needed (use with caution)
+argocd app sync sportif --force
+
+# Check for resource conflicts
+kubectl get events -n sports-tracking --sort-by='.lastTimestamp' | tail -20
 ```
 
 ### Pod CrashLoopBackOff
@@ -399,16 +398,14 @@ kubectl logs -n sports-tracking -l app=tracking-worker -f
 ### Rollback via ArgoCD
 
 ```bash
-# View revision history
-argocd app history sportif-api
+# View revision history for Sportif
+argocd app history sportif
 
-# Rollback to previous revision
-argocd app rollback sportif-api 1  # revision number
+# Rollback to previous revision (all components together)
+argocd app rollback sportif 1  # revision number
 
-# Rollback all applications
-for app in sportif-{api,recorder,preview,tracking,processing,cleanup,notification,uploader}; do
-  argocd app rollback $app 1
-done
+# View all revisions
+argocd app history sportif --max-items=10
 ```
 
 ### Rollback via kubectl
@@ -426,21 +423,14 @@ kubectl rollout undo deployment api -n sports-tracking --to-revision=2
 
 ## Cleanup
 
-### Delete Specific Component
+### Delete Sportif Application
 
 ```bash
-# Delete API application (keeps resources)
-kubectl delete application sportif-api -n argocd
+# Delete Sportif application (keeps resources)
+kubectl delete application sportif -n argocd
 
-# Delete with cleanup (removes all resources)
-kubectl delete application sportif-api -n argocd --cascade=foreground
-```
-
-### Delete All Sportif Resources
-
-```bash
-# Remove all ArgoCD applications
-kubectl delete -f platform/argocd/sportif/
+# Delete with cleanup (removes all Sportif resources)
+kubectl delete application sportif -n argocd --cascade=foreground
 
 # Verify pods are terminating
 watch 'kubectl get pods -n sports-tracking -l part-of=sportif'
@@ -448,6 +438,8 @@ watch 'kubectl get pods -n sports-tracking -l part-of=sportif'
 # Remove any stuck pods
 kubectl delete pod <pod-name> -n sports-tracking --grace-period=30 --force
 ```
+
+Note: The shared `sports-tracking` namespace will remain (used by sport-track). Only Sportif resources are removed.
 
 ## Isolation from sport-track
 

@@ -6,10 +6,11 @@ namespace: sports-tracking
 resources:
   - deployment-recorder.yaml
   - deployment-media-ingest.yaml
-  - configmap-srs.yaml
-  - configmap-mediamtx.yaml
   - pvc-recorder.yaml
   - rbac-recorder.yaml
+
+# Note: SRS and MediaMTX are managed by sport-track application
+# Sportif's recorder consumes from sport-track's media stack
 
 commonLabels:
   app: recorder-worker

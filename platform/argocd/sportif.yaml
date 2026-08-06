@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: sportif-processing
+  name: sportif
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
@@ -10,9 +10,9 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/churchlify/churchlify-gitops
+    repoURL: https://github.com/churchlify/app-ops
     targetRevision: main
-    path: apps/sportif/processing/overlays/production
+    path: apps/sportif
 
   destination:
     server: https://kubernetes.default.svc
@@ -23,7 +23,7 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=false
+      - CreateNamespace=false  # Namespace is shared with sport-track
     retry:
       limit: 5
       backoff:
