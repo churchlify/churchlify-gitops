@@ -10,7 +10,7 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/churchlify/app-ops
+    repoURL: https://github.com/churchlify/churchlify-gitops
     targetRevision: main
     path: apps/sportif/tracking/overlays/production
 
