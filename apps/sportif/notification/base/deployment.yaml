@@ -26,7 +26,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: notification-worker
-          image: ghcr.io/churchlify/sportif-notification-worker:latest
+          image: ghcr.io/agogos-llc/sportif-notification-worker:latest
           imagePullPolicy: IfNotPresent
           resources:
             requests:

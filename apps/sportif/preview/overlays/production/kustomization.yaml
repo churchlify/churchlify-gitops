@@ -7,7 +7,7 @@ bases:
 namespace: sports-tracking
 
 images:
-  - name: ghcr.io/churchlify/sportif-preview-worker
+  - name: ghcr.io/agogos-llc/sportif-preview-worker
     newTag: latest
 
 replicas:

@@ -11,7 +11,7 @@ replicas:
     count: 1
 
 images:
-  - name: ghcr.io/churchlify/sportif-notification-worker
+  - name: ghcr.io/agogos-llc/sportif-notification-worker
     newTag: latest
 
 commonLabels:

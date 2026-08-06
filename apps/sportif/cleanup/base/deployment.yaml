@@ -26,7 +26,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: cleanup-worker
-          image: ghcr.io/churchlify/sportif-cleanup-worker:latest
+          image: ghcr.io/agogos-llc/sportif-cleanup-worker:latest
           imagePullPolicy: IfNotPresent
           resources:
             requests:

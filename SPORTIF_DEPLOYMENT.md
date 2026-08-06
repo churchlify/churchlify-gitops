@@ -319,6 +319,7 @@ curl http://sportif.churchlify.com
 ### Automatic Updates (via CI/CD)
 
 Images are automatically updated when:
+
 1. Code is pushed to main branch in sportif repo
 2. Build workflow builds new images: `sha-{commit-sha}`
 3. Workflow updates kustomization.yaml in app-ops
@@ -329,7 +330,7 @@ Images are automatically updated when:
 ```bash
 # Update API image to specific tag
 cd apps/sportif/api/overlays/production
-kustomize edit set image ghcr.io/churchlify/sportif-api=ghcr.io/churchlify/sportif-api:sha-abc1234d
+kustomize edit set image ghcr.io/agogos-llc/sportif-api=ghcr.io/agogos-llc/sportif-api:sha-abc1234d
 
 # Commit and push
 git add kustomization.yaml
@@ -451,11 +452,13 @@ kubectl delete pod <pod-name> -n sports-tracking --grace-period=30 --force
 ## Isolation from sport-track
 
 Sportif and sport-track share only:
+
 - **Namespace**: `sports-tracking`
 - **Pre-created secrets**: `api-secrets`
 - **Infrastructure**: PostgreSQL, Redis (if shared)
 
 **Not shared**:
+
 - Deployments (independent pods)
 - Storage (separate PVCs)
 - ConfigMaps
@@ -463,6 +466,7 @@ Sportif and sport-track share only:
 - Network policies (can be applied per-app)
 
 To enforce stricter isolation:
+
 ```bash
 # Create NetworkPolicy to restrict traffic
 kubectl apply -f - <<EOF
@@ -498,6 +502,7 @@ EOF
 ## Support
 
 For issues or questions:
+
 - Check [apps/sportif/README.md](apps/sportif/README.md)
 - Check [sportif GITOPS_SETUP.md](../sportif/GITOPS_SETUP.md)
 - Review ArgoCD application status: `argocd app get sportif-<component>`

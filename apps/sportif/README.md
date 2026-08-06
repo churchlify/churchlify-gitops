@@ -19,12 +19,14 @@ apps/sportif/
 ## Deployment Architecture
 
 ### Shared Resources
+
 - **Namespace**: `sports-tracking` (shared with `sport-track`)
 - **Secrets**: `api-secrets` (pre-created, shared)
 - **Database**: PostgreSQL (shared infrastructure)
 - **Redis**: Cache layer (shared infrastructure)
 
 ### Per-Component Deployment
+
 Each component is deployed independently via ArgoCD:
 
 ```bash
@@ -34,6 +36,7 @@ kubectl apply -f /Volumes/Jasper/WebstormProjects/private/app_ops/platform/argoc
 ## Components Overview
 
 ### API (`api/`)
+
 - **Port**: 3000
 - **Domain**: sportif.churchlify.com (TLS via cert-manager)
 - **Replicas**: 2 (production), 1 (staging)
@@ -43,6 +46,7 @@ kubectl apply -f /Volumes/Jasper/WebstormProjects/private/app_ops/platform/argoc
 - **RBAC**: ServiceAccount with ConfigMap/Pod read access
 
 ### Recorder (`recorder/`)
+
 - **Port**: 8000
 - **Replicas**: 1 (with HPA: 1-4)
 - **Storage**: 500Gi Longhorn PVC for segments
@@ -54,6 +58,7 @@ kubectl apply -f /Volumes/Jasper/WebstormProjects/private/app_ops/platform/argoc
 - **Metrics**: Prometheus at /metrics
 
 ### Preview (`preview/`)
+
 - **Type**: FastAPI worker
 - **Function**: Live two-camera stitching
 - **Resources**: 1-4 cores CPU, 1-4Gi memory
@@ -61,28 +66,33 @@ kubectl apply -f /Volumes/Jasper/WebstormProjects/private/app_ops/platform/argoc
 - **Config**: API_BASE_URL, MEDIAMTX_OUTPUT_BASE
 
 ### Tracking (`tracking/`)
+
 - **Type**: ML-based computer vision
 - **GPU Support**: Preferred but not required (nodeAffinity)
 - **Resources**: 1-4 cores CPU, 2-8Gi memory
 - **Note**: GPU resource requests commented out; uncomment if nodes available
 
 ### Processing (`processing/`)
+
 - **Components**: Stitch worker + Reel generator
 - **Storage**: 100Gi Longhorn PVC for temporary files
 - **Function**: Video processing (concatenation, encoding)
 - **Resources**: 1-4 cores CPU, 1-4Gi memory
 
 ### Cleanup (`cleanup/`)
+
 - **Function**: Remove completed job resources
 - **RBAC**: Pod delete, PVC read permissions
 - **Resources**: 100m-500m CPU, 128Mi-512Mi memory
 
 ### Notification (`notification/`)
+
 - **Function**: Event webhooks and notifications
 - **Resources**: 100m-500m CPU, 128Mi-512Mi memory
 - **Config**: ConfigMap read access
 
 ### Uploader (`uploader/`)
+
 - **Function**: Cloud storage (S3, Azure, etc.)
 - **Storage**: PVC read access
 - **Resources**: 250m-1000m CPU, 256Mi-1Gi memory
@@ -108,12 +118,14 @@ kubectl create secret generic api-secrets \
 ## Configuration
 
 ### ConfigMaps
+
 - `api-config`: Non-sensitive API configuration
 - `recorder-config`: Recorder segment settings
 - `configmap-srs.yaml`: SRS server configuration
 - `configmap-mediamtx.yaml`: MediaMTX streaming settings
 
 ### Network
+
 - **Ingress**: API at sportif.churchlify.com
 - **Services**: ClusterIP for internal communication
 - **Rate Limiting**: 100 requests/minute on API ingress
@@ -121,6 +133,7 @@ kubectl create secret generic api-secrets \
 ## Deployment
 
 ### Prerequisites
+
 1. Namespace `sports-tracking` already created (shared with sport-track)
 2. Secrets (`api-secrets`) created
 3. Longhorn storage provisioned
@@ -149,6 +162,7 @@ argocd app get sportif-api
 ## Monitoring
 
 ### Check Pod Status
+
 ```bash
 kubectl get pods -n sports-tracking -l part-of=sportif
 kubectl get pods -n sports-tracking -l app=api
@@ -156,6 +170,7 @@ kubectl get pods -n sports-tracking -l app=recorder-worker
 ```
 
 ### View Logs
+
 ```bash
 # API logs
 kubectl logs -n sports-tracking -l app=api --all-containers=true -f
@@ -168,6 +183,7 @@ kubectl logs -n sports-tracking -l app=preview-worker -f
 ```
 
 ### Health Checks
+
 ```bash
 # API health
 curl https://sportif.churchlify.com/health/live
@@ -189,7 +205,7 @@ Images are automatically updated by the CI/CD pipeline in the sportif repository
 
 ```bash
 cd apps/sportif/api/overlays/production
-kustomize edit set image ghcr.io/churchlify/sportif-api=ghcr.io/churchlify/sportif-api:sha-newsha
+kustomize edit set image ghcr.io/agogos-llc/sportif-api=ghcr.io/agogos-llc/sportif-api:sha-newsha
 git add kustomization.yaml
 git commit -m "update sportif-api image"
 git push
@@ -200,12 +216,14 @@ git push
 ### Horizontal Pod Autoscaling
 
 **Recorder**: HPA configured (1-4 replicas)
+
 ```bash
 kubectl get hpa -n sports-tracking
 kubectl describe hpa recorder-worker-hpa -n sports-tracking
 ```
 
 **API**: Manual scaling in overlays
+
 ```bash
 # Staging: 1 replica (in overlays/staging/kustomization.yaml)
 # Production: 2 replicas (in overlays/production/kustomization.yaml)
@@ -214,6 +232,7 @@ kubectl describe hpa recorder-worker-hpa -n sports-tracking
 ### Vertical Scaling
 
 Adjust resource requests/limits in component base deployments:
+
 ```yaml
 resources:
   requests:

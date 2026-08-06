@@ -48,7 +48,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: preview
-          image: ghcr.io/churchlify/sportif-preview-worker:latest
+          image: ghcr.io/agogos-llc/sportif-preview-worker:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -92,7 +92,7 @@ spec:
                   key: LOG_LEVEL
           resources:
             requests:
-              cpu: 1000m        # FFmpeg is CPU-intensive
+              cpu: 1000m # FFmpeg is CPU-intensive
               memory: 1Gi
             limits:
               cpu: 4000m

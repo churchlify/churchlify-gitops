@@ -48,7 +48,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: api
-          image: ghcr.io/churchlify/sportif-api:latest
+          image: ghcr.io/agogos-llc/sportif-api:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
