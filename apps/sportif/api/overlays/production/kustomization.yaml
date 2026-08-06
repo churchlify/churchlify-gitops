@@ -7,7 +7,7 @@ namespace: sports-tracking
 images:
 - name: ghcr.io/agogos-llc/sportif-api
   newName: ghcr.io/agogos-llc/sportif-api
-  newTag: sha-3540612
+  newTag: sha-1406014
 - name: ghcr.io/churchlify/sportif-api
   newTag: latest
 
