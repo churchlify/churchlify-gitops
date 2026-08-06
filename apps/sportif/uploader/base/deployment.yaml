@@ -40,7 +40,7 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - test -f /tmp/alive
+                - kill -0 1
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
@@ -50,7 +50,7 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - test -f /tmp/ready
+                - kill -0 1
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 3
