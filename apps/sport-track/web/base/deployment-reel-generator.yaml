@@ -44,8 +44,8 @@ spec:
             - name: IMMICH_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: sport-secrets
-                  key: immich-api-key
+                  name: sportif-secrets
+                  key: IMMICH_API_KEY
 
           # Healthchecks to prevent NGINX 502 Bad Gateway during startup
           readinessProbe:
