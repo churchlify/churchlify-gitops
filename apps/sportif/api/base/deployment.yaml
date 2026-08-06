@@ -77,7 +77,7 @@ spec:
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: api-secrets
+                  name: sportif-secrets
                   key: JWT_SECRET
             - name: JWT_EXPIRY
               valueFrom:

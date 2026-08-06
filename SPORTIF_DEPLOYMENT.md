@@ -6,7 +6,7 @@ Complete guide for deploying Sportif to the sports-tracking namespace in app-ops
 
 - [ ] sports-tracking namespace exists (shared with sport-track)
 - [ ] External Secrets Operator can access `platform-secrets`
-- [ ] Remote `sportif-secrets` contains `JWT_SECRET` and `IMMICH_API_KEY`
+- [ ] Remote `global-db-secrets` contains `JWT_SECRET` and `IMMICH_API_KEY`
 - [ ] Longhorn storage provisioned
 - [ ] ArgoCD installed and configured
 - [ ] cert-manager installed for TLS
@@ -15,12 +15,12 @@ Complete guide for deploying Sportif to the sports-tracking namespace in app-ops
 ## Step 1: Create Required Secrets
 
 ```bash
-# Sportif creates api-secrets and sportif-secrets through External Secrets.
+# Sportif creates sportif-secrets through External Secrets.
 # Verify the generated secrets after Argo CD sync:
-kubectl get secret api-secrets sportif-secrets -n sports-tracking
+kubectl get secret sportif-secrets -n sports-tracking
 
 # Verify
-kubectl get secrets -n sports-tracking | grep api-secrets
+kubectl get secrets -n sports-tracking | grep sportif-secrets
 ```
 
 ## Step 2: Verify Shared Resources
@@ -448,7 +448,7 @@ Note: The shared `sports-tracking` namespace will remain (used by sport-track). 
 Sportif and sport-track share:
 
 - **Namespace**: `sports-tracking`
-- **Secrets**: `api-secrets` and `sportif-secrets`, owned/synced by Sportif
+- **Secret**: `sportif-secrets`, owned/synced by Sportif
 - **Infrastructure**: PostgreSQL, Redis (if shared)
 - **Media services**: `media-ingest-service`, `preview-streamer-service`
 - **Storage**: `sports-media-pvc-rwx`, owned by Sportif

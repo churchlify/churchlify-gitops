@@ -21,7 +21,7 @@ apps/sportif/
 ### Shared Resources
 
 - **Namespace**: `sports-tracking` (shared with `sport-track`)
-- **Secrets**: `api-secrets` and `sportif-secrets` (synced by Sportif ExternalSecrets)
+- **Secret**: `sportif-secrets` (synced by Sportif ExternalSecret)
 - **Database**: PostgreSQL (shared infrastructure)
 - **Redis**: Cache layer (shared infrastructure)
 - **Media stack**: SRS, MediaMTX, media services, and `sports-media-pvc-rwx` are owned by Sportif
@@ -50,7 +50,7 @@ This ensures:
 - **Replicas**: 2 (production), 1 (staging)
 - **Resources**: 250m-1000m CPU, 256Mi-1Gi memory
 - **Configuration**: ConfigMap for non-sensitive values
-- **Secrets**: JWT_SECRET (from api-secrets)
+- **Secrets**: JWT_SECRET and IMMICH_API_KEY (from sportif-secrets)
 - **RBAC**: ServiceAccount with ConfigMap/Pod read access
 
 ### Recorder (`recorder/`)
@@ -112,7 +112,7 @@ This ensures:
 These secrets are created by the Sportif ExternalSecret resources before workloads start:
 
 ```bash
-kubectl get secret api-secrets sportif-secrets -n sports-tracking
+kubectl get secret sportif-secrets -n sports-tracking
 ```
 
 ### Optional Secrets (per component)
@@ -141,7 +141,7 @@ kubectl get secret api-secrets sportif-secrets -n sports-tracking
 ### Prerequisites
 
 1. Namespace `sports-tracking` already created (shared with sport-track)
-2. External Secrets Operator can create `api-secrets` and `sportif-secrets`
+2. External Secrets Operator can create `sportif-secrets`
 3. Longhorn storage provisioned
 4. ArgoCD installed and configured
 
