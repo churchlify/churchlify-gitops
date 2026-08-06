@@ -11,7 +11,7 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/agogos-llc/sportif.git # Update to your repo
+    repoURL: https://github.com/churchlify/churchlify-gitops.git # Update to your repo
     targetRevision: main
     path: manifest # Root kustomization that includes enabled chunks
 
