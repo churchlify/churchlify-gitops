@@ -34,8 +34,9 @@ unset JWT_SECRET IMMICH_API_KEY
 ```
 
 This merge command preserves the existing PostgreSQL keys in
-`global-db-secrets`; it does not replace the Secret with only the two new
-values.
+`global-db-secrets`; it does not replace the Secret with only the new values.
+The ExternalSecret copies these values into the generated
+`sports-tracking/sportif-secrets` Secret.
 
 ```bash
 # Sportif creates sportif-secrets through External Secrets.
