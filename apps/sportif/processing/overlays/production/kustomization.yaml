@@ -7,9 +7,9 @@ resources:
 namespace: sports-tracking
 
 images:
-  - name: ghcr.io/churchlify/sportif-stitch-worker
+  - name: ghcr.io/agogos-llc/sportif-stitch-worker
     newTag: latest
-  - name: ghcr.io/churchlify/sportif-reel-worker
+  - name: ghcr.io/agogos-llc/sportif-reel-worker
     newTag: latest
 
 labels:

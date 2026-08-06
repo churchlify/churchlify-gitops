@@ -52,6 +52,7 @@ argocd app get sportif
 ```
 
 All components (api, recorder, preview, tracking, processing, cleanup, notification, uploader) are deployed together as a single unified Sportif application. This ensures:
+
 - No resource conflicts with other apps (sport-track, etc.)
 - Components can share resources within the Sportif namespace
 - Single sync point for the entire platform
@@ -275,7 +276,7 @@ kubectl get secrets -n sports-tracking | grep docker
 # Verify images exist in registry
 # Check if ghcr.io images are accessible
 curl -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
-  https://ghcr.io/v2/churchlify/sportif-api/manifests/latest
+  https://ghcr.io/v2/agogos-llc/sportif-api/manifests/latest
 ```
 
 ### PVC Not Binding
