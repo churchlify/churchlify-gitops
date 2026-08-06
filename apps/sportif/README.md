@@ -115,6 +115,15 @@ These secrets are created by the Sportif ExternalSecret resources before workloa
 kubectl get secret sportif-secrets -n sports-tracking
 ```
 
+The `platform-secrets` ClusterSecretStore reads `global-db-secrets` from the
+`platform` namespace. Add `JWT_SECRET` and `IMMICH_API_KEY` to that source
+Secret using your approved secret-management process; do not commit either
+value to Git.
+
+The `platform-secrets` ClusterSecretStore must expose `JWT_SECRET` and
+`IMMICH_API_KEY` in the `global-db-secrets` remote object, along with the
+PostgreSQL properties used to build `DATABASE_URL`.
+
 ### Optional Secrets (per component)
 
 - `recorder-credentials`: RTMP auth

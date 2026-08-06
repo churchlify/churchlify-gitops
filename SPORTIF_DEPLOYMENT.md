@@ -14,6 +14,29 @@ Complete guide for deploying Sportif to the sports-tracking namespace in app-ops
 
 ## Step 1: Create Required Secrets
 
+The `platform-secrets` ClusterSecretStore reads the Kubernetes Secret
+`global-db-secrets` from the `platform` namespace. Add the two Sportif
+credentials to that source Secret out-of-band; do not commit their values to
+this repository:
+
+```bash
+# Set these in your shell or enter them through your approved secret process.
+read -rsp 'Sportif JWT secret: ' JWT_SECRET; echo
+read -rsp 'Immich API key: ' IMMICH_API_KEY; echo
+
+kubectl create secret generic global-db-secrets \
+  -n platform \
+  --from-literal=JWT_SECRET="$JWT_SECRET" \
+  --from-literal=IMMICH_API_KEY="$IMMICH_API_KEY" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+unset JWT_SECRET IMMICH_API_KEY
+```
+
+This merge command preserves the existing PostgreSQL keys in
+`global-db-secrets`; it does not replace the Secret with only the two new
+values.
+
 ```bash
 # Sportif creates sportif-secrets through External Secrets.
 # Verify the generated secrets after Argo CD sync:
@@ -22,6 +45,15 @@ kubectl get secret sportif-secrets -n sports-tracking
 # Verify
 kubectl get secrets -n sports-tracking | grep sportif-secrets
 ```
+
+The `platform-secrets` ClusterSecretStore must expose these properties in its
+`global-db-secrets` remote object before the ExternalSecret can become Ready:
+
+- `JWT_SECRET`
+- `IMMICH_API_KEY`
+- `PGSQL_USER`
+- `PGSQL_PASSWORD`
+- `PGSQL_HOST`
 
 ## Step 2: Verify Shared Resources
 
