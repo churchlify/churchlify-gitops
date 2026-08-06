@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: media-ingest
+  name: sportif-media-ingest
   namespace: sports-tracking
   labels:
-    app: media-ingest
+    app: sportif-media-ingest
     component: ingest
 spec:
   replicas: 1
@@ -15,11 +15,11 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: media-ingest
+      app: sportif-media-ingest
   template:
     metadata:
       labels:
-        app: media-ingest
+        app: sportif-media-ingest
         component: ingest
     spec:
       containers:
@@ -66,4 +66,4 @@ spec:
       volumes:
         - name: srs-config-volume
           configMap:
-            name: srs-config
+            name: sportif-srs-config

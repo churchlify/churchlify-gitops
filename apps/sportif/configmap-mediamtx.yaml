@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: mediamtx-config
+  name: sportif-mediamtx-config
   namespace: sports-tracking
 data:
   mediamtx.yml: |
@@ -20,9 +20,9 @@ data:
 
                 sleep 2
 
-                curl -X POST http://reel-generator-service.sports-tracking.svc.cluster.local:8000/generate \
+                curl -X POST http://sportif-reel-worker-service.sports-tracking.svc.cluster.local:8000/generate \
                   -H "Content-Type: application/json" \
-                  -d "{\"match_id\": \"$MATCH_ID\", \"jerseys\": \"$JERSEYS\", \"left_url\": \"rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/${MATCH_ID}_left\", \"right_url\": \"rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/${MATCH_ID}_right\", \"upload_immich\": true}"
+                  -d "{\"match_id\": \"$MATCH_ID\", \"jerseys\": \"$JERSEYS\", \"left_url\": \"rtsp://sportif-preview-streamer-service.sports-tracking.svc.cluster.local:8554/${MATCH_ID}_left\", \"right_url\": \"rtsp://sportif-preview-streamer-service.sports-tracking.svc.cluster.local:8554/${MATCH_ID}_right\", \"upload_immich\": true}"
               ) &
             fi
           '

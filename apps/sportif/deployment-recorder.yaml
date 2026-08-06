@@ -1,15 +1,7 @@
 apiVersion: v1
-kind: Namespace
-metadata:
-  name: sports-tracking
-  labels:
-    name: sports-tracking
-
----
-apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: recorder-segments-pvc
+  name: sportif-recorder-segments-pvc
   namespace: sports-tracking
 spec:
   accessModes:
@@ -23,22 +15,22 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: recorder-config
+  name: sportif-recorder-config
   namespace: sports-tracking
 data:
-  SEGMENT_DURATION: '300'
-  MAX_RETRIES: '3'
-  RECONNECT_DELAY: '5'
-  LOG_LEVEL: 'info'
+  SEGMENT_DURATION: "300"
+  MAX_RETRIES: "3"
+  RECONNECT_DELAY: "5"
+  LOG_LEVEL: "info"
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: recorder-worker
+  name: sportif-recorder-worker
   namespace: sports-tracking
   labels:
-    app: recorder-worker
+    app: sportif-recorder-worker
     component: ingest
 spec:
   replicas: 1
@@ -49,18 +41,18 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: recorder-worker
+      app: sportif-recorder-worker
   template:
     metadata:
       labels:
-        app: recorder-worker
+        app: sportif-recorder-worker
         component: ingest
       annotations:
-        prometheus.io/scrape: 'true'
-        prometheus.io/port: '8000'
-        prometheus.io/path: '/metrics'
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: recorder-worker
+      serviceAccountName: sportif-recorder-worker
       terminationGracePeriodSeconds: 30
       containers:
         - name: recorder
@@ -72,28 +64,28 @@ spec:
               protocol: TCP
           env:
             - name: API_BASE_URL
-              value: 'http://api-service.sports-tracking.svc.cluster.local:3000/api'
+              value: "http://api-service.sports-tracking.svc.cluster.local:3000/api"
             - name: STORAGE_PATH
-              value: '/data/segments'
+              value: "/data/segments"
             - name: SEGMENT_DURATION
               valueFrom:
                 configMapKeyRef:
-                  name: recorder-config
+                  name: sportif-recorder-config
                   key: SEGMENT_DURATION
             - name: MAX_RETRIES
               valueFrom:
                 configMapKeyRef:
-                  name: recorder-config
+                  name: sportif-recorder-config
                   key: MAX_RETRIES
             - name: RECONNECT_DELAY
               valueFrom:
                 configMapKeyRef:
-                  name: recorder-config
+                  name: sportif-recorder-config
                   key: RECONNECT_DELAY
             - name: LOG_LEVEL
               valueFrom:
                 configMapKeyRef:
-                  name: recorder-config
+                  name: sportif-recorder-config
                   key: LOG_LEVEL
           resources:
             requests:
@@ -124,7 +116,7 @@ spec:
       volumes:
         - name: segments
           persistentVolumeClaim:
-            claimName: recorder-segments-pvc
+            claimName: sportif-recorder-segments-pvc
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -135,68 +127,68 @@ spec:
                     - key: app
                       operator: In
                       values:
-                        - recorder-worker
+                        - sportif-recorder-worker
                 topologyKey: kubernetes.io/hostname
 
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: recorder-worker
+  name: sportif-recorder-worker
   namespace: sports-tracking
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: recorder-worker
+  name: sportif-recorder-worker
   namespace: sports-tracking
 rules:
-  - apiGroups: ['']
-    resources: ['pods']
-    verbs: ['get', 'list', 'watch']
-  - apiGroups: ['']
-    resources: ['pods/log']
-    verbs: ['get']
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: recorder-worker
+  name: sportif-recorder-worker
   namespace: sports-tracking
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: recorder-worker
+  name: sportif-recorder-worker
 subjects:
   - kind: ServiceAccount
-    name: recorder-worker
+    name: sportif-recorder-worker
     namespace: sports-tracking
 
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: recorder-worker-pdb
+  name: sportif-recorder-worker-pdb
   namespace: sports-tracking
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: recorder-worker
+      app: sportif-recorder-worker
 
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: recorder-worker-hpa
+  name: sportif-recorder-worker-hpa
   namespace: sports-tracking
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: recorder-worker
+    name: sportif-recorder-worker
   minReplicas: 1
   maxReplicas: 4
   metrics:

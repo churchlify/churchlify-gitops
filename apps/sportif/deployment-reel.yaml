@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: reel-worker
+  name: sportif-reel-worker
   namespace: sports-tracking
   labels:
-    app: reel-worker
+    app: sportif-reel-worker
     component: processing
 spec:
   replicas: 1
@@ -12,14 +12,14 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: reel-worker
+      app: sportif-reel-worker
   template:
     metadata:
       labels:
-        app: reel-worker
+        app: sportif-reel-worker
         component: processing
     spec:
-      serviceAccountName: reel-worker
+      serviceAccountName: sportif-reel-worker
       securityContext:
         runAsNonRoot: false
         fsGroup: 1000
@@ -35,34 +35,34 @@ spec:
             - uvicorn
             - api:app
             - --host
-            - '0.0.0.0'
+            - "0.0.0.0"
             - --port
-            - '8000'
+            - "8000"
           ports:
             - name: http
               containerPort: 8000
               protocol: TCP
           env:
             - name: PYTHONUNBUFFERED
-              value: '1'
+              value: "1"
             - name: PYTHONPATH
-              value: '/app'
+              value: "/app"
             - name: LOG_LEVEL
-              value: 'info'
+              value: "info"
             - name: IMMICH_INSTANCE_URL
-              value: 'https://photos.churchlify.com/api'
+              value: "https://photos.churchlify.com/api"
             - name: IMMICH_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: sportif-secrets
-                  key: immich-api-key
+                  key: IMMICH_API_KEY
           resources:
             requests:
-              memory: '512Mi'
-              cpu: '500m'
+              memory: "512Mi"
+              cpu: "500m"
             limits:
-              memory: '2Gi'
-              cpu: '2000m'
+              memory: "2Gi"
+              cpu: "2000m"
           readinessProbe:
             httpGet:
               path: /docs
@@ -89,7 +89,7 @@ spec:
       volumes:
         - name: media-storage
           persistentVolumeClaim:
-            claimName: sports-media-pvc-rwx
+            claimName: sportif-media-pvc-rwx
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -100,12 +100,12 @@ spec:
                     - key: app
                       operator: In
                       values:
-                        - reel-worker
+                        - sportif-reel-worker
                 topologyKey: kubernetes.io/hostname
 
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: reel-worker
+  name: sportif-reel-worker
   namespace: sports-tracking

@@ -2,15 +2,25 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 metadata:
-  name: sportif-all-chunks
+  name: sportif
   namespace: sports-tracking
 
 # Include all chunks (uncomment as they become ready)
 resources:
-  - c06-ingest          # C06 — Ingest, segmented recording, and stream health (READY)
-  # - c07-preview         # C07 — Preview and live two-camera stitching (NOT STARTED)
-  # - c09-tracking        # C09 — AI tracking, jersey OCR, and face matching (NOT STARTED)
-  # - c10-processing      # C10 — Reels, captions, Immich upload, and cleanup (NOT STARTED)
+  # The sports-tracking Namespace is platform-owned and shared with sport-track.
+  - external-secret.yaml
+  - service.yaml
+  - ingress.yaml
+  - pvc-rwx.yaml
+  - configmap-srs.yaml
+  - configmap-mediamtx.yaml
+  - deployment-media-ingest.yaml
+  - deployment-preview-streamer.yaml
+  - deployment-recorder.yaml
+  - deployment-tracking.yaml
+  - deployment-stitch.yaml
+  - deployment-reel.yaml
+  - api/overlays/production
 
 # Common labels for all resources
 commonLabels:
@@ -20,10 +30,10 @@ commonLabels:
 
 # Common annotations
 commonAnnotations:
-  argocd.argoproj.io/compare-result: 'true'
+  argocd.argoproj.io/compare-result: "true"
   platform.sportif/deployment-strategy: kustomize-chunks
 
-# Namespace for all resources
+# Namespace for all namespaced resources
 namespace: sports-tracking
 
 # Use this for ArgoCD deployment:

@@ -4,7 +4,6 @@ kind: Kustomization
 namespace: sports-tracking
 
 resources:
-  - ../../../shared/namespace.yaml
   - deployment.yaml
   - service.yaml
 

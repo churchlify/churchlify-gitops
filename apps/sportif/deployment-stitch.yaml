@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: stitch-worker
+  name: sportif-stitch-worker
   namespace: sports-tracking
   labels:
-    app: stitch-worker
+    app: sportif-stitch-worker
     component: processing
 spec:
   replicas: 1
@@ -15,14 +15,14 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: stitch-worker
+      app: sportif-stitch-worker
   template:
     metadata:
       labels:
-        app: stitch-worker
+        app: sportif-stitch-worker
         component: processing
     spec:
-      serviceAccountName: stitch-worker
+      serviceAccountName: sportif-stitch-worker
       securityContext:
         runAsNonRoot: false
         fsGroup: 1000
@@ -42,28 +42,28 @@ spec:
             - $(PREVIEW_RTSP_URL)
           env:
             - name: LEFT_CAMERA_URL
-              value: rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/left
+              value: rtsp://sportif-preview-streamer-service.sports-tracking.svc.cluster.local:8554/left
             - name: RIGHT_CAMERA_URL
-              value: rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/right
+              value: rtsp://sportif-preview-streamer-service.sports-tracking.svc.cluster.local:8554/right
             - name: PREVIEW_RTSP_URL
-              value: rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/stitched_preview
+              value: rtsp://sportif-preview-streamer-service.sports-tracking.svc.cluster.local:8554/stitched_preview
             - name: AI_TRACKER_URL
-              value: http://tracking-worker-service.sports-tracking.svc.cluster.local:8000/crop-x
+              value: http://sportif-tracking-worker-service.sports-tracking.svc.cluster.local:8000/crop-x
             - name: LOG_LEVEL
-              value: 'info'
+              value: "info"
           resources:
             requests:
-              memory: '512Mi'
-              cpu: '500m'
+              memory: "512Mi"
+              cpu: "500m"
             limits:
-              memory: '2Gi'
-              cpu: '2000m'
+              memory: "2Gi"
+              cpu: "2000m"
           livenessProbe:
             exec:
               command:
                 - sh
                 - -c
-                - 'ps aux | grep post_stitcher | grep -v grep || exit 1'
+                - "ps aux | grep post_stitcher | grep -v grep || exit 1"
             initialDelaySeconds: 30
             periodSeconds: 30
             timeoutSeconds: 5
@@ -75,7 +75,7 @@ spec:
       volumes:
         - name: media-storage
           persistentVolumeClaim:
-            claimName: sports-media-pvc-rwx
+            claimName: sportif-media-pvc-rwx
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -86,12 +86,12 @@ spec:
                     - key: app
                       operator: In
                       values:
-                        - stitch-worker
+                        - sportif-stitch-worker
                 topologyKey: kubernetes.io/hostname
 
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: stitch-worker
+  name: sportif-stitch-worker
   namespace: sports-tracking

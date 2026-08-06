@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: preview-streamer
+  name: sportif-preview-streamer
   namespace: sports-tracking
   labels:
-    app: preview-streamer
+    app: sportif-preview-streamer
     component: ingest
 spec:
   replicas: 1
@@ -15,11 +15,11 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: preview-streamer
+      app: sportif-preview-streamer
   template:
     metadata:
       labels:
-        app: preview-streamer
+        app: sportif-preview-streamer
         component: ingest
     spec:
       containers:
@@ -75,4 +75,4 @@ spec:
       volumes:
         - name: mediamtx-config-volume
           configMap:
-            name: mediamtx-config
+            name: sportif-mediamtx-config
