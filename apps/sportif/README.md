@@ -57,7 +57,7 @@ This ensures:
 
 - **Port**: 8000
 - **Replicas**: 1 (with HPA: 1-4)
-- **Storage**: 500Gi Longhorn PVC for segments
+- **Storage**: 100Gi Longhorn PVC for segments
 - **Components**:
   - SRS (Simple RTMP Server)
   - MediaMTX (RTSP/DASH streaming)

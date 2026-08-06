@@ -17,7 +17,7 @@ spec:
   storageClassName: longhorn
   resources:
     requests:
-      storage: 500Gi
+      storage: 100Gi
 
 ---
 apiVersion: v1
@@ -26,10 +26,10 @@ metadata:
   name: recorder-config
   namespace: sports-tracking
 data:
-  SEGMENT_DURATION: '300'
-  MAX_RETRIES: '3'
-  RECONNECT_DELAY: '5'
-  LOG_LEVEL: 'info'
+  SEGMENT_DURATION: "300"
+  MAX_RETRIES: "3"
+  RECONNECT_DELAY: "5"
+  LOG_LEVEL: "info"
 
 ---
 apiVersion: apps/v1
@@ -56,9 +56,9 @@ spec:
         app: recorder-worker
         component: ingest
       annotations:
-        prometheus.io/scrape: 'true'
-        prometheus.io/port: '8000'
-        prometheus.io/path: '/metrics'
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: recorder-worker
       terminationGracePeriodSeconds: 30
@@ -72,9 +72,9 @@ spec:
               protocol: TCP
           env:
             - name: API_BASE_URL
-              value: 'http://api-service.sports-tracking.svc.cluster.local:3000/api'
+              value: "http://api-service.sports-tracking.svc.cluster.local:3000/api"
             - name: STORAGE_PATH
-              value: '/data/segments'
+              value: "/data/segments"
             - name: SEGMENT_DURATION
               valueFrom:
                 configMapKeyRef:
@@ -152,12 +152,12 @@ metadata:
   name: recorder-worker
   namespace: sports-tracking
 rules:
-  - apiGroups: ['']
-    resources: ['pods']
-    verbs: ['get', 'list', 'watch']
-  - apiGroups: ['']
-    resources: ['pods/log']
-    verbs: ['get']
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
