@@ -1,0 +1,44 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: c06-ingest
+  namespace: sports-tracking
+
+bases:
+  - ../shared
+
+resources:
+  - configmap-srs.yaml
+  - configmap-mediamtx.yaml
+  - pvc-recorder.yaml
+  - deployment-recorder.yaml
+  - deployment-media-ingest.yaml
+  - rbac-recorder.yaml
+
+# Common labels
+commonLabels:
+  app.kubernetes.io/version: c06
+  chunk: c06-ingest
+  component.sportif: media-ingest
+
+# Common annotations
+commonAnnotations:
+  chunk.sportif/name: "C06 — Ingest, segmented recording, and stream health"
+  chunk.sportif/depends-on: "C04"
+  chunk.sportif/status: "testing-and-deployment"
+
+# Namespace
+namespace: sports-tracking
+
+# Image updates (use ArgoCD image updater)
+images:
+  - name: ghcr.io/agogos-llc/sportif-recorder-worker
+    newTag: latest
+
+# Replicas (override for different environments)
+replicas:
+  - name: recorder-worker
+    count: 1
+  - name: media-ingest
+    count: 1

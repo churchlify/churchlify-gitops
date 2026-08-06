@@ -1,0 +1,38 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: c10-processing
+  namespace: sports-tracking
+
+resources:
+  - ../namespace.yaml
+  - ../service.yaml
+  - ../service-ai.yaml
+  - deployment-stitch.yaml
+  - deployment-reel.yaml
+  # - rbac-processing.yaml
+
+commonLabels:
+  app.kubernetes.io/version: c10
+  chunk: c10-processing
+  component.sportif: processing
+
+commonAnnotations:
+  chunk.sportif/name: "C10 — Reels, captions, Immich upload, and cleanup"
+  chunk.sportif/depends-on: "C08, C09"
+  chunk.sportif/status: "not-started"
+
+namespace: sports-tracking
+
+images:
+  - name: ghcr.io/agogos-llc/sportif-stitch-worker
+    newTag: latest
+  - name: ghcr.io/agogos-llc/sportif-reel-worker
+    newTag: latest
+
+replicas:
+  - name: stitch-worker
+    count: 1
+  - name: reel-worker
+    count: 1

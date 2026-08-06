@@ -1,0 +1,180 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: preview-config
+  namespace: sports-tracking
+  labels:
+    app: preview-worker
+    component: preview
+data:
+  API_BASE_URL: http://api-service:3000/api
+  MEDIAMTX_OUTPUT_BASE: rtsp://preview-streamer:8554
+  MAX_ACTIVE_STITCHES: "10"
+  STITCH_TIMEOUT_SECONDS: "300"
+  FFMPEG_CONNECT_TIMEOUT_SECONDS: "10"
+  FFMPEG_LOG_LEVEL: "info"
+  LOG_LEVEL: "info"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: preview-worker
+  namespace: sports-tracking
+  labels:
+    app: preview-worker
+    component: preview
+    chunk: c07-preview
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: preview-worker
+  template:
+    metadata:
+      labels:
+        app: preview-worker
+        component: preview
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8001"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: preview-worker
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: preview
+          image: ghcr.io/churchlify/sportif-preview-worker:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8001
+              protocol: TCP
+          env:
+            - name: API_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: preview-config
+                  key: API_BASE_URL
+            - name: MEDIAMTX_OUTPUT_BASE
+              valueFrom:
+                configMapKeyRef:
+                  name: preview-config
+                  key: MEDIAMTX_OUTPUT_BASE
+            - name: MAX_ACTIVE_STITCHES
+              valueFrom:
+                configMapKeyRef:
+                  name: preview-config
+                  key: MAX_ACTIVE_STITCHES
+            - name: STITCH_TIMEOUT_SECONDS
+              valueFrom:
+                configMapKeyRef:
+                  name: preview-config
+                  key: STITCH_TIMEOUT_SECONDS
+            - name: FFMPEG_CONNECT_TIMEOUT_SECONDS
+              valueFrom:
+                configMapKeyRef:
+                  name: preview-config
+                  key: FFMPEG_CONNECT_TIMEOUT_SECONDS
+            - name: FFMPEG_LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: preview-config
+                  key: FFMPEG_LOG_LEVEL
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: preview-config
+                  key: LOG_LEVEL
+          resources:
+            requests:
+              cpu: 1000m        # FFmpeg is CPU-intensive
+              memory: 1Gi
+            limits:
+              cpu: 4000m
+              memory: 4Gi
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: preview-worker
+  namespace: sports-tracking
+  labels:
+    app: preview-worker
+    component: preview
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: preview-worker
+  namespace: sports-tracking
+  labels:
+    app: preview-worker
+    component: preview
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: preview-worker
+  namespace: sports-tracking
+  labels:
+    app: preview-worker
+    component: preview
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: preview-worker
+subjects:
+  - kind: ServiceAccount
+    name: preview-worker
+    namespace: sports-tracking
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: preview-worker
+  namespace: sports-tracking
+  labels:
+    app: preview-worker
+    component: preview
+spec:
+  type: ClusterIP
+  selector:
+    app: preview-worker
+  ports:
+    - name: http
+      port: 8001
+      targetPort: http
+      protocol: TCP

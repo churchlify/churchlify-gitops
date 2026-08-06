@@ -1,0 +1,160 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: sports-tracking
+  labels:
+    app: api
+    component: backend
+data:
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/sportif"
+  REDIS_URL: "redis://redis:6379"
+  JWT_SECRET: "change-me-in-production"
+  JWT_EXPIRY: "900"
+  REFRESH_TOKEN_EXPIRY: "604800"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: sports-tracking
+  labels:
+    app: api
+    component: backend
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+        component: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: api
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: api
+          image: ghcr.io/churchlify/sportif-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: api-config
+                  key: NODE_ENV
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: api-config
+                  key: LOG_LEVEL
+            - name: DATABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: api-config
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: api-config
+                  key: REDIS_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: api-secrets
+                  key: JWT_SECRET
+            - name: JWT_EXPIRY
+              valueFrom:
+                configMapKeyRef:
+                  name: api-config
+                  key: JWT_EXPIRY
+            - name: REFRESH_TOKEN_EXPIRY
+              valueFrom:
+                configMapKeyRef:
+                  name: api-config
+                  key: REFRESH_TOKEN_EXPIRY
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api
+  namespace: sports-tracking
+  labels:
+    app: api
+    component: backend
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: api
+  namespace: sports-tracking
+  labels:
+    app: api
+    component: backend
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: api
+  namespace: sports-tracking
+  labels:
+    app: api
+    component: backend
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: api
+subjects:
+  - kind: ServiceAccount
+    name: api
+    namespace: sports-tracking

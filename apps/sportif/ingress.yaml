@@ -1,0 +1,46 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sport-track-ingress
+  namespace: sports-tracking
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "4G"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/websocket-services: "preview-streamer-service"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "Upgrade";
+spec:
+  tls:
+    - hosts:
+        - sports-ai.churchlify.com
+      secretName: sport-track-tls
+  rules:
+    - host: sports-ai.churchlify.com
+      http:
+        paths:
+          - path: /crop-x(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: sport-track-service
+                port:
+                  number: 8000
+          - path: /preview(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: preview-streamer-service
+                port:
+                  number: 8889
+          - path: /reels(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: reel-generator-service
+                port:
+                  number: 8000

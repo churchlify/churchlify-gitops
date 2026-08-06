@@ -1,0 +1,129 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: media-ingest-service
+  namespace: sports-tracking
+  labels:
+    app: media-ingest
+spec:
+  type: ClusterIP
+  selector:
+    app: media-ingest
+  ports:
+    - name: rtmp
+      port: 1935
+      targetPort: 1935
+      protocol: TCP
+    - name: http-api
+      port: 1985
+      targetPort: 1985
+      protocol: TCP
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: preview-streamer-service
+  namespace: sports-tracking
+  labels:
+    app: preview-streamer
+spec:
+  type: ClusterIP
+  selector:
+    app: preview-streamer
+  ports:
+    - name: rtsp
+      port: 8554
+      targetPort: 8554
+      protocol: TCP
+    - name: rtsps
+      port: 8555
+      targetPort: 8555
+      protocol: TCP
+    - name: rtmp
+      port: 1936
+      targetPort: 1936
+      protocol: TCP
+    - name: rtmps
+      port: 1937
+      targetPort: 1937
+      protocol: TCP
+    - name: webrtc
+      port: 8889
+      targetPort: 8889
+      protocol: TCP
+    - name: http
+      port: 9998
+      targetPort: 9998
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recorder-worker-service
+  namespace: sports-tracking
+  labels:
+    app: recorder-worker
+spec:
+  type: ClusterIP
+  selector:
+    app: recorder-worker
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reel-worker-service
+  namespace: sports-tracking
+  labels:
+    app: reel-worker
+spec:
+  type: ClusterIP
+  selector:
+    app: reel-worker
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stitch-worker-service
+  namespace: sports-tracking
+  labels:
+    app: stitch-worker
+spec:
+  type: ClusterIP
+  selector:
+    app: stitch-worker
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tracking-worker-service
+  namespace: sports-tracking
+  labels:
+    app: tracking-worker
+spec:
+  type: ClusterIP
+  selector:
+    app: tracking-worker
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP

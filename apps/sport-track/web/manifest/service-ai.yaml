@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sport-track-service
+  namespace: sports-tracking
+spec:
+  type: ClusterIP
+  selector:
+    app: sport-track
+  ports:
+    - name: http-api
+      protocol: TCP
+      port: 8000
+      targetPort: 8000

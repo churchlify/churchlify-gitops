@@ -1,0 +1,21 @@
+resources:
+  # ConfigMaps for services
+  - configmap-mediamtx.yaml
+  - configmap-srs.yaml
+
+  # Ingestion & Preview
+  - deployment-media-ingest.yaml
+  - deployment-preview-streamer.yaml
+  - deployment-recorder.yaml
+
+  # Processing Workers
+  - deployment-tracking.yaml
+  - deployment-stitch.yaml
+  - deployment-reel.yaml
+
+  # Network & Storage
+  - service.yaml
+  - service-ai.yaml
+  - ingress.yaml
+  - nginx-patch.yaml
+  - pvc-rwx.yaml
