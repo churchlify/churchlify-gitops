@@ -1,13 +1,8 @@
 resources:
-  - configmap-mediamtx.yaml
-  - configmap-srs.yaml
-  - deployment.yaml
   - deployment-sport-track.yaml
-  - deployment-preview.yaml
   - deployment-live-stitcher.yaml
   - deployment-reel-generator.yaml # <--- Added API Service Deployment
   - service.yaml
   - service-ai.yaml
   - ingress.yaml
   - nginx-patch.yaml
-  - pvc-rwx.yaml

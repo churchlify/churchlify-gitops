@@ -11,7 +11,6 @@ data:
   LOG_LEVEL: "info"
   DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/sportif"
   REDIS_URL: "redis://redis:6379"
-  JWT_SECRET: "change-me-in-production"
   JWT_EXPIRY: "900"
   REFRESH_TOKEN_EXPIRY: "604800"
 

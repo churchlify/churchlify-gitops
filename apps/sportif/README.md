@@ -21,19 +21,21 @@ apps/sportif/
 ### Shared Resources
 
 - **Namespace**: `sports-tracking` (shared with `sport-track`)
-- **Secrets**: `api-secrets` (pre-created, shared)
+- **Secrets**: `api-secrets` and `sportif-secrets` (synced by Sportif ExternalSecrets)
 - **Database**: PostgreSQL (shared infrastructure)
 - **Redis**: Cache layer (shared infrastructure)
+- **Media stack**: SRS, MediaMTX, media services, and `sports-media-pvc-rwx` are owned by Sportif
 
 ### Single Application Deployment
 
 All components are managed by a single consolidated Sportif ArgoCD Application:
 
 ```bash
-kubectl apply -f /Volumes/Jasper/WebstormProjects/private/app_ops/platform/argocd/sportif.yaml
+kubectl apply -f platform/argocd/sportif/app.yaml
 ```
 
 This ensures:
+
 - ✅ No resource conflicts with sport-track or other apps
 - ✅ Components can share resources within Sportif namespace
 - ✅ Single sync point for all 8 components
@@ -107,12 +109,10 @@ This ensures:
 
 ### Required Secrets in sports-tracking
 
-These secrets must be created before deployment:
+These secrets are created by the Sportif ExternalSecret resources before workloads start:
 
 ```bash
-kubectl create secret generic api-secrets \
-  --from-literal=JWT_SECRET='your-jwt-secret-key' \
-  -n sports-tracking
+kubectl get secret api-secrets sportif-secrets -n sports-tracking
 ```
 
 ### Optional Secrets (per component)
@@ -141,7 +141,7 @@ kubectl create secret generic api-secrets \
 ### Prerequisites
 
 1. Namespace `sports-tracking` already created (shared with sport-track)
-2. Secrets (`api-secrets`) created
+2. External Secrets Operator can create `api-secrets` and `sportif-secrets`
 3. Longhorn storage provisioned
 4. ArgoCD installed and configured
 
@@ -149,7 +149,7 @@ kubectl create secret generic api-secrets \
 
 ```bash
 # From app-ops repository
-kubectl apply -f platform/argocd/sportif.yaml
+kubectl apply -f platform/argocd/sportif/app.yaml
 
 # Verify deployment
 kubectl get applications -n argocd | grep sportif
@@ -274,22 +274,24 @@ resources:
 
 - **Consolidated Application**: Single Sportif app manages all 8 components
 - **No resource conflicts**: Removed duplicate mediamtx, srs, preview-streamer configs
-- **Shared media stack**: Sportif components consume streams from sport-track's media infrastructure (SRS, MediaMTX)
+- **Shared media stack**: Sportif owns SRS, MediaMTX, their services, and shared storage
 - **Independent scaling**: Sportif scales independently
-- **Separate storage**: Different PVCs (recorder-segments, processing-work)
+- **Storage**: Sportif-owned shared RWX PVC plus component-specific PVCs
 - **RBAC isolation**: Service accounts are Sportif-specific
-- **Namespace sharing**: sports-tracking namespace shared with sport-track (pre-created secrets only)
+- **Namespace sharing**: sports-tracking namespace shared with sport-track
 - **Network policies**: Can be added if stricter isolation needed
 
-### Media Stack Dependency
+### Media Stack Ownership
 
-Sportif's recorder and preview components consume media from sport-track's infrastructure:
-- **SRS (RTMP Server)**: Managed by sport-track-web
-- **MediaMTX (Streaming)**: Managed by sport-track-web
-- **Sportif recorder**: Pulls RTMP streams from SRS
-- **Sportif preview**: Pulls streams via RTSP/DASH from MediaMTX
+Sportif is the source of truth for the shared media infrastructure:
 
-This design avoids duplication and allows Sportif and sport-track to coexist peacefully.
+- **SRS (RTMP Server)**: Managed by Sportif's shared component
+- **MediaMTX (Streaming)**: Managed by Sportif's shared component
+- **Services**: `media-ingest-service` and `preview-streamer-service` are published by Sportif
+- **Storage**: `sports-media-pvc-rwx` is managed by Sportif and consumed by both applications
+- **sport-track**: Consumes Sportif's media services and shared storage; it must not redeploy them
+
+This design avoids duplicate ownership and allows Sportif and sport-track to coexist in the shared namespace.
 
 ## Related Documentation
 

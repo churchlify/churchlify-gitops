@@ -22,7 +22,6 @@ data:
         publish {
             mr          off;
             parse_sps   on;
-            # Enable query string parsing for RTMP stream keys
             parse_query on;
         }
 

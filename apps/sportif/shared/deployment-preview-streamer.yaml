@@ -12,10 +12,12 @@ spec:
     metadata:
       labels:
         app: preview-streamer
+        component: media
     spec:
       containers:
         - name: mediamtx
           image: bluenviron/mediamtx:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - name: rtsp
               containerPort: 8554
@@ -25,17 +27,16 @@ spec:
               containerPort: 1936
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "500m"
+              cpu: 500m
+              memory: 512Mi
             limits:
-              memory: "2Gi"
-              cpu: "2000m"
+              cpu: 2000m
+              memory: 2Gi
           volumeMounts:
-            # Mount the custom config file into MediaMTX root dir
-            - name: mediamtx-config-volume
+            - name: mediamtx-config
               mountPath: /mediamtx.yml
               subPath: mediamtx.yml
       volumes:
-        - name: mediamtx-config-volume
+        - name: mediamtx-config
           configMap:
             name: mediamtx-config

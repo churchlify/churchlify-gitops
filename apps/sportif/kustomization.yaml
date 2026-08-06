@@ -10,6 +10,7 @@ metadata:
 # Resources sharing within Sportif app; no conflicts with sport-track
 
 resources:
+  - shared
   - api/overlays/production
   - recorder/overlays/production
   - preview/overlays/production
@@ -26,4 +27,4 @@ labels:
       app.kubernetes.io/managed-by: argocd
 
 commonAnnotations:
-  argocd.argoproj.io/compare-result: 'true'
+  argocd.argoproj.io/compare-result: "true"

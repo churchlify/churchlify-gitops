@@ -5,7 +5,8 @@ Complete guide for deploying Sportif to the sports-tracking namespace in app-ops
 ## Pre-Deployment Checklist
 
 - [ ] sports-tracking namespace exists (shared with sport-track)
-- [ ] Secrets created: `api-secrets` with JWT_SECRET
+- [ ] External Secrets Operator can access `platform-secrets`
+- [ ] Remote `sportif-secrets` contains `JWT_SECRET` and `IMMICH_API_KEY`
 - [ ] Longhorn storage provisioned
 - [ ] ArgoCD installed and configured
 - [ ] cert-manager installed for TLS
@@ -14,10 +15,9 @@ Complete guide for deploying Sportif to the sports-tracking namespace in app-ops
 ## Step 1: Create Required Secrets
 
 ```bash
-# Create api-secrets in sports-tracking namespace
-kubectl create secret generic api-secrets \
-  --from-literal=JWT_SECRET='your-secure-jwt-secret-here' \
-  -n sports-tracking
+# Sportif creates api-secrets and sportif-secrets through External Secrets.
+# Verify the generated secrets after Argo CD sync:
+kubectl get secret api-secrets sportif-secrets -n sports-tracking
 
 # Verify
 kubectl get secrets -n sports-tracking | grep api-secrets
@@ -29,11 +29,12 @@ kubectl get secrets -n sports-tracking | grep api-secrets
 # Check namespace exists
 kubectl get ns sports-tracking
 
-# Check existing resources (from sport-track)
+# Check existing resources in the shared namespace
 kubectl get pods -n sports-tracking
 kubectl get pvc -n sports-tracking
 
-# Note: Sportif will use shared namespace and secrets only
+# Note: Sportif owns the shared media stack and secrets; sport-track consumes
+# the media services and RWX PVC exposed in this namespace.
 ```
 
 ## Step 3: Deploy via ArgoCD
@@ -44,7 +45,7 @@ kubectl get pvc -n sports-tracking
 cd app-ops
 
 # Deploy Sportif - single application managing all 8 components
-kubectl apply -f platform/argocd/sportif.yaml
+kubectl apply -f platform/argocd/sportif/app.yaml
 
 # Verify application created
 kubectl get applications -n argocd | grep sportif
@@ -442,21 +443,25 @@ kubectl delete pod <pod-name> -n sports-tracking --grace-period=30 --force
 
 Note: The shared `sports-tracking` namespace will remain (used by sport-track). Only Sportif resources are removed.
 
-## Isolation from sport-track
+## Shared media ownership and isolation from sport-track
 
-Sportif and sport-track share only:
+Sportif and sport-track share:
 
 - **Namespace**: `sports-tracking`
-- **Pre-created secrets**: `api-secrets`
+- **Secrets**: `api-secrets` and `sportif-secrets`, owned/synced by Sportif
 - **Infrastructure**: PostgreSQL, Redis (if shared)
+- **Media services**: `media-ingest-service`, `preview-streamer-service`
+- **Storage**: `sports-media-pvc-rwx`, owned by Sportif
 
 **Not shared**:
 
 - Deployments (independent pods)
-- Storage (separate PVCs)
+- **Storage**: Sportif owns the shared RWX media PVC; component-specific PVCs remain separate
 - ConfigMaps
 - ServiceAccounts
 - Network policies (can be applied per-app)
+
+Sport-track must not deploy duplicate SRS, MediaMTX, services, or `sports-media-pvc-rwx` resources. Those resources are managed by the Sportif Argo CD application.
 
 To enforce stricter isolation:
 

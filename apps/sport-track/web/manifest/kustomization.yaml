@@ -1,11 +1,6 @@
 resources:
-  # ConfigMaps for services
-  - configmap-mediamtx.yaml
-  - configmap-srs.yaml
-
-  # Ingestion & Preview
-  - deployment-media-ingest.yaml
-  - deployment-preview-streamer.yaml
+  # Sportif owns SRS, MediaMTX, their services, and shared RWX storage.
+  # This legacy manifest keeps only sport-track consumers.
   - deployment-recorder.yaml
 
   # Processing Workers
@@ -18,4 +13,3 @@ resources:
   - service-ai.yaml
   - ingress.yaml
   - nginx-patch.yaml
-  - pvc-rwx.yaml

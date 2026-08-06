@@ -12,10 +12,12 @@ spec:
     metadata:
       labels:
         app: media-ingest
+        component: media
     spec:
       containers:
         - name: srs-server
           image: ossrs/srs:5
+          imagePullPolicy: IfNotPresent
           ports:
             - name: rtmp
               containerPort: 1935
@@ -23,28 +25,28 @@ spec:
               containerPort: 8080
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "500m"
+              cpu: 500m
+              memory: 512Mi
             limits:
-              memory: "2Gi"
-              cpu: "2000m"
+              cpu: 2000m
+              memory: 2Gi
           readinessProbe:
             httpGet:
               path: /api/v1/versions
-              port: 8080
+              port: http-api
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /api/v1/versions
-              port: 8080
+              port: http-api
             initialDelaySeconds: 15
             periodSeconds: 20
           volumeMounts:
-            - name: srs-config-volume
+            - name: srs-config
               mountPath: /usr/local/srs/conf/srs.conf
               subPath: srs.conf
       volumes:
-        - name: srs-config-volume
+        - name: srs-config
           configMap:
             name: srs-config
