@@ -9,7 +9,7 @@ namespace: sports-tracking
 images:
 - name: ghcr.io/agogos-llc/sportif-preview-worker
   newName: ghcr.io/agogos-llc/sportif-preview-worker
-  newTag: sha-7c0aab6
+  newTag: sha-7843bf8
 - name: ghcr.io/agogos-llc/sportif/preview-worker
   newName: ghcr.io/agogos-llc/sportif/preview-worker
   newTag: sha-9fa09db
