@@ -4,11 +4,11 @@ kind: Kustomization
 namespace: sports-tracking
 
 resources:
-  - ../../shared/namespace.yaml
   - pvc-processing.yaml
   - deployment-stitch.yaml
   - deployment-reel.yaml
 
-commonLabels:
-  component: processing
-  part-of: sportif
+labels:
+  - pairs:
+      component: processing
+      part-of: sportif
