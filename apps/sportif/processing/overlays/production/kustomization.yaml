@@ -12,7 +12,7 @@ images:
   newTag: sha-d46cdb7
 - name: ghcr.io/agogos-llc/sportif-stitch-worker
   newName: ghcr.io/agogos-llc/sportif-stitch-worker
-  newTag: sha-d46cdb7
+  newTag: sha-7421c0a
 
 labels:
 - pairs:
