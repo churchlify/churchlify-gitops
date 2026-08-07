@@ -107,6 +107,11 @@ spec:
                 configMapKeyRef:
                   name: api-config
                   key: SMTP_USER
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: api-secrets
+                  key: SMTP_PASSWORD
             - name: EMAIL_FROM
               valueFrom:
                 configMapKeyRef:
