@@ -10,6 +10,9 @@ images:
 - name: ghcr.io/agogos-llc/sportif-api
   newName: ghcr.io/agogos-llc/sportif-api
   newTag: sha-47596c5
+- name: ghcr.io/agogos-llc/sportif/api
+  newName: ghcr.io/agogos-llc/sportif/api
+  newTag: sha-9fa09db
 
 replicas:
 - count: 2
