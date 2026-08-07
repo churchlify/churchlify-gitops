@@ -28,7 +28,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: stitch-engine
-          image: ghcr.io/churchlify/sportif-stitch-worker:latest
+          image: ghcr.io/agogos-llc/sportif-stitch-worker:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
