@@ -9,7 +9,11 @@ metadata:
 data:
   NODE_ENV: "production"
   LOG_LEVEL: "debug"
-  REDIS_URL: "redis://redis:6379"
+  SMTP_HOST: "mail.smtp2go.com"
+  SMTP_PORT: "2525"
+  SMTP_USER: "Sportif"
+  EMAIL_FROM: "hello@churchlify.com"
+  APP_URL: "https://sportif.churchlify.com"
   JWT_EXPIRY: "900"
   REFRESH_TOKEN_EXPIRY: "604800"
 
@@ -88,6 +92,32 @@ spec:
                 configMapKeyRef:
                   name: api-config
                   key: REFRESH_TOKEN_EXPIRY
+            - name: SMTP_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: api-config
+                  key: SMTP_HOST
+            - name: SMTP_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: api-config
+                  key: SMTP_PORT
+            - name: SMTP_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: api-config
+                  key: SMTP_USER
+            - name: EMAIL_FROM
+              valueFrom:
+                configMapKeyRef:
+                  name: api-config
+                  key: EMAIL_FROM
+            - name: APP_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: api-config
+                  key: APP_URL
+
           resources:
             requests:
               cpu: 250m
