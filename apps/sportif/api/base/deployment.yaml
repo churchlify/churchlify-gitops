@@ -8,7 +8,7 @@ metadata:
     component: backend
 data:
   NODE_ENV: "production"
-  LOG_LEVEL: "info"
+  LOG_LEVEL: "debug"
   DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/sportif"
   REDIS_URL: "redis://redis:6379"
   JWT_EXPIRY: "900"
