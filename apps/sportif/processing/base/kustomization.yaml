@@ -4,7 +4,7 @@ kind: Kustomization
 namespace: sports-tracking
 
 resources:
-  - ../../../shared/namespace.yaml
+  - ../../shared/namespace.yaml
   - pvc-processing.yaml
   - deployment-stitch.yaml
   - deployment-reel.yaml
