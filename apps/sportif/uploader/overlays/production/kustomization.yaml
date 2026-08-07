@@ -10,6 +10,9 @@ images:
 - name: ghcr.io/agogos-llc/sportif-uploader-worker
   newName: ghcr.io/agogos-llc/sportif-uploader-worker
   newTag: sha-47596c5
+- name: ghcr.io/agogos-llc/sportif/sportif-uploader-worker
+  newName: ghcr.io/agogos-llc/sportif/sportif-uploader-worker
+  newTag: sha-94c5e23
 - name: ghcr.io/agogos-llc/sportif/uploader-worker
   newName: ghcr.io/agogos-llc/sportif/uploader-worker
   newTag: sha-9fa09db
