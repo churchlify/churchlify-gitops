@@ -13,6 +13,9 @@ images:
 - name: ghcr.io/agogos-llc/sportif-stitch-worker
   newName: ghcr.io/agogos-llc/sportif-stitch-worker
   newTag: sha-47596c5
+- name: ghcr.io/agogos-llc/sportif/stitch-worker
+  newName: ghcr.io/agogos-llc/sportif/stitch-worker
+  newTag: sha-9fa09db
 
 labels:
 - pairs:
