@@ -8,7 +8,8 @@ namespace: sports-tracking
 
 images:
 - name: ghcr.io/agogos-llc/sportif-reel-worker
-  newTag: latest
+  newName: ghcr.io/agogos-llc/sportif-reel-worker
+  newTag: sha-af70187
 - name: ghcr.io/agogos-llc/sportif-stitch-worker
   newName: ghcr.io/agogos-llc/sportif-stitch-worker
   newTag: sha-af70187
