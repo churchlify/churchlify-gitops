@@ -9,7 +9,7 @@ namespace: sports-tracking
 images:
 - name: ghcr.io/agogos-llc/sportif-cleanup-worker
   newName: ghcr.io/agogos-llc/sportif-cleanup-worker
-  newTag: sha-7421c0a
+  newTag: sha-4df941c
 
 labels:
 - pairs:
