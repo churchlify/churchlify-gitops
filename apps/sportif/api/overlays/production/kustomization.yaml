@@ -2,18 +2,19 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - ../../base
+- ../../base
 
 namespace: sports-tracking
 
 images:
-  - name: ghcr.io/agogos-llc/sportif-api
-    newTag: latest
+- name: ghcr.io/agogos-llc/sportif-api
+  newName: ghcr.io/agogos-llc/sportif-api
+  newTag: sha-7757260
 
 replicas:
-  - name: api
-    count: 2
+- count: 2
+  name: api
 
 labels:
-  - pairs:
-      environment: production
+- pairs:
+    environment: production
