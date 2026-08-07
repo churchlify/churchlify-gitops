@@ -1,7 +1,7 @@
 resources:
-  - deployment-sport-track.yaml
-  - deployment-live-stitcher.yaml
-  - deployment-reel-generator.yaml # <--- Added API Service Deployment
+  # - deployment-sport-track.yaml
+  # - deployment-live-stitcher.yaml
+  # - deployment-reel-generator.yaml # <--- Added API Service Deployment
   - service.yaml
   - service-ai.yaml
   - ingress.yaml
