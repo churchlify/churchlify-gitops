@@ -32,29 +32,29 @@ spec:
                     operator: In
                     values:
                       - media-ingest
-              topologyKey: 'kubernetes.io/hostname'
+              topologyKey: "kubernetes.io/hostname"
       containers:
         - name: tracker
           image: ghcr.io/agogos-llc/sportif-tracking-worker:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
-              containerPort: 8000
+              containerPort: 8001
               protocol: TCP
           env:
             - name: STREAM_INPUT_URL
-              value: 'rtmp://media-ingest-service.sports-tracking.svc.cluster.local:1935/live/left'
+              value: "rtmp://media-ingest-service.sports-tracking.svc.cluster.local:1935/live/left"
             - name: PREVIEW_RTSP_OUT
-              value: 'rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/tracked_preview'
+              value: "rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/tracked_preview"
             - name: LOG_LEVEL
-              value: 'info'
+              value: "info"
           resources:
             requests:
-              memory: '1Gi'
-              cpu: '1000m'
+              memory: "1Gi"
+              cpu: "1000m"
             limits:
-              memory: '4Gi'
-              cpu: '4000m'
+              memory: "4Gi"
+              cpu: "4000m"
           readinessProbe:
             tcpSocket:
               port: http

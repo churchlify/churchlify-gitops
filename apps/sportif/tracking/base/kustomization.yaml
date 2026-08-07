@@ -5,6 +5,7 @@ namespace: sports-tracking
 
 resources:
   - deployment-tracking.yaml
+  - service.yaml
 
 labels:
   - pairs:
