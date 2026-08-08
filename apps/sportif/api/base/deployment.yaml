@@ -77,6 +77,11 @@ spec:
                 secretKeyRef:
                   name: sportif-secrets
                   key: REDIS_URL
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sportif-secrets
+                  key: REDIS_PASSWORD
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
