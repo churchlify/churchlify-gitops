@@ -9,10 +9,22 @@ namespace: sports-tracking
 images:
 - name: ghcr.io/agogos-llc/sportif-reel-worker
   newName: ghcr.io/agogos-llc/sportif-reel-worker
-  newTag: sha-4df941c
+  newTag: sha-6fba4b2
 - name: ghcr.io/agogos-llc/sportif-stitch-worker
   newName: ghcr.io/agogos-llc/sportif-stitch-worker
-  newTag: sha-4df941c
+  newTag: sha-6fba4b2
+- name: ghcr.io/agogos-llc/sportif/reel-worker
+  newName: ghcr.io/agogos-llc/sportif/reel-worker
+  newTag: sha-9fa09db
+- name: ghcr.io/agogos-llc/sportif/sportif-reel-worker
+  newName: ghcr.io/agogos-llc/sportif/sportif-reel-worker
+  newTag: sha-94c5e23
+- name: ghcr.io/agogos-llc/sportif/sportif-stitch-worker
+  newName: ghcr.io/agogos-llc/sportif/sportif-stitch-worker
+  newTag: sha-94c5e23
+- name: ghcr.io/agogos-llc/sportif/stitch-worker
+  newName: ghcr.io/agogos-llc/sportif/stitch-worker
+  newTag: sha-9fa09db
 
 labels:
 - pairs:
