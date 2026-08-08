@@ -6,10 +6,10 @@ metadata:
   labels:
     app: recorder-worker
 data:
-  SEGMENT_DURATION: '300'
-  MAX_RETRIES: '3'
-  RECONNECT_DELAY: '5'
-  LOG_LEVEL: 'info'
+  SEGMENT_DURATION: "300"
+  MAX_RETRIES: "3"
+  RECONNECT_DELAY: "5"
+  LOG_LEVEL: "info"
 
 ---
 apiVersion: apps/v1
@@ -23,10 +23,7 @@ metadata:
 spec:
   replicas: 1
   strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+    type: Recreate
   selector:
     matchLabels:
       app: recorder-worker
@@ -36,9 +33,9 @@ spec:
         app: recorder-worker
         component: ingest
       annotations:
-        prometheus.io/scrape: 'true'
-        prometheus.io/port: '8000'
-        prometheus.io/path: '/metrics'
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: recorder-worker
       terminationGracePeriodSeconds: 30
@@ -52,9 +49,9 @@ spec:
               protocol: TCP
           env:
             - name: API_BASE_URL
-              value: 'http://api-service.sports-tracking.svc.cluster.local:3000/api'
+              value: "http://api-service.sports-tracking.svc.cluster.local:3000/api"
             - name: STORAGE_PATH
-              value: '/data/segments'
+              value: "/data/segments"
             - name: SEGMENT_DURATION
               valueFrom:
                 configMapKeyRef:
@@ -146,7 +143,7 @@ spec:
     kind: Deployment
     name: recorder-worker
   minReplicas: 1
-  maxReplicas: 4
+  maxReplicas: 1
   metrics:
     - type: Resource
       resource:
