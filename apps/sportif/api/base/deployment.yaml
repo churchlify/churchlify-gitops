@@ -120,7 +120,7 @@ spec:
                   key: SMTP_PASSWORD
             - name: CORS_ORIGINS
               valueFrom:
-                configMapKeyRef:
+                secretKeyRef:
                   name: api-secrets
                   key: CORS_ORIGINS
             - name: EMAIL_FROM
