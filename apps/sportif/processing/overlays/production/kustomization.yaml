@@ -12,7 +12,7 @@ images:
   newTag: sha-ae02a69
 - name: ghcr.io/agogos-llc/sportif-stitch-worker
   newName: ghcr.io/agogos-llc/sportif-stitch-worker
-  newTag: sha-ae02a69
+  newTag: sha-f2397f8
 - name: ghcr.io/agogos-llc/sportif/reel-worker
   newName: ghcr.io/agogos-llc/sportif/reel-worker
   newTag: sha-9fa09db
