@@ -13,6 +13,7 @@ data:
   SMTP_PORT: "2525"
   SMTP_USER: "Sportif"
   EMAIL_FROM: "hello@churchlify.com"
+  CORS_ORIGINS: "http://localhost:3000, http://localhost:8081, http://localhost:8082, https://sportif.churchlify.com"
   APP_URL: "https://sportif.churchlify.com"
   JWT_EXPIRY: "900"
   REFRESH_TOKEN_EXPIRY: "604800"
@@ -117,6 +118,11 @@ spec:
                 secretKeyRef:
                   name: api-secrets
                   key: SMTP_PASSWORD
+            - name: CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: api-secrets
+                  key: CORS_ORIGINS
             - name: EMAIL_FROM
               valueFrom:
                 configMapKeyRef:
