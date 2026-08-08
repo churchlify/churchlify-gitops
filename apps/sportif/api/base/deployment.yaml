@@ -8,7 +8,7 @@ metadata:
     component: backend
 data:
   NODE_ENV: "production"
-  LOG_LEVEL: "debug"
+  LOG_LEVEL: "info"
   SMTP_HOST: "mail.smtp2go.com"
   SMTP_PORT: "2525"
   SMTP_USER: "Sportif"
