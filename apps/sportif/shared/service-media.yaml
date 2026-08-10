@@ -4,6 +4,7 @@ metadata:
   name: media-ingest-service
   namespace: sports-tracking
 spec:
+  type: LoadBalancer
   selector:
     app: media-ingest
   ports:
