@@ -8,8 +8,28 @@ data:
     logLevel: info
     logDestinations: [stdout]
 
+    # Browser-consumable preview protocols. Streams are published internally
+    # over RTSP with match-scoped paths such as <match_id>_left,
+    # <match_id>_right, and <match_id>_stitched_preview.
+    webrtc: yes
+    webrtcAddress: :8889
+    webrtcAllowOrigins: ["*"]
+    # Disable direct pod ICE candidates; internet clients use the shared TURN
+    # relay instead of an address inside the Kubernetes overlay network.
+    webrtcLocalUDPAddress: ""
+    webrtcIPsFromInterfaces: false
+    # TURN is provided by platform/coturn. The secret-backed password is
+    # injected with MTX_WEBRTCICESERVERS2_0_PASSWORD in the deployment.
+    webrtcICEServers2:
+      - url: turn:turn.churchlify.com:3478?transport=tcp
+        username: AUTH_SECRET
+
+    hls: yes
+    hlsAddress: :8888
+    hlsAllowOrigins: ["*"]
+
     paths:
-      all:
+      all_others:
         runOnAvailable: >
           sh -c '
             if echo "$MTX_PATH" | grep -q "_left"; then

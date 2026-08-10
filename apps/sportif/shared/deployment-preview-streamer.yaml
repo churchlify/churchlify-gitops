@@ -23,8 +23,16 @@ spec:
               containerPort: 8554
             - name: webrtc
               containerPort: 8889
+            - name: hls
+              containerPort: 8888
             - name: rtmp
               containerPort: 1936
+          env:
+            - name: MTX_WEBRTCICESERVERS2_0_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sportif-secrets
+                  key: TURN_SECRET
           resources:
             requests:
               cpu: 500m

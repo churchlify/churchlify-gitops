@@ -14,6 +14,7 @@ resources:
   - deployment-media-ingest.yaml
   - deployment-preview-streamer.yaml
   - service-media.yaml
+  - ingress-preview-streamer.yaml
   - pvc-rwx.yaml
 
 labels:

@@ -6,7 +6,8 @@ Complete guide for deploying Sportif to the sports-tracking namespace in app-ops
 
 - [ ] sports-tracking namespace exists (shared with sport-track)
 - [ ] External Secrets Operator can access `platform-secrets`
-- [ ] Remote `global-db-secrets` contains `JWT_SECRET` and `IMMICH_API_KEY`
+- [ ] Remote `global-db-secrets` contains `JWT_SECRET`, `IMMICH_API_KEY`, and
+      `TURN_SECRET`
 - [ ] Longhorn storage provisioned
 - [ ] ArgoCD installed and configured
 - [ ] cert-manager installed for TLS
@@ -52,6 +53,7 @@ The `platform-secrets` ClusterSecretStore must expose these properties in its
 
 - `JWT_SECRET`
 - `IMMICH_API_KEY`
+- `TURN_SECRET`
 - `PGSQL_USER`
 - `PGSQL_PASSWORD`
 - `PGSQL_HOST`

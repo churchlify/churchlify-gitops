@@ -116,14 +116,15 @@ kubectl get secret sportif-secrets -n sports-tracking
 ```
 
 The `platform-secrets` ClusterSecretStore reads `global-db-secrets` from the
-`platform` namespace. Add `JWT_SECRET` and `IMMICH_API_KEY` to that source
-Secret using your approved secret-management process. If the media pipeline
-uses it, add `stream-key` there as well. Do not commit any of these values to
-Git.
+`platform` namespace. Add `JWT_SECRET`, `IMMICH_API_KEY`, and `TURN_SECRET` to
+that source Secret using your approved secret-management process. Sportif and
+`platform/coturn` must receive the same `TURN_SECRET` so MediaMTX can generate
+temporary TURN credentials. If the media pipeline uses it, add `stream-key`
+there as well. Do not commit any of these values to Git.
 
-The `platform-secrets` ClusterSecretStore must expose `JWT_SECRET` and
-`IMMICH_API_KEY` in the `global-db-secrets` remote object, along with the
-PostgreSQL properties used to build `DATABASE_URL`.
+The `platform-secrets` ClusterSecretStore must expose `JWT_SECRET`,
+`IMMICH_API_KEY`, and `TURN_SECRET` in the `global-db-secrets` remote object,
+along with the PostgreSQL properties used to build `DATABASE_URL`.
 
 ### Optional Secrets (per component)
 
@@ -143,6 +144,7 @@ PostgreSQL properties used to build `DATABASE_URL`.
 ### Network
 
 - **Ingress**: API at sportif.churchlify.com
+- **Preview Ingress**: Match-scoped WebRTC and HLS previews at preview.sportif.churchlify.com
 - **Services**: ClusterIP for internal communication
 - **Rate Limiting**: 100 requests/minute on API ingress
 
@@ -203,6 +205,174 @@ curl https://sportif.churchlify.com/health/ready
 
 # Recorder health
 curl http://recorder-worker:8000/health/live
+```
+
+### Preview Stream Testing
+
+Preview streams are match-scoped. For a match ID such as `match-123`, use
+these MediaMTX stream paths:
+
+- Left camera: `match-123_left`
+- Right camera: `match-123_right`
+- Stitched preview: `match-123_stitched_preview`
+
+The preview ingress exposes each stream through both WebRTC and HLS. It strips
+the `/webrtc` or `/hls` routing prefix before forwarding the match-scoped path
+to MediaMTX.
+
+#### Playback URLs
+
+WebRTC player endpoints:
+
+```text
+https://preview.sportif.churchlify.com/webrtc/match-123_left
+https://preview.sportif.churchlify.com/webrtc/match-123_right
+https://preview.sportif.churchlify.com/webrtc/match-123_stitched_preview
+```
+
+HLS playlist endpoints:
+
+```text
+https://preview.sportif.churchlify.com/hls/match-123_left/index.m3u8
+https://preview.sportif.churchlify.com/hls/match-123_right/index.m3u8
+https://preview.sportif.churchlify.com/hls/match-123_stitched_preview/index.m3u8
+```
+
+Internal publishers publish the same match-scoped paths over RTSP:
+
+```text
+rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/match-123_left
+rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/match-123_right
+rtsp://preview-streamer-service.sports-tracking.svc.cluster.local:8554/match-123_stitched_preview
+```
+
+#### Verify Kubernetes resources
+
+After Argo CD syncs the Sportif application, verify the deployment, service,
+ingress, certificate, endpoints, and MediaMTX logs:
+
+```bash
+kubectl get deploy preview-streamer -n sports-tracking
+kubectl get svc preview-streamer-service -n sports-tracking
+kubectl get ingress preview-streamer-ingress -n sports-tracking
+kubectl describe ingress preview-streamer-ingress -n sports-tracking
+kubectl get certificate sportif-preview-tls -n sports-tracking
+kubectl get endpoints preview-streamer-service -n sports-tracking
+kubectl get deploy coturn -n platform
+kubectl get svc coturn -n platform
+kubectl logs -n sports-tracking deploy/preview-streamer -f
+```
+
+The internal service must expose RTSP `8554`, WebRTC signaling `8889`, HLS
+`8888`, and RTMP `1936`. The ingress must route `/webrtc` to `8889` and `/hls`
+to `8888`. WebRTC media relays through the existing `platform/coturn`
+deployment when a direct peer path is unavailable.
+
+#### Verify DNS and TLS
+
+Create or verify both DNS records before testing:
+
+- Point `preview.sportif.churchlify.com` at the nginx ingress controller's
+  public address. This carries HTTPS WebRTC signaling and HLS.
+- Keep the existing `turn.churchlify.com` record pointed at the
+  `platform/coturn` LoadBalancer. MediaMTX and browser clients use TURN on TCP
+  `3478`, with relay ports `49160-49200`.
+
+Retrieve the addresses and verify DNS and HTTPS:
+
+```bash
+kubectl get ingress preview-streamer-ingress -n sports-tracking
+kubectl get svc coturn -n platform
+nslookup preview.sportif.churchlify.com
+nslookup turn.churchlify.com
+curl -vI https://preview.sportif.churchlify.com/hls/match-123_left/index.m3u8
+```
+
+A playlist request can return a not-found response until the corresponding
+match-scoped stream is being published.
+
+#### Publish an end-to-end test stream
+
+From a workstation with `kubectl` and FFmpeg, forward the internal RTSP port:
+
+```bash
+kubectl port-forward -n sports-tracking svc/preview-streamer-service 8554:8554
+```
+
+In a second terminal, publish a generated video and audio test pattern as the
+left camera for `match-123`:
+
+```bash
+ffmpeg -re \
+  -f lavfi -i testsrc=size=1280x720:rate=30 \
+  -f lavfi -i sine=frequency=1000:sample_rate=48000 \
+  -c:v libx264 -preset veryfast -tune zerolatency \
+  -pix_fmt yuv420p -c:a aac \
+  -f rtsp rtsp://localhost:8554/match-123_left
+```
+
+Leave FFmpeg running while testing playback. Repeat with
+`match-123_right` or `match-123_stitched_preview` to test the other paths.
+
+#### Test HLS playback
+
+Check that the playlist and media segments are available:
+
+```bash
+curl -fsS https://preview.sportif.churchlify.com/hls/match-123_left/index.m3u8
+ffplay https://preview.sportif.churchlify.com/hls/match-123_left/index.m3u8
+```
+
+The HLS URL can also be loaded by an HLS-compatible browser player, VLC, or a
+frontend using `hls.js`.
+
+#### Test WebRTC playback
+
+Open the MediaMTX WebRTC player endpoint in a browser:
+
+```text
+https://preview.sportif.churchlify.com/webrtc/match-123_left
+```
+
+For a WHEP-compatible client, use:
+
+```text
+https://preview.sportif.churchlify.com/webrtc/match-123_left/whep
+```
+
+HTTPS ingress exposes MediaMTX WebRTC signaling. WebRTC media uses
+the existing coturn deployment at `turn.churchlify.com:3478` with TURN REST
+shared-secret authentication. MediaMTX generates temporary credentials from
+`TURN_SECRET`; the secret is synchronized into `sportif-secrets` from the same
+`global-db-secrets` property used by `platform/coturn`. If the player page
+loads but media does not start, verify TURN DNS, TCP `3478`, and relay ports
+`49160-49200` through the load balancer, firewall, and upstream router. HLS
+remains available over standard HTTPS when WebRTC connectivity is unavailable.
+
+The platform mediasoup deployment is a separate SFU and is not in the preview
+playback path. Using it for Sportif previews would require application-level
+mediasoup signaling plus an RTSP/RTP producer bridge for each match-scoped
+stream; it cannot be selected as a drop-in MediaMTX ICE server.
+
+#### Troubleshooting previews
+
+```bash
+# Confirm nginx routes and TLS status.
+kubectl describe ingress preview-streamer-ingress -n sports-tracking
+
+# Confirm the shared TURN service has an external address.
+kubectl get svc coturn -n platform
+
+# Confirm MediaMTX received the TURN secret without printing its value.
+kubectl get secret sportif-secrets -n sports-tracking \
+  -o jsonpath='{.data.TURN_SECRET}' | grep -q . && echo TURN_SECRET_PRESENT
+
+# Confirm MediaMTX sees the publisher and playback requests.
+kubectl logs -n sports-tracking deploy/preview-streamer --tail=200
+
+# Bypass ingress to isolate MediaMTX or ingress failures.
+kubectl port-forward -n sports-tracking svc/preview-streamer-service 8888:8888 8889:8889
+curl -vI http://localhost:8888/match-123_left/index.m3u8
 ```
 
 ## Image Updates

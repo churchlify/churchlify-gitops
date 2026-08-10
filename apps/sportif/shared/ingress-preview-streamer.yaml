@@ -1,0 +1,42 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: preview-streamer-ingress
+  namespace: sports-tracking
+  labels:
+    app: preview-streamer
+    component: media
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/websocket-services: "preview-streamer-service"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "Upgrade";
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - preview.sportif.churchlify.com
+      secretName: sportif-preview-tls
+  rules:
+    - host: preview.sportif.churchlify.com
+      http:
+        paths:
+          - path: /webrtc(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: preview-streamer-service
+                port:
+                  number: 8889
+          - path: /hls(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: preview-streamer-service
+                port:
+                  number: 8888
