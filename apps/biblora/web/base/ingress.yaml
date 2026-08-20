@@ -15,7 +15,7 @@ spec:
       secretName: biblora-web-tls
     - hosts:
         - biblora.cc
-      secretName: biblora-web-tls
+      secretName: biblora-tls
   rules:
     - host: web.biblora.cc
       http:
