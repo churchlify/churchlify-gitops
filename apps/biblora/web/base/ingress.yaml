@@ -13,8 +13,21 @@ spec:
     - hosts:
         - web.biblora.cc
       secretName: biblora-web-tls
+    - hosts:
+        - biblora.cc
+      secretName: biblora-web-tls
   rules:
     - host: web.biblora.cc
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: biblora-web
+                port:
+                  number: 80
+    - host: biblora.cc
       http:
         paths:
           - path: /
