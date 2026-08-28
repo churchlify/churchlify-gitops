@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: queue-worker-v2
+  namespace: sports-tracking
+  labels:
+    app: queue-worker-v2
+    component: backend
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: queue-worker-v2
+  template:
+    metadata:
+      labels:
+        app: queue-worker-v2
+        component: backend
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '3002'
+        prometheus.io/path: '/metrics'
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: queue-worker-v2
+          # Same image as api-v2 -- dist/src/main-worker.js already exists
+          # in the image, only the command differs. See
+          # apps/sportif_v2/api-v2/base/deployment.yaml for why this reads
+          # sportif-secrets (the live v1 Secret) directly.
+          image: ghcr.io/agogos-llc/sportif-api:latest
+          imagePullPolicy: Always
+          command: ['node', 'dist/src/main-worker.js']
+          ports:
+            - name: http
+              containerPort: 3002
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: api-v2-config
+            - secretRef:
+                name: sportif-secrets
+            - secretRef:
+                name: api-v2-extra-secrets
+          env:
+            - name: WORKER_PORT
+              value: '3002'
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2

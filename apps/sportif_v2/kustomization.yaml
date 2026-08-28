@@ -1,0 +1,30 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: sportif-v2
+  namespace: sports-tracking
+
+# Parallel-verification app for the api/queue-worker/notifications 3-way
+# split -- runs alongside the live 8-component `sportif` app (see
+# ../sportif/kustomization.yaml) in the same sports-tracking namespace,
+# with every resource name suffixed -v2 to avoid fighting ArgoCD over
+# ownership of the live api/api-config/api-service objects. Only the
+# api component is being split; recorder/preview/tracking/processing/
+# cleanup/notification(old)/uploader/shared media stack stay owned by
+# the v1 app untouched.
+#
+# Deployed via platform/argocd/sportif/app-v2.yaml (ArgoCD Application
+# "sportif-v2"). See apps/sportif_v2/README.md for the cutover plan.
+
+resources:
+  - shared
+  - api-v2/overlays/production
+  - queue-worker-v2/overlays/production
+  - notifications-v2/overlays/production
+
+labels:
+  - pairs:
+      app: sportif-v2
+      part-of: sportif-v2
+      app.kubernetes.io/managed-by: argocd

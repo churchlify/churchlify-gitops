@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: notifications-v2-service
+  namespace: sports-tracking
+  labels:
+    app: notifications-v2
+    component: backend
+spec:
+  # ClusterIP, not LoadBalancer: every caller (api-v2, queue-worker-v2) is
+  # in-cluster, and this must never be reachable from outside -- its only
+  # protection against arbitrary callers is InternalApiKeyGuard, not
+  # network exposure.
+  type: ClusterIP
+  selector:
+    app: notifications-v2
+  ports:
+    - name: http
+      port: 3001
+      targetPort: http
+      protocol: TCP

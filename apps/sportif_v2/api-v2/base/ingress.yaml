@@ -1,0 +1,34 @@
+# Own subdomain, own TLS cert -- verification traffic never touches
+# sportif.churchlify.com (the live v1 ingress/DNS record). Cut over by
+# pointing sportif.churchlify.com at this Service (or vice versa) once
+# api-v2 is verified, then retire this Ingress.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-v2-ingress
+  namespace: sports-tracking
+  labels:
+    app: api-v2
+    component: backend
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/rate-limit: '100'
+    nginx.ingress.kubernetes.io/rate-limit-window: '1m'
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - v2.sportif.churchlify.com
+      secretName: sportif-v2-api-tls
+  rules:
+    - host: v2.sportif.churchlify.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-v2
+                port:
+                  number: 3000

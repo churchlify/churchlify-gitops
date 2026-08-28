@@ -1,0 +1,26 @@
+# Not wired into apps/sportif_v2/kustomization.yaml or any ArgoCD
+# Application yet -- the sports-tracking-staging namespace this targets
+# doesn't exist in this repo (the live v1 sportif app has the same gap,
+# see apps/sportif/api/overlays/staging). Kept for parity so a future
+# staging Application can point here directly; needs the namespace
+# created first.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namespace: sports-tracking-staging
+
+images:
+  - name: ghcr.io/agogos-llc/sportif-api
+    newName: ghcr.io/agogos-llc/sportif-api
+    newTag: latest
+
+replicas:
+  - count: 1
+    name: api-v2
+
+labels:
+  - pairs:
+      environment: staging

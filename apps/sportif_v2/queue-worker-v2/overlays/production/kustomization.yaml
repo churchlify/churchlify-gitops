@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namespace: sports-tracking
+
+images:
+  - name: ghcr.io/agogos-llc/sportif-api
+    newName: ghcr.io/agogos-llc/sportif-api
+    newTag: latest
+
+replicas:
+  - count: 1
+    name: queue-worker-v2
+
+labels:
+  - pairs:
+      environment: production

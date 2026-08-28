@@ -1,0 +1,21 @@
+# Not wired into any Application yet -- see api-v2/overlays/staging for why.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namespace: sports-tracking-staging
+
+images:
+  - name: ghcr.io/agogos-llc/sportif-api
+    newName: ghcr.io/agogos-llc/sportif-api
+    newTag: latest
+
+replicas:
+  - count: 1
+    name: queue-worker-v2
+
+labels:
+  - pairs:
+      environment: staging
