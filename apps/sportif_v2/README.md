@@ -43,12 +43,14 @@ already used elsewhere in this repo (`apps/churchlify/api-v2/`).
 directly via `envFrom` -- same `JWT_SECRET`/`DATABASE_URL`/`REDIS_URL`/
 `REDIS_PASSWORD` as v1, so v2 talks to the same database and honors
 existing v1-issued JWTs. `shared/secret-extras.yaml` is a small,
-separately-owned placeholder Secret (`api-v2-extra-secrets`) for the 3
-keys `sportif-secrets` doesn't have: `SMTP_PASSWORD`,
-`INTERNAL_API_KEY`, `SENDER_PROFILE_ENCRYPTION_KEY`. Replace those
-placeholders (or fold them into `global-db-secrets` and switch this to
-an ExternalSecret) before relying on SMTP or the internal API key in
-production.
+separately-owned `ExternalSecret` (`api-v2-extra-secrets-sync`, target
+`api-v2-extra-secrets`) for the 3 keys `sportif-secrets` doesn't have:
+`SMTP_PASSWORD` and `INTERNAL_API_KEY` come straight from
+`global-db-secrets`; the sender-profile encryption key is synced from
+that same remote object's `NOTIFICATION_PROFILES_KEY` property and
+renamed to `SENDER_PROFILE_ENCRYPTION_KEY` in the target template (that's
+the env var name `apps/api/src/notifications/sender-profile-crypto.ts`
+actually reads).
 
 Nothing in `apps/sportif/shared/external-secret.yaml` is modified by
 this app -- the live v1 secret sync is untouched.
