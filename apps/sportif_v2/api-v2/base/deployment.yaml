@@ -7,27 +7,28 @@ metadata:
     app: api-v2
     component: backend
 data:
-  NODE_ENV: 'production'
-  LOG_LEVEL: 'info'
-  JWT_EXPIRY: '900'
-  REFRESH_TOKEN_EXPIRY: '604800'
-  SMTP_HOST: 'mail.smtp2go.com'
-  SMTP_PORT: '2525'
-  SMTP_USER: 'YOUR_SMTP2GO_USERNAME'
-  EMAIL_FROM: 'noreply@sportif.local'
-  APP_URL: 'https://sportif.churchlify.com'
-  STREAM_INGEST_BASE_URL: 'rtmp://sportif.churchlify.com:1935/live'
-  HLS_GATEWAY_URL: ''
-  RECORDING_SERVICE_URL: 'http://recording-service:8000'
-  VISION_PROCESSING_SERVICE_URL: 'http://vision-processing-service:8001'
-  STITCHING_SERVICE_URL: 'http://stitching-service:8003'
-  REEL_GENERATION_SERVICE_URL: 'http://reel-generation-service:8004'
-  UPLOAD_SERVICE_URL: 'http://upload-service:8005'
-  NOTIFICATION_BRIDGE_SERVICE_URL: 'http://notification-bridge-service:8006'
-  CLEANUP_SERVICE_URL: 'http://cleanup-service:8007'
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  JWT_EXPIRY: "900"
+  REFRESH_TOKEN_EXPIRY: "604800"
+  SMTP_HOST: "mail.smtp2go.com"
+  SMTP_PORT: "2525"
+  SMTP_USER: "YOUR_SMTP2GO_USERNAME"
+  EMAIL_FROM: "noreply@sportif.local"
+  APP_URL: "https://sportif.churchlify.com"
+  STREAM_INGEST_BASE_URL: "rtmp://sportif.churchlify.com:1935/live"
+  HLS_GATEWAY_URL: ""
+  RECORDING_SERVICE_URL: "http://recording-service:8000"
+  VISION_PROCESSING_SERVICE_URL: "http://vision-processing-service:8001"
+  STITCHING_SERVICE_URL: "http://stitching-service:8003"
+  REEL_GENERATION_SERVICE_URL: "http://reel-generation-service:8004"
+  UPLOAD_SERVICE_URL: "http://upload-service:8005"
+  NOTIFICATION_BRIDGE_SERVICE_URL: "http://notification-bridge-service:8006"
+  CLEANUP_SERVICE_URL: "http://cleanup-service:8007"
   # queue-worker-v2/notifications-v2 in this same app -- not the live v1
   # notification-service.
-  NOTIFICATIONS_SERVICE_URL: 'http://notifications-v2-service:3001'
+  NOTIFICATIONS_SERVICE_URL: "http://notifications-v2-service:3001"
+  CORS_ORIGINS: "http://localhost:3000, http://localhost:8081, http://localhost:8082, https://sportif.churchlify.com"
 
 ---
 apiVersion: apps/v1
@@ -54,9 +55,9 @@ spec:
         app: api-v2
         component: backend
       annotations:
-        prometheus.io/scrape: 'true'
-        prometheus.io/port: '3000'
-        prometheus.io/path: '/metrics'
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
     spec:
       terminationGracePeriodSeconds: 30
       containers:
