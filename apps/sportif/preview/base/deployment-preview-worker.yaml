@@ -41,7 +41,7 @@ spec:
         component: preview
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8001"
+        prometheus.io/port: "8003"
         prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: preview-worker
@@ -52,7 +52,7 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
-              containerPort: 8001
+              containerPort: 8003
               protocol: TCP
           env:
             - name: API_BASE_URL
@@ -174,6 +174,6 @@ spec:
     app: preview-worker
   ports:
     - name: http
-      port: 8001
+      port: 8003
       targetPort: http
       protocol: TCP
