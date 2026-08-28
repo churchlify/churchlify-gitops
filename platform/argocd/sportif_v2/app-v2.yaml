@@ -1,0 +1,39 @@
+# Parallel verification app for the api/queue-worker/notifications split
+# -- see apps/sportif_v2/README.md. Deliberately no `syncPolicy.automated`
+# block: this is a brand-new set of resources with no history, so the
+# first sync should be a manual `argocd app sync sportif-v2` after
+# reviewing the diff, not an automatic apply the moment this file lands.
+# Add automated prune/selfHeal (matching platform/argocd/sportif/app.yaml)
+# once the first sync is verified healthy.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sportif-v2
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/part-of: sportif-v2
+    app: sportif-v2
+
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/churchlify/churchlify-gitops.git
+    path: apps/sportif_v2
+    targetRevision: main
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sports-tracking
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=false
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
