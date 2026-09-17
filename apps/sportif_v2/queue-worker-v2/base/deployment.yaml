@@ -47,6 +47,11 @@ spec:
                 name: sportif-secrets
             - secretRef:
                 name: api-v2-extra-secrets
+            # Optional only while GameMaster multipart is disabled. API and worker
+            # use the same dedicated backend identity once it is provisioned.
+            - secretRef:
+                name: api-v2-gamemaster-storage-secrets
+                optional: true
           env:
             - name: WORKER_PORT
               value: '3002'

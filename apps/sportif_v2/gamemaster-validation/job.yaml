@@ -1,0 +1,65 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gamemaster-minio-sts-validation
+  labels:
+    app: gamemaster-minio-sts-validation
+    component: infrastructure-validation
+    part-of: sportif-v2
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 1500
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: gamemaster-minio-sts-validation
+        component: infrastructure-validation
+        part-of: sportif-v2
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: validation
+          # This tag corresponds to the application commit that packages the
+          # validator. Replace with its published digest before applying.
+          image: ghcr.io/agogos-llc/sportif-api:sha-ebd9f53
+          imagePullPolicy: IfNotPresent
+          command: ['node', 'scripts/validate-gamemaster-minio-sts.mjs']
+          envFrom:
+            - configMapRef:
+                name: api-v2-config
+            - secretRef:
+                name: api-v2-gamemaster-storage-secrets
+          env:
+            - name: GAMEMASTER_STS_TEST_EXPIRY
+              value: 'true'
+            - name: GAMEMASTER_STS_REQUIRE_LEGACY_CLEANUP
+              value: 'true'
+            - name: GAMEMASTER_LEGACY_CLEANUP_OBJECT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gamemaster-sts-validation-inputs
+                  key: GAMEMASTER_LEGACY_CLEANUP_OBJECT_KEY
+            - name: GAMEMASTER_CLEANUP_S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gamemaster-sts-validation-inputs
+                  key: GAMEMASTER_CLEANUP_S3_ACCESS_KEY
+            - name: GAMEMASTER_CLEANUP_S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gamemaster-sts-validation-inputs
+                  key: GAMEMASTER_CLEANUP_S3_SECRET_KEY
+            - name: GAMEMASTER_CLEANUP_S3_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: gamemaster-sts-validation-inputs
+                  key: GAMEMASTER_CLEANUP_S3_SESSION_TOKEN
+                  optional: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi

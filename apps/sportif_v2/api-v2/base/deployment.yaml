@@ -18,6 +18,19 @@ data:
   APP_URL: "https://sportif.churchlify.com"
   STREAM_INGEST_BASE_URL: "rtmp://sportif.churchlify.com:1935/live"
   HLS_GATEWAY_URL: ""
+  # GameMaster storage is provisioned through a dedicated backend identity.
+  # Keep disabled until the in-cluster STS/multipart matrix passes. The bucket is
+  # provisional pending the separate per-environment bucket architecture decision.
+  GAMEMASTER_MULTIPART_ENABLED: "false"
+  GAMEMASTER_STORAGE_BUCKET: "sportif-v2-bucket"
+  GAMEMASTER_S3_ENDPOINT: "https://s3.churchlify.com"
+  GAMEMASTER_S3_PUBLIC_ENDPOINT: "https://s3.churchlify.com"
+  GAMEMASTER_S3_REGION: "us-east-1"
+  GAMEMASTER_S3_FORCE_PATH_STYLE: "true"
+  GAMEMASTER_STS_ENDPOINT: "https://s3.churchlify.com"
+  # Empty selects MinIO native built-in AssumeRole. Populate only for a
+  # configured identity-provider role accepted by the deployed MinIO release.
+  GAMEMASTER_STS_ROLE_ARN: ""
   RECORDING_SERVICE_URL: "http://recording-service:8000"
   VISION_PROCESSING_SERVICE_URL: "http://vision-processing-service:8001"
   STITCHING_SERVICE_URL: "http://stitching-service:8003"
@@ -81,6 +94,11 @@ spec:
                 name: sportif-secrets
             - secretRef:
                 name: api-v2-extra-secrets
+            # Optional only while the feature flag is false and Infrastructure is
+            # provisioning the remote secret. Make this required before activation.
+            - secretRef:
+                name: api-v2-gamemaster-storage-secrets
+                optional: true
           resources:
             requests:
               cpu: 250m

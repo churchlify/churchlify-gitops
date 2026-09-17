@@ -5,3 +5,4 @@ namespace: sports-tracking
 
 resources:
   - secret-extras.yaml
+  - gamemaster-storage-external-secret.yaml
