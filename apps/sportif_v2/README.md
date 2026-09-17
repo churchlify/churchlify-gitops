@@ -95,9 +95,9 @@ exist.
 ## Deploying
 
 ```bash
-kubectl apply -f platform/argocd/sportif/app-v2.yaml
+kubectl apply -f platform/argocd/sportif_v2/app-v2.yaml
 argocd app get sportif-v2
-argocd app sync sportif-v2   # no automated sync -- first deploy is manual
+argocd app sync sportif-v2   # optional: automated sync is enabled
 ```
 
 ## Verifying

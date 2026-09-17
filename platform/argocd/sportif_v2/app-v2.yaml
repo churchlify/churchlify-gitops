@@ -1,10 +1,5 @@
-# Parallel verification app for the api/queue-worker/notifications split
-# -- see apps/sportif_v2/README.md. Deliberately no `syncPolicy.automated`
-# block: this is a brand-new set of resources with no history, so the
-# first sync should be a manual `argocd app sync sportif-v2` after
-# reviewing the diff, not an automatic apply the moment this file lands.
-# Add automated prune/selfHeal (matching platform/argocd/sportif/app.yaml)
-# once the first sync is verified healthy.
+# Parallel verification app for the api/queue-worker/notifications split.
+# See apps/sportif_v2/README.md.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -28,15 +23,15 @@ spec:
     server: https://kubernetes.default.svc
     namespace: sports-tracking
 
-syncPolicy:
-  automated:
-    prune: true
-    selfHeal: true
-  syncOptions:
-    - CreateNamespace=false
-  retry:
-    limit: 5
-    backoff:
-      duration: 5s
-      factor: 2
-      maxDuration: 3m
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
