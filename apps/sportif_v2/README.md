@@ -159,7 +159,7 @@ Render and apply the Job with the published digest:
 
 ```bash
 kubectl kustomize apps/sportif_v2/gamemaster-validation \
-  | sed 's#ghcr.io/agogos-llc/sportif-api:sha-ebd9f53#ghcr.io/agogos-llc/sportif-api@sha256:<published-digest>#' \
+  | sed 's#ghcr.io/agogos-llc/sportif-api:sha-b3242e4#ghcr.io/agogos-llc/sportif-api@sha256:<published-digest>#' \
   | kubectl apply -f -
 
 kubectl -n sports-tracking wait \

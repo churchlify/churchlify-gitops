@@ -22,7 +22,7 @@ spec:
         - name: validation
           # This tag corresponds to the application commit that packages the
           # validator. Replace with its published digest before applying.
-          image: ghcr.io/agogos-llc/sportif-api:sha-ebd9f53
+          image: ghcr.io/agogos-llc/sportif-api:sha-b3242e4
           imagePullPolicy: IfNotPresent
           command: ['node', 'scripts/validate-gamemaster-minio-sts.mjs']
           envFrom:
