@@ -4,7 +4,7 @@ metadata:
   name: sportif-ml-config
   namespace: sportif-ml
 data:
-  AWS_ENDPOINT_URL: https://s3.churchlify.com
+  AWS_ENDPOINT_URL: http://minio-service.platform.svc.cluster.local:9000
   AWS_DEFAULT_REGION: us-east-1
   ML_RAW_BUCKET: sportif-ml-raw
   ML_FRAMES_BUCKET: sportif-ml-frames
@@ -19,6 +19,6 @@ data:
   DATASET_APPROVED: "false"
   MODEL_ID: sportif-ball-detector-v001
   TRAINING_EPOCHS: "150"
-  TRAINING_BATCH_SIZE: "16"
+  TRAINING_BATCH_SIZE: "2"
   TRAINING_IMAGE_SIZE: "1024"
   TRAINING_LEARNING_RATE: "0.001"

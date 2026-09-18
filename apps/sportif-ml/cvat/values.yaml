@@ -1,0 +1,64 @@
+# Staged values for the supported CVAT v2.45.0 Helm chart (chart 0.17.0).
+# This file is not part of the active sportif-ml Kustomization. Activate it only
+# after the shared PostgreSQL database/user, shared Redis credentials, and the
+# CVAT ExternalSecrets described in docs/ml-factory/installation.md exist.
+
+cvat:
+  backend:
+    image: cvat/server
+    tag: v2.45.0
+    imagePullPolicy: IfNotPresent
+    defaultStorage:
+      enabled: true
+      storageClassName: longhorn
+      accessModes:
+        - ReadWriteMany
+      size: 20Gi
+  frontend:
+    image: cvat/ui
+    tag: v2.45.0
+    imagePullPolicy: IfNotPresent
+
+# Reuse platform services. Do not deploy duplicate PostgreSQL or Redis.
+postgresql:
+  enabled: false
+  external:
+    host: pgsql-postgresql.platform.svc.cluster.local
+    port: "5432"
+  secret:
+    create: false
+    name: cvat-postgres-secret
+
+redis:
+  enabled: false
+  external:
+    # Replace in an environment overlay with the existing Redis hostname from
+    # the platform secret backend. The repository does not declare that service.
+    host: SET_FROM_PLATFORM_SECRET
+  auth:
+    existingSecret: cvat-redis-secret
+    existingSecretPasswordKey: password
+  secret:
+    create: false
+    name: cvat-redis-secret
+
+# The repository already has a monitoring stack boundary. Do not install the
+# chart's bundled ClickHouse/Grafana analytics stack for the initial milestone.
+analytics:
+  enabled: false
+clickhouse:
+  enabled: false
+nuclio:
+  enabled: false
+traefik:
+  enabled: false
+
+ingress:
+  enabled: true
+  hostname: annotate.churchlify.com
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: 2g
+  tls: true
+  tlsSecretName: sportif-ml-cvat-tls

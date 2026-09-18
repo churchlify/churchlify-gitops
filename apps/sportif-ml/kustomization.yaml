@@ -6,12 +6,10 @@ metadata:
   namespace: sportif-ml
 
 resources:
+  - namespace.yaml
   - namespace-scoped.yaml
   - training-config.yaml
-  - storage.yaml
-  - rbac.yaml
   - externalsecret.yaml
-  - ingress.yaml
   - pipeline
 
 labels:

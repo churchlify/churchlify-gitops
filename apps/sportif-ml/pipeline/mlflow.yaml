@@ -25,7 +25,14 @@ spec:
       labels:
         app: mlflow
     spec:
-      serviceAccountName: sportif-ml-pipeline
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: mlflow
           image: ghcr.io/mlflow/mlflow:v2.18.0
@@ -64,6 +71,10 @@ spec:
             limits:
               cpu: 1
               memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
       volumes:
         - name: backend
           persistentVolumeClaim:

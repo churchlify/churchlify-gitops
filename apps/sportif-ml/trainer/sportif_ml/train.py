@@ -50,9 +50,11 @@ def train(dataset_id):
     root = dataset_root(dataset_id)
     validation_result = validate(dataset_id)
     model = build_model()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if not torch.cuda.is_available():
+        raise SystemExit("CUDA is required for the production training stage")
+    device = torch.device("cuda")
     model.to(device)
-    loader = DataLoader(YoloDetectionDataset(root, "train"), batch_size=int(os.environ.get("TRAINING_BATCH_SIZE", "16")), shuffle=True, collate_fn=collate)
+    loader = DataLoader(YoloDetectionDataset(root, "train"), batch_size=int(os.environ.get("TRAINING_BATCH_SIZE", "2")), shuffle=True, collate_fn=collate)
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(os.environ.get("TRAINING_LEARNING_RATE", "0.001")))
     epochs = int(os.environ.get("TRAINING_EPOCHS", "150"))
     model.train()

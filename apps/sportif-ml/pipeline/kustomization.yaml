@@ -3,8 +3,9 @@ kind: Kustomization
 
 resources:
   - config.yaml
-  - services.yaml
-  - storage-bootstrap.yaml
-  - cvat.yaml
-  - mlflow.yaml
-  - workflows.yaml
+
+# Enable services.yaml, mlflow.yaml, and storage-bootstrap.yaml after the
+# sportif-ml-storage ExternalSecret is Ready. CVAT must be deployed from its
+# supported Helm chart, not as a single server Deployment. The workflow template
+# is also intentionally staged until the Argo Workflows CRDs/controller and a
+# published trainer image are verified. See docs/ml-factory/installation.md.

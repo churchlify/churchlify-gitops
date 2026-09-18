@@ -17,7 +17,7 @@ data:
       id: sportif-ball-v001
     training:
       epochs: 150
-      batchSize: 16
+      batchSize: 2
       imageSize: 1024
       seed: 42
       learningRate: 0.001
