@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sportif-ball-training-config
+  namespace: sportif-ml
+data:
+  training-config.yaml: |
+    model:
+      name: sportif-ball-detector
+      version: v001
+      classes:
+        - ball
+    initialization:
+      type: random
+      pretrainedWeights: false
+    dataset:
+      id: sportif-ball-v001
+    training:
+      epochs: 150
+      batchSize: 16
+      imageSize: 1024
+      seed: 42
+      learningRate: 0.001
+    compute:
+      gpuCount: 1
+    export:
+      onnx: true

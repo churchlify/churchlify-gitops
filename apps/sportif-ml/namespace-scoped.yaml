@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: sportif-ml-quota
+  namespace: sportif-ml
+spec:
+  hard:
+    requests.cpu: "16"
+    requests.memory: 32Gi
+    requests.nvidia.com/gpu: "1"
+    limits.cpu: "32"
+    limits.memory: 64Gi
+    limits.nvidia.com/gpu: "1"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: sportif-ml-defaults
+  namespace: sportif-ml
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 100m
+        memory: 128Mi
+      default:
+        cpu: 2
+        memory: 2Gi

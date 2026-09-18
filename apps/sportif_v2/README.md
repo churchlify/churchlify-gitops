@@ -61,7 +61,7 @@ this app -- the live v1 secret sync is untouched.
 non-administrative GameMaster backend identity from:
 
 ```text
-remote key: sportif-minio-secrets
+remote key: global-db-secrets
 properties:
   GAMEMASTER_S3_ACCESS_KEY
   GAMEMASTER_S3_SECRET_KEY
@@ -86,10 +86,10 @@ The current `sportif-v2-bucket` value is provisional pending the separate
 per-environment bucket architecture decision. Do not enable the feature until
 that decision and the live matrix are recorded.
 
-Populate the remote `sportif-minio-secrets` object before syncing the GitOps
+Populate the remote ``object before syncing the GitOps
 commit that introduces this ExternalSecret. The workload references are optional
 while disabled, so a delayed target Secret does not block pod startup, but the
-ExternalSecret itself will report `SecretSyncedError` until both remote properties
+ExternalSecret itself will report`SecretSyncedError` until both remote properties
 exist.
 
 ## Deploying
@@ -128,7 +128,7 @@ Before running it:
 
 1. Create and attach the reviewed lifecycle policy to a dedicated MinIO backend
    identity.
-2. Populate `sportif-minio-secrets` in `platform-secrets` and confirm
+2. Populate `global-db-secrets` in `platform-secrets` and confirm
    `api-v2-gamemaster-storage-secrets-sync` is Ready.
 3. Build the Sportif API from application commit `ebd9f53` or later, which
    packages `scripts/validate-gamemaster-minio-sts.mjs` in the runtime image.

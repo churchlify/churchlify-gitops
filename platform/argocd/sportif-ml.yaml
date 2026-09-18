@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sportif-ml
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: sportif-ml
+    app.kubernetes.io/part-of: sportif
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/churchlify/churchlify-gitops.git
+    path: apps/sportif-ml
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sportif-ml
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: sportif-ml
+  namespace: sportif-ml
+
+resources:
+  - namespace-scoped.yaml
+  - training-config.yaml
+  - storage.yaml
+  - rbac.yaml
+  - externalsecret.yaml
+  - ingress.yaml
+  - pipeline
+
+labels:
+  - pairs:
+      app.kubernetes.io/name: sportif-ml
+      app.kubernetes.io/part-of: sportif
+      app.kubernetes.io/managed-by: argocd

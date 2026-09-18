@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "modelId": "sportif-ball-detector-v001",
+  "status": "CANDIDATE",
+  "architecture": {
+    "name": "Faster R-CNN ResNet-50 FPN",
+    "sourceRepository": "https://github.com/pytorch/vision",
+    "sourceRevision": "v0.20.1",
+    "license": "BSD-3-Clause"
+  },
+  "training": {
+    "initialization": "random",
+    "pretrainedWeightsUsed": false,
+    "datasetId": "sportif-ball-v001",
+    "seed": 42
+  },
+  "artifacts": {
+    "pytorch": { "sha256": "GENERATED_AT_RUNTIME" },
+    "onnx": { "sha256": "GENERATED_AT_RUNTIME" }
+  },
+  "commercialGate": {
+    "datasetRightsVerified": false,
+    "trainingCodeLicenseVerified": false,
+    "dependencyLicensesVerified": false,
+    "pretrainedWeightsUsed": false,
+    "provenanceComplete": false
+  }
+}

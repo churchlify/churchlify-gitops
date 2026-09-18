@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sportif-ml
+  labels:
+    app.kubernetes.io/name: sportif-ml
+    app.kubernetes.io/part-of: sportif

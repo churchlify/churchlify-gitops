@@ -1,0 +1,1268 @@
+Sportif ML Factory — GitOps Implementation Prompt
+
+You are implementing the Sportif ML Factory, a self-hosted, Kubernetes-native computer-vision training pipeline for the Sportif sports video platform.
+
+The goal is to deploy a repeatable, auditable workflow that takes Sportif-owned soccer videos, extracts representative frames, allows human annotation, creates a validated dataset, trains a Sportif-owned soccer-ball detector from random initialization, evaluates it on unseen videos, exports the model to ONNX, and stores all model/dataset/provenance artifacts.
+
+The implementation must integrate into the existing Sportif GitOps/Kubernetes infrastructure rather than creating a parallel platform.
+
+⸻
+
+1. PRIMARY OBJECTIVE
+
+Build and deploy:
+
+Sportif Video
+      ↓
+MinIO
+      ↓
+Frame Extraction
+      ↓
+CVAT Annotation
+      ↓
+Dataset Validation
+      ↓
+Dataset Approval
+      ↓
+GPU Training
+      ↓
+Evaluation
+      ↓
+ONNX Export
+      ↓
+MLflow
+      ↓
+MinIO Model Registry/Artifacts
+      ↓
+SHA-256 + Provenance
+      ↓
+Sportif Ball Detector
+
+The initial production target is:
+
+Sportif Ball Detector v0.1
+
+with one object class:
+
+ball
+
+The initial model must be trained from random initialization.
+
+Do NOT use pretrained weights for the production clean-room model.
+
+⸻
+
+2. FIRST: INSPECT THE EXISTING REPOSITORY
+
+Before creating anything:
+
+1. Inspect the entire GitOps repository structure.
+2. Identify:
+    * existing namespaces
+    * Argo CD applications
+    * Helm repositories
+    * Kustomize structure
+    * existing MinIO deployment
+    * existing Postgres
+    * existing Redis
+    * existing ingress-nginx
+    * existing cert-manager
+    * existing Prometheus/Grafana
+    * existing GPU node configuration
+    * NVIDIA device plugin
+    * GPU tolerations
+    * GPU node labels
+    * storage classes
+    * Longhorn configuration
+    * existing secrets management
+    * External Secrets configuration
+3. Identify how existing applications are deployed.
+4. Follow the repository’s existing GitOps conventions.
+5. Do not introduce a second solution where an existing platform component can be reused.
+6. Do not create duplicate MinIO, PostgreSQL, Redis, ingress, monitoring, or secret infrastructure.
+7. Do not hard-code credentials.
+8. Do not hard-code cluster-specific IP addresses unless the existing GitOps repository already uses them as configuration.
+9. Do not modify unrelated Sportif applications.
+
+Before implementation, produce a short architecture assessment in:
+
+docs/ml-factory/architecture-assessment.md
+
+⸻
+
+3. GITOPS REQUIREMENT
+
+Everything required to deploy the ML Factory must be represented in Git.
+
+The repository must contain declarative configuration for:
+
+CVAT
+MLflow
+Sportif ML namespace
+training jobs
+pipeline workflows
+dataset configuration
+model configuration
+RBAC
+network policies where appropriate
+storage
+secrets references
+GPU scheduling
+ingress
+monitoring
+
+Use the repository’s existing:
+
+* Argo CD
+* Helm
+* Kustomize
+
+patterns.
+
+Do not create manual-only cluster configuration.
+
+If a manual one-time operation is genuinely unavoidable, document it explicitly.
+
+⸻
+
+4. NAMESPACE
+
+Create an isolated namespace such as:
+
+sportif-ml
+
+unless the existing repository has an established namespace convention.
+
+Components should be isolated from the main Sportif application workloads.
+
+Recommended logical components:
+
+sportif-ml
+├── cvat
+├── mlflow
+├── dataset-worker
+├── frame-worker
+├── training
+├── evaluation
+└── export
+
+Use separate service accounts and least-privilege RBAC.
+
+⸻
+
+5. EXISTING STORAGE
+
+Reuse the existing Sportif MinIO deployment.
+
+Create logical buckets/prefixes for:
+
+sportif-ml-raw
+sportif-ml-frames
+sportif-ml-datasets
+sportif-ml-models
+sportif-ml-experiments
+sportif-ml-provenance
+
+If bucket creation is handled through the existing infrastructure, follow that mechanism.
+
+Do not deploy another object-storage system.
+
+Use versioning where practical.
+
+Recommended structure:
+
+sportif-ml-raw/
+    videos/
+sportif-ml-frames/
+    dataset-v001/
+sportif-ml-datasets/
+    ball-v001/
+sportif-ml-models/
+    ball-detector/
+        v001/
+sportif-ml-provenance/
+    datasets/
+    training/
+    models/
+
+⸻
+
+6. VIDEO INGESTION
+
+Implement a simple initial ingestion mechanism.
+
+Do NOT build a custom web application at this stage.
+
+The first version should allow a video to be placed/uploaded into:
+
+sportif-ml-raw/videos/
+
+and then trigger the extraction workflow.
+
+Support:
+
+.mp4
+.mov
+.mkv
+
+where practical.
+
+Record metadata:
+
+{
+  "videoId": "...",
+  "filename": "...",
+  "source": "...",
+  "uploadedAtUtc": "...",
+  "sha256": "...",
+  "durationSeconds": 0,
+  "width": 0,
+  "height": 0,
+  "fps": 0
+}
+
+Never put unnecessary child identity information into the ML dataset.
+
+⸻
+
+7. VIDEO PROVENANCE
+
+Every source video must receive a SHA-256 hash.
+
+Create a provenance manifest.
+
+Example:
+
+{
+  "schemaVersion": 1,
+  "videoId": "VID-000001",
+  "filename": "soccer-game-001.mp4",
+  "sha256": "...",
+  "sourceRightsStatus": "PENDING",
+  "aiTrainingPermission": false,
+  "jurisdiction": "Canada",
+  "createdAtUtc": "..."
+}
+
+Do not allow a dataset to be marked commercially approved while:
+
+sourceRightsStatus != VERIFIED
+
+or:
+
+aiTrainingPermission != true
+
+The implementation must support these fields even if the initial videos are manually verified.
+
+⸻
+
+8. FRAME EXTRACTION
+
+Create a containerized frame-extraction worker.
+
+Use FFmpeg and/or OpenCV.
+
+Initial configuration:
+
+2–5 FPS
+
+but make this configurable.
+
+Example:
+
+frameExtraction:
+  fps: 3
+  imageFormat: jpg
+  quality: 95
+
+Do not blindly extract every frame.
+
+The worker should produce:
+
+frames/
+    video-001/
+        frame-000001.jpg
+        frame-000002.jpg
+        ...
+
+and a manifest:
+
+{
+  "frameId": "...",
+  "videoId": "...",
+  "timestampSeconds": 14.32,
+  "sha256": "...",
+  "width": 1920,
+  "height": 1080
+}
+
+⸻
+
+9. FRAME DEDUPLICATION
+
+Implement an optional frame-selection/deduplication step.
+
+Do not require manual annotation of thousands of nearly identical frames.
+
+Use a configurable strategy.
+
+Initial implementation can use:
+
+* timestamp sampling
+* perceptual hash
+* configurable similarity threshold
+
+Example:
+
+frameSelection:
+  enabled: true
+  perceptualHash: true
+  threshold: 8
+
+Keep the implementation deterministic and reproducible.
+
+⸻
+
+10. CVAT
+
+Deploy self-hosted CVAT using its supported Kubernetes/Helm deployment approach where compatible with the existing cluster.
+
+Do not develop an annotation UI.
+
+CVAT is the annotation application.
+
+The initial annotation task should contain one label:
+
+ball
+
+The dataset workflow should support:
+
+frames
+  ↓
+CVAT
+  ↓
+human annotation
+  ↓
+review
+  ↓
+export
+
+Use a format compatible with the training pipeline.
+
+Prefer:
+
+YOLO
+
+or:
+
+COCO
+
+with conversion support if required.
+
+⸻
+
+11. ANNOTATION REQUIREMENTS
+
+The initial detector is:
+
+one class:
+ball
+
+Bounding-box annotation only.
+
+Do not require:
+
+* player identification
+* player pose
+* jersey recognition
+* team classification
+* field segmentation
+* player tracking
+
+Those are future capabilities.
+
+The annotation guidelines must be documented in:
+
+docs/ml-factory/annotation-guidelines.md
+
+Include guidance for:
+
+* tiny balls
+* blurred balls
+* partially occluded balls
+* balls in flight
+* balls near players
+* balls near field boundaries
+* multiple balls
+* false visual objects
+* difficult lighting
+* distant balls
+
+⸻
+
+12. DATASET SPLITTING
+
+CRITICAL:
+
+Never randomly split individual video frames into train/validation/test.
+
+Split by SOURCE VIDEO.
+
+For example:
+
+Video 001 → TRAIN
+Video 002 → TRAIN
+Video 003 → TRAIN
+Video 004 → VALIDATION
+Video 005 → VALIDATION
+Video 006 → TEST
+Video 007 → TEST
+
+This prevents temporal leakage.
+
+The dataset generator must enforce this.
+
+Recommended initial target:
+
+70% train
+15% validation
+15% test
+
+by video.
+
+Make the split deterministic using a dataset seed.
+
+⸻
+
+13. DATASET MANIFEST
+
+Every dataset version must have an immutable manifest.
+
+Example:
+
+{
+  "schemaVersion": 1,
+  "datasetId": "sportif-ball-v001",
+  "classes": [
+    {
+      "id": 0,
+      "name": "ball"
+    }
+  ],
+  "sourceVideos": [],
+  "trainVideos": [],
+  "validationVideos": [],
+  "testVideos": [],
+  "frameCount": 0,
+  "annotationCount": 0,
+  "annotationFormat": "YOLO",
+  "splitStrategy": "video-level",
+  "randomSeed": 42,
+  "createdAtUtc": "...",
+  "sha256": "..."
+}
+
+Generate:
+
+dataset-manifest.json
+SHA256SUMS
+
+⸻
+
+14. DATASET VALIDATION
+
+Create a dataset validator.
+
+It must detect:
+
+* missing images
+* missing labels
+* malformed labels
+* invalid bounding boxes
+* class IDs outside the allowed range
+* duplicate frames
+* train/test leakage
+* missing source-video provenance
+* missing rights metadata
+* extreme annotation sizes
+* empty annotations where annotations are expected
+
+The validator must fail the pipeline rather than silently continuing.
+
+Output:
+
+dataset-validation.json
+
+Example:
+
+{
+  "status": "PASS",
+  "images": 18421,
+  "annotations": 17293,
+  "videos": 20,
+  "leakageDetected": false,
+  "invalidLabels": 0,
+  "missingLabels": 0
+}
+
+⸻
+
+15. MODEL ARCHITECTURE
+
+Create the initial Sportif ball detector as a dedicated training implementation.
+
+The production clean-room model must:
+
+pretrainedWeightsUsed: false
+initialization: random
+
+Do not download or use:
+
+* COCO pretrained weights
+* YOLO pretrained weights
+* ImageNet pretrained weights
+* third-party checkpoint files
+
+unless a future explicitly approved experiment is configured separately.
+
+The clean-room production model must be clearly separated from benchmark experiments.
+
+⸻
+
+16. MODEL CODE LICENSE
+
+Before selecting an architecture implementation:
+
+1. Identify the source repository.
+2. Pin an immutable Git revision.
+3. Record its license.
+4. Inventory dependencies.
+5. Record dependency licenses.
+6. Ensure commercial use is compatible with Sportif requirements.
+7. Record all of this in the model provenance manifest.
+
+Do not assume:
+
+Apache-2.0 code
+=
+Apache-2.0 weights
+
+Treat code and weights independently.
+
+⸻
+
+17. EXISTING CANDIDATES
+
+Preserve the existing candidates as benchmark candidates:
+
+picodet-s-416
+yolox-nano-416
+rf-detr-nano
+rf-detr-small
+rt-detr-r18
+rt-detrv2-s
+
+Do not automatically promote them to production.
+
+Their role is:
+
+benchmark / research
+
+The production model is:
+
+dedicated-ball-candidate
+
+until an explicitly approved Sportif model replaces it.
+
+⸻
+
+18. TRAINING CONTAINER
+
+Create:
+
+sportif-ball-trainer
+
+with:
+
+train.py
+evaluate.py
+export_onnx.py
+dataset.py
+model.py
+
+or an appropriate equivalent structure.
+
+The container must:
+
+1. Download/read the approved dataset from MinIO.
+2. Verify dataset SHA-256.
+3. Verify dataset validation status.
+4. Initialize the model randomly.
+5. Train on GPU.
+6. Save checkpoints.
+7. Record training configuration.
+8. Evaluate validation metrics.
+9. Export the final candidate.
+10. Produce provenance metadata.
+11. Produce SHA-256 hashes.
+
+⸻
+
+19. GPU SCHEDULING
+
+Use Kubernetes GPU resources.
+
+Example:
+
+resources:
+  limits:
+    nvidia.com/gpu: 1
+
+The workload should target the existing GPU node using the cluster’s current:
+
+* node labels
+* taints
+* tolerations
+
+Do not assume a node name.
+
+Detect/use the existing GPU scheduling conventions.
+
+The expected GPU is currently:
+
+NVIDIA Tesla V100 16GB
+
+but do not hard-code the implementation so that it only works on V100.
+
+⸻
+
+20. TRAINING CONFIGURATION
+
+Create a versioned training configuration.
+
+Example:
+
+model:
+  name: sportif-ball-detector
+  version: v001
+  classes:
+    - ball
+initialization:
+  type: random
+  pretrainedWeights: false
+dataset:
+  id: sportif-ball-v001
+training:
+  epochs: 150
+  batchSize: 16
+  imageSize: 1024
+  seed: 42
+compute:
+  gpuCount: 1
+export:
+  onnx: true
+
+Do not claim these values are optimal.
+
+They are initial defaults.
+
+Make them configurable.
+
+⸻
+
+21. EXPERIMENT TRACKING
+
+Deploy MLflow if it does not already exist.
+
+Use it to record:
+
+* dataset ID
+* dataset SHA-256
+* model architecture
+* source revision
+* training configuration
+* random seed
+* GPU
+* epoch count
+* batch size
+* learning rate
+* training metrics
+* validation metrics
+* test metrics
+* final model artifact
+* ONNX artifact
+* artifact SHA-256
+
+Example experiment:
+
+Sportif Ball Detector v001
+Dataset:
+sportif-ball-v001
+Initialization:
+random
+Pretrained weights:
+false
+GPU:
+Tesla V100 16GB
+Epochs:
+150
+mAP50:
+...
+Precision:
+...
+Recall:
+...
+FPS:
+...
+Model SHA256:
+...
+
+⸻
+
+22. EVALUATION
+
+Create a separate evaluation stage.
+
+Never evaluate the final model only against training data.
+
+The test set must contain unseen videos.
+
+At minimum calculate:
+
+precision
+recall
+mAP50
+mAP50-95
+false positives
+false negatives
+
+Also calculate object-size-aware performance if practical:
+
+small ball
+medium ball
+large ball
+
+Because soccer balls can be extremely small in wide-field footage.
+
+⸻
+
+23. MOBILE PERFORMANCE
+
+Add an export benchmark.
+
+For ONNX:
+
+PyTorch
+   ↓
+ONNX
+   ↓
+validation
+
+Validate:
+
+* output tensor shape
+* class mapping
+* bounding-box correctness
+* numerical consistency
+* model loadability
+
+Record:
+
+{
+  "onnxValid": true,
+  "opset": "...",
+  "inputSize": "...",
+  "modelBytes": 0,
+  "sha256": "..."
+}
+
+The final goal is mobile deployment through an appropriate ONNX-compatible runtime.
+
+⸻
+
+24. MODEL ARTIFACT PACKAGE
+
+Every released model candidate must generate:
+
+sportif-ball-detector-v001/
+├── model.pt
+├── model.onnx
+├── metrics.json
+├── training-config.yaml
+├── dataset-manifest.json
+├── model-manifest.json
+├── dependency-lock.txt
+├── licenses/
+├── notices/
+├── SHA256SUMS
+└── model-card.md
+
+Do not release a model if mandatory provenance information is missing.
+
+⸻
+
+25. MODEL MANIFEST
+
+Example:
+
+{
+  "schemaVersion": 1,
+  "modelId": "sportif-ball-detector-v001",
+  "status": "CANDIDATE",
+  "architecture": {
+    "name": "...",
+    "sourceRepository": "...",
+    "sourceRevision": "...",
+    "license": "..."
+  },
+  "training": {
+    "initialization": "random",
+    "pretrainedWeightsUsed": false,
+    "datasetId": "sportif-ball-v001",
+    "datasetSha256": "...",
+    "seed": 42
+  },
+  "artifacts": {
+    "pytorch": {
+      "sha256": "..."
+    },
+    "onnx": {
+      "sha256": "..."
+    }
+  },
+  "commercialGate": {
+    "datasetRightsVerified": false,
+    "trainingCodeLicenseVerified": false,
+    "dependencyLicensesVerified": false,
+    "pretrainedWeightsUsed": false,
+    "provenanceComplete": false
+  }
+}
+
+⸻
+
+26. COMMERCIAL SAFETY GATE
+
+Create an explicit gate.
+
+A model cannot be marked:
+
+RELEASED
+
+unless:
+
+datasetRightsVerified = true
+trainingCodeLicenseVerified = true
+dependencyLicensesVerified = true
+pretrainedWeightsUsed = false
+provenanceComplete = true
+
+Do not provide legal conclusions.
+
+This is an engineering provenance/compliance gate.
+
+The actual legal review can remain an organizational step.
+
+⸻
+
+27. ARGO WORKFLOW
+
+Create a pipeline similar to:
+
+sportif-ball-pipeline
+
+Stages:
+
+validate-input
+      ↓
+extract-frames
+      ↓
+deduplicate
+      ↓
+prepare-dataset
+      ↓
+validate-dataset
+      ↓
+WAIT_FOR_DATASET_APPROVAL
+      ↓
+train
+      ↓
+evaluate
+      ↓
+export-onnx
+      ↓
+hash-artifacts
+      ↓
+publish-mlflow
+      ↓
+generate-provenance
+
+Do not automatically bypass dataset approval.
+
+⸻
+
+28. HUMAN APPROVAL
+
+The pipeline should support a manual approval gate after annotation.
+
+Initial implementation may use an explicit configuration/state such as:
+
+datasetApproval:
+  approved: false
+
+Training must fail/stop when:
+
+approved != true
+
+Do not invent an elaborate approval application.
+
+Use Argo/Kubernetes/GitOps mechanisms initially.
+
+⸻
+
+29. MONITORING
+
+Integrate with the existing Prometheus/Grafana stack where practical.
+
+Expose metrics such as:
+
+training_jobs_total
+training_jobs_failed
+training_duration_seconds
+dataset_validation_failures
+model_export_failures
+gpu_training_jobs
+
+Do not deploy a second monitoring stack.
+
+⸻
+
+30. SECURITY
+
+Follow the existing Sportif security model.
+
+Requirements:
+
+* non-root containers where possible
+* read-only filesystem where practical
+* least privilege
+* separate service accounts
+* Kubernetes secrets via the existing External Secrets mechanism
+* no credentials committed to Git
+* network policies if the existing cluster supports them
+* MinIO credentials scoped to required buckets/prefixes
+* no public exposure of CVAT or MLflow unless explicitly configured through existing ingress/authentication
+
+⸻
+
+31. RESOURCE MANAGEMENT
+
+Training is GPU-intensive.
+
+Set appropriate:
+
+requests
+limits
+nodeSelector/affinity
+tolerations
+
+for the existing GPU node.
+
+CPU workers should run on normal worker nodes.
+
+Do not waste the V100 on:
+
+* frame extraction
+* dataset validation
+* hashing
+* artifact packaging
+
+unless benchmarking shows a need.
+
+Recommended:
+
+CPU nodes:
+FFmpeg
+dataset processing
+validation
+evaluation where possible
+GPU node:
+training
+GPU inference
+GPU benchmark
+
+⸻
+
+32. FAILURE HANDLING
+
+Every stage must fail explicitly.
+
+Examples:
+
+missing source video
+invalid SHA256
+missing consent metadata
+annotation corruption
+dataset leakage
+GPU unavailable
+training failure
+ONNX export failure
+model validation failure
+
+The pipeline must not silently produce a model.
+
+⸻
+
+33. DOCUMENTATION
+
+Create:
+
+docs/ml-factory/
+├── architecture.md
+├── architecture-assessment.md
+├── installation.md
+├── operations.md
+├── annotation-guidelines.md
+├── dataset-lifecycle.md
+├── training.md
+├── evaluation.md
+├── model-release.md
+├── provenance.md
+└── troubleshooting.md
+
+Documentation must explain:
+
+How to upload video
+How to create a dataset
+How to annotate
+How to approve a dataset
+How to start training
+How to inspect MLflow
+How to retrieve the model
+How to validate ONNX
+How to calculate SHA256
+How to release a model
+How to roll back
+
+⸻
+
+34. INITIAL DEPLOYMENT SHOULD BE SMALL
+
+Do NOT attempt to build every future feature.
+
+The first successful milestone is:
+
+1 soccer video
+      ↓
+frames
+      ↓
+CVAT
+      ↓
+ball annotations
+      ↓
+dataset v001
+      ↓
+GPU training
+      ↓
+evaluation
+      ↓
+ONNX
+      ↓
+SHA256
+      ↓
+model artifact
+
+Once that works, expand.
+
+⸻
+
+35. DO NOT BUILD YET
+
+Do not build:
+
+* Sportif Model Factory web UI
+* automatic customer model training
+* multi-tenant training
+* automated model promotion
+* player identification
+* player tracking
+* tactical analysis
+* pose estimation
+* segmentation
+* production mobile integration
+* automated annotation without human review
+
+Those are future phases.
+
+⸻
+
+36. ACCEPTANCE TEST
+
+The implementation is complete only when the following can be demonstrated:
+
+Infrastructure
+
+CVAT deployed
+MLflow deployed
+MinIO integrated
+Argo pipeline deployed
+GPU scheduling works
+
+Dataset
+
+A test soccer video can be:
+
+uploaded
+→ frames extracted
+→ frames imported into CVAT
+→ ball annotated
+→ dataset exported
+→ dataset validated
+
+Training
+
+The training pipeline can:
+
+load dataset
+→ verify SHA256
+→ initialize model randomly
+→ acquire V100
+→ train
+→ save checkpoint
+
+Evaluation
+
+It can:
+
+load unseen test videos
+→ run inference
+→ calculate metrics
+→ publish metrics
+
+Export
+
+It can:
+
+export ONNX
+→ validate ONNX
+→ calculate SHA256
+
+Provenance
+
+It produces:
+
+dataset-manifest.json
+training-config.yaml
+model-manifest.json
+metrics.json
+SHA256SUMS
+model-card.md
+
+GitOps
+
+The complete infrastructure can be reproduced from Git.
+
+⸻
+
+37. IMPORTANT IMPLEMENTATION PRINCIPLE
+
+Do not over-engineer this.
+
+Use existing tools wherever possible.
+
+The architecture should be:
+
+CVAT
+ +
+Argo Workflows
+ +
+PyTorch
+ +
+MLflow
+ +
+MinIO
+ +
+Kubernetes GPU
+ +
+Sportif-specific containers
+
+rather than a new custom ML platform.
+
+⸻
+
+38. FINAL DELIVERABLE
+
+At the end of the implementation, provide:
+
+1. Git repository tree.
+2. All added/modified manifests.
+3. Dockerfiles.
+4. Training code.
+5. Dataset tooling.
+6. Argo workflows.
+7. CVAT deployment.
+8. MLflow deployment.
+9. MinIO integration.
+10. RBAC.
+11. GPU scheduling configuration.
+12. Documentation.
+13. Exact deployment commands.
+14. Exact test procedure.
+15. Example dataset manifest.
+16. Example training manifest.
+17. Example model manifest.
+18. Commercial provenance checklist.
+19. Known limitations.
+20. Any manual prerequisites.
+
+Do not claim the model is commercially cleared merely because the pipeline succeeds.
+
+The pipeline should produce the evidence required for subsequent commercial/legal review.
+
+⸻
+
+39. EXECUTION MODE
+
+Work directly against the existing GitOps repository.
+
+Before making changes:
+
+inspect → understand → design → implement
+
+Do not blindly overwrite existing infrastructure.
+
+Prefer existing repository conventions.
+
+After implementation:
+
+validate manifests
+→ build containers
+→ verify GPU scheduling
+→ deploy through GitOps
+→ run smoke test
+→ run end-to-end dataset/training test
+→ document results
+
+If something required is unavailable in the cluster, identify it precisely and implement the closest GitOps-native solution rather than replacing the entire architecture.
+
+The ultimate objective is a reproducible command/configuration equivalent to:
+
+VIDEO
+  ↓
+DATASET
+  ↓
+ANNOTATE
+  ↓
+APPROVE
+  ↓
+TRAIN ON V100
+  ↓
+EVALUATE
+  ↓
+EXPORT ONNX
+  ↓
+GENERATE PROVENANCE
+  ↓
+SPORTIF BALL DETECTOR
+
+Build the minimum robust implementation that achieves this end-to-end workflow.

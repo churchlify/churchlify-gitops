@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mlflow-backend
+  namespace: sportif-ml
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+  namespace: sportif-ml
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow
+  template:
+    metadata:
+      labels:
+        app: mlflow
+    spec:
+      serviceAccountName: sportif-ml-pipeline
+      containers:
+        - name: mlflow
+          image: ghcr.io/mlflow/mlflow:v2.18.0
+          imagePullPolicy: IfNotPresent
+          command: [mlflow, server]
+          args:
+            - --host
+            - 0.0.0.0
+            - --port
+            - "5000"
+            - --backend-store-uri
+            - sqlite:////mlflow/mlflow.db
+            - --default-artifact-root
+            - s3://sportif-ml-experiments/mlruns
+          envFrom:
+            - configMapRef:
+                name: sportif-ml-config
+            - secretRef:
+                name: sportif-ml-storage
+          ports:
+            - name: http
+              containerPort: 5000
+          volumeMounts:
+            - name: backend
+              mountPath: /mlflow
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1
+              memory: 2Gi
+      volumes:
+        - name: backend
+          persistentVolumeClaim:
+            claimName: mlflow-backend

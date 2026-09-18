@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sportif-ml-bucket-bootstrap
+  namespace: sportif-ml
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mc
+          image: minio/mc:REPLACE
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              mc alias set sportif "$AWS_ENDPOINT_URL" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY"
+              for bucket in "$ML_RAW_BUCKET" "$ML_FRAMES_BUCKET" "$ML_DATASETS_BUCKET" "$ML_MODELS_BUCKET" "$ML_EXPERIMENTS_BUCKET" "$ML_PROVENANCE_BUCKET"; do
+                mc mb --ignore-existing "sportif/$bucket"
+                mc version enable "sportif/$bucket"
+              done
+          envFrom:
+            - configMapRef:
+                name: sportif-ml-config
+            - secretRef:
+                name: sportif-ml-storage
