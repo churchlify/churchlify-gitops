@@ -10,6 +10,20 @@
 - MLflow is not Ready: inspect the Deployment logs, PVC binding, Longhorn volume
   events, and the generated `sportif-ml-storage` Secret. MLflow is intentionally
   available only through its ClusterIP Service in Stage 2.
+- CVAT OPA reports `cvat-backend-service:8080 connection refused`: OPA is a
+  downstream symptom when the backend has no ready endpoints. Check the backend
+  and KVrocks PVC events first. If Longhorn reports
+  `node.longhorn.io <node> not found`, the Kubernetes node is not registered in
+  Longhorn and its volumes cannot attach.
+- Longhorn manager logs request CRDs such as `shards`, `snapshotgroups`, or
+  `instancemanagerupgrades` that are absent from the API: the Longhorn manager,
+  CRDs, and RBAC are from mismatched releases. Reconcile Longhorn as one pinned,
+  supported release, verify every storage node has a `nodes.longhorn.io` object,
+  and wait for all Longhorn managers to become Ready before restarting CVAT.
+  Do not delete CVAT PVCs or weaken OPA probes to mask this storage failure.
+- A GPU node does not need to be a Longhorn node. CVAT and MLflow are configured
+  to use the registered worker nodes, while GPU training remains free to target
+  the GPU node.
 - `WorkflowTemplate` is unknown: install pinned Argo Workflows CRDs/controller;
   Argo CD and Argo Workflows are separate products.
 - CVAT is missing: it is intentionally staged. Complete the shared PostgreSQL,

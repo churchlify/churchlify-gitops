@@ -25,6 +25,8 @@ spec:
       labels:
         app: mlflow
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: k8s-worker-01
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001

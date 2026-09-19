@@ -5,9 +5,26 @@
 
 cvat:
   backend:
+    # CVAT uses Longhorn-backed PVCs. Keep storage-backed components on
+    # registered Longhorn nodes; reserve the GPU node for training.
+    affinity: &longhornWorkerAffinity
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                    - k8s-worker-01
+                    - k8s-worker-02
+                    - k8s-worker-04
     image: cvat/server
     tag: v2.45.0
     imagePullPolicy: IfNotPresent
+    server:
+      affinity: *longhornWorkerAffinity
+    worker:
+      affinity: *longhornWorkerAffinity
     defaultStorage:
       enabled: true
       storageClassName: longhorn
@@ -15,9 +32,16 @@ cvat:
         - ReadWriteMany
       size: 20Gi
   frontend:
+    affinity: *longhornWorkerAffinity
     image: cvat/ui
     tag: v2.45.0
     imagePullPolicy: IfNotPresent
+
+  opa:
+    affinity: *longhornWorkerAffinity
+
+  kvrocks:
+    affinity: *longhornWorkerAffinity
 
 # Reuse platform services. Do not deploy duplicate PostgreSQL or Redis.
 postgresql:
