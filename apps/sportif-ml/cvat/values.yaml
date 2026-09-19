@@ -21,6 +21,10 @@ cvat:
     image: cvat/server
     tag: v2.45.0
     imagePullPolicy: IfNotPresent
+    additionalEnv:
+      # CVAT's entrypoint reads this variable even when analytics is disabled.
+      - name: CLICKHOUSE_HOST
+        value: ""
     server:
       affinity: *longhornWorkerAffinity
     worker:
