@@ -8,7 +8,9 @@ spec:
     requests.cpu: "16"
     requests.memory: 32Gi
     requests.nvidia.com/gpu: "1"
-    limits.cpu: "32"
+    # CVAT runs multiple backend workers plus an initializer. Keep the quota
+    # above the chart's aggregate limits without allowing unbounded workloads.
+    limits.cpu: "48"
     limits.memory: 64Gi
     limits.nvidia.com/gpu: "1"
 ---
