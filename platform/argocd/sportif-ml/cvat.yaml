@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sportif-ml-cvat
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: cvat
+    app.kubernetes.io/part-of: sportif-ml
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/cvat-ai/cvat.git
+      targetRevision: 125dd1e7006e7aadd8249c1256ec3a8945fcb191
+      path: helm-chart
+      helm:
+        releaseName: cvat
+        valueFiles:
+          - $values/apps/sportif-ml/cvat/values.yaml
+    - repoURL: https://github.com/churchlify/churchlify-gitops.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sportif-ml
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m

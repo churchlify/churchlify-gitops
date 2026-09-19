@@ -32,9 +32,7 @@ postgresql:
 redis:
   enabled: false
   external:
-    # Replace in an environment overlay with the existing Redis hostname from
-    # the platform secret backend. The repository does not declare that service.
-    host: SET_FROM_PLATFORM_SECRET
+    host: redis-master.platform.svc.cluster.local
   auth:
     existingSecret: cvat-redis-secret
     existingSecretPasswordKey: password

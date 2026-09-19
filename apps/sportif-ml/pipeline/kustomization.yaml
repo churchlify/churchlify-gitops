@@ -3,9 +3,12 @@ kind: Kustomization
 
 resources:
   - config.yaml
+  - services.yaml
+  - mlflow.yaml
 
-# Enable services.yaml, mlflow.yaml, and storage-bootstrap.yaml after the
-# sportif-ml-storage ExternalSecret is Ready. CVAT must be deployed from its
-# supported Helm chart, not as a single server Deployment. The workflow template
-# is also intentionally staged until the Argo Workflows CRDs/controller and a
-# published trainer image are verified. See docs/ml-factory/installation.md.
+# Stage 2 is active: MLflow uses the existing versioned ML buckets and the
+# scoped sportif-ml-storage Secret created during Stage 1. Bucket creation is
+# intentionally not managed here because the buckets are pre-provisioned.
+# CVAT must be deployed from its supported Helm chart, not as a single server
+# Deployment. The workflow template remains staged until the Argo Workflows
+# CRDs/controller and a published trainer image are verified.

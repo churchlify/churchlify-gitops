@@ -5,6 +5,11 @@
   failed `b29d5b8` revision contained `minio/mc:REPLACE`.
 - `ExternalSecret` not Ready: verify `platform-secrets` and the exact remote
   properties documented in `installation.md`.
+- MLflow cannot access artifacts: verify the six pre-provisioned ML buckets,
+  their versioning settings, and the scoped identity's object permissions.
+- MLflow is not Ready: inspect the Deployment logs, PVC binding, Longhorn volume
+  events, and the generated `sportif-ml-storage` Secret. MLflow is intentionally
+  available only through its ClusterIP Service in Stage 2.
 - `WorkflowTemplate` is unknown: install pinned Argo Workflows CRDs/controller;
   Argo CD and Argo Workflows are separate products.
 - CVAT is missing: it is intentionally staged. Complete the shared PostgreSQL,

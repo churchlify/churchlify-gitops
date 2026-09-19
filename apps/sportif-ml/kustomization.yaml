@@ -10,6 +10,7 @@ resources:
   - namespace-scoped.yaml
   - training-config.yaml
   - externalsecret.yaml
+  - cvat/externalsecrets.yaml
   - pipeline
 
 labels:
