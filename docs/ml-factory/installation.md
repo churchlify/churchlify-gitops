@@ -80,11 +80,20 @@ After those prerequisites are complete, activate the CVAT ExternalSecrets and
 Argo Application:
 
 ```bash
+# Run these from the GitOps repository checkout. On k8s-master-01, use the
+# administrator kubeconfig; apps/sportif-ml/k8s.conf is a repository-local
+# client config and is not present under the remote user's home directory.
+export KUBECONFIG=/etc/kubernetes/admin.conf
 kubectl apply -f apps/sportif-ml/cvat/externalsecrets.yaml
 kubectl apply -f platform/argocd/sportif-ml/cvat.yaml
-kubectl -n sportif-ml get applications.argoproj.io sportif-ml-cvat
+kubectl -n argocd get applications.argoproj.io sportif-ml-cvat
 kubectl -n sportif-ml get externalsecrets,secret
 ```
+
+If the repository is not checked out on the master, apply the two manifests
+from a workstation that has the checkout and uses a valid kubeconfig. Do not
+set `KUBECONFIG=apps/sportif-ml/k8s.conf` from `~` unless that relative path
+actually exists there; otherwise kubectl silently falls back to localhost.
 
 The staged values disable the chart's bundled PostgreSQL, Redis, analytics,
 ClickHouse, Grafana, Traefik, and Nuclio to avoid duplicate platform services.
