@@ -61,6 +61,15 @@
 - Argo Workflows controller logs RBAC denial: verify the chart rendered a
   namespaced `Role`/`RoleBinding`, the controller has `--namespaced`, and no
   ClusterWorkflowTemplate is being submitted. Do not broaden it to cluster-admin.
+- Video ingest reports `ImagePullBackOff`: verify the public worker digest remains
+  available at `ghcr.io/agogos-llc/sportif-ml-worker` and that cluster nodes can
+  reach GHCR. Do not replace the digest with a mutable tag.
+- Video ingest fails validation: inspect the step logs and confirm the explicit
+  video/provenance keys, supported video suffix, source SHA-256,
+  `sourceRightsStatus: VERIFIED`, and `aiTrainingPermission: true`.
+- Frame extraction produces no images: inspect FFprobe/FFmpeg errors, confirm the
+  source has a readable video stream, and verify the namespace has enough
+  ephemeral storage for the downloaded video and generated JPEGs.
 - CVAT is missing: it is intentionally staged. Complete the shared PostgreSQL,
   Redis, RWX storage, and secret prerequisites before installing its Helm chart.
 - Workflow stops at approval: resubmit with `dataset-approved=true` only after

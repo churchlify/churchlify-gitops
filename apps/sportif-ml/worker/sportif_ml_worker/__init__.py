@@ -1,0 +1,1 @@
+"""Sportif ML ingestion worker."""

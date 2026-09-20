@@ -12,8 +12,8 @@ if grep -nE 'REPLACE|SET_FROM_|TODO_IMAGE|example.invalid' "$rendered"; then
   exit 1
 fi
 
-if grep -q '^kind: WorkflowTemplate$' "$rendered"; then
-  echo "WorkflowTemplate must remain staged until the trainer and data flow are complete" >&2
+if [ "$(grep -c '^kind: WorkflowTemplate$' "$rendered" || true)" -ne 1 ]; then
+  echo "exactly one Stage 4B WorkflowTemplate must be active" >&2
   exit 1
 fi
 
@@ -65,7 +65,8 @@ python3 - \
   "$repo_root/apps/sportif-ml/argo-workflows/values.yaml" \
   "$repo_root/platform/argocd/sportif-ml/argo-workflows.yaml" \
   "$repo_root/apps/sportif-ml/rbac.yaml" \
-  "$repo_root/apps/sportif-ml/pipeline/workflows.yaml" <<'PY'
+  "$repo_root/apps/sportif-ml/pipeline/workflows.yaml" \
+  "$repo_root/apps/sportif-ml/pipeline/workflows-training-staged.yaml" <<'PY'
 from pathlib import Path
 import sys
 import yaml
@@ -74,6 +75,7 @@ values = yaml.safe_load(Path(sys.argv[1]).read_text())
 application = yaml.safe_load(Path(sys.argv[2]).read_text())
 rbac = [item for item in yaml.safe_load_all(Path(sys.argv[3]).read_text()) if item]
 workflow = yaml.safe_load(Path(sys.argv[4]).read_text())
+training_workflow = yaml.safe_load(Path(sys.argv[5]).read_text())
 
 if values.get("singleNamespace") is not True:
     raise SystemExit("Argo Workflows controller must remain namespace-scoped")
@@ -145,8 +147,48 @@ if role.get("rules") != [{
 }]:
     raise SystemExit("Sportif workflow executor RBAC exceeds the required minimum")
 
-templates = {item["name"]: item for item in workflow["spec"]["templates"]}
-train = templates["train"]["container"]
+if workflow["metadata"]["name"] != "sportif-video-ingest":
+    raise SystemExit("only the Stage 4B video-ingest WorkflowTemplate may be active")
+spec = workflow["spec"]
+if spec.get("serviceAccountName") != "sportif-ml-pipeline":
+    raise SystemExit("video ingest must use the minimal pipeline ServiceAccount")
+parameters = {item["name"] for item in spec.get("arguments", {}).get("parameters", [])}
+if parameters != {"video-key", "provenance-key"}:
+    raise SystemExit("video ingest requires explicit video and provenance keys")
+templates = {item["name"]: item for item in spec["templates"]}
+if set(templates) != {"pipeline", "worker"}:
+    raise SystemExit("Stage 4B may activate only pipeline and worker templates")
+tasks = templates["pipeline"]["dag"]["tasks"]
+if [task["name"] for task in tasks] != ["validate-input", "extract-frames"]:
+    raise SystemExit("Stage 4B must contain only validate-input then extract-frames")
+if tasks[1].get("dependencies") != ["validate-input"]:
+    raise SystemExit("frame extraction must depend on successful input validation")
+worker = templates["worker"]
+if worker.get("nodeSelector") != {
+    "kubernetes.io/os": "linux",
+    "node-role.kubernetes.io/worker": "worker",
+}:
+    raise SystemExit("video ingest must target normal Linux worker nodes")
+container = worker["container"]
+if container.get("image") != (
+    "ghcr.io/agogos-llc/sportif-ml-worker@sha256:"
+    "7e23a3084ec2ababa26556fdb3a232f27a6ed5c43a999462a27b151c4fb2367e"
+):
+    raise SystemExit("Stage 4B worker image must remain digest-pinned")
+if not container.get("resources", {}).get("requests") or not container.get(
+    "resources", {}
+).get("limits"):
+    raise SystemExit("Stage 4B worker requires explicit resource bounds")
+security = container.get("securityContext", {})
+if security.get("runAsNonRoot") is not True or security.get("readOnlyRootFilesystem") is not True:
+    raise SystemExit("Stage 4B worker must run non-root with a read-only root filesystem")
+if any(name in templates for name in ("train", "evaluate", "export-onnx")):
+    raise SystemExit("training stages must remain inactive during Stage 4B")
+
+training_templates = {
+    item["name"]: item for item in training_workflow["spec"]["templates"]
+}
+train = training_templates["train"]["container"]
 if train.get("nodeSelector") != {"accelerator": "nvidia-v100"}:
     raise SystemExit("Training must use the verified live GPU selector")
 if train.get("resources", {}).get("limits", {}).get("nvidia.com/gpu") != "1":
@@ -262,11 +304,20 @@ postgres = next(
     item for item in external_secrets
     if item["metadata"]["name"] == "cvat-postgres-sync"
 )
-properties = {
-    item["remoteRef"]["property"] for item in postgres["spec"]["data"]
+provider_properties = {
+    item["secretKey"]: item["remoteRef"]["property"]
+    for item in postgres["spec"]["data"]
 }
-if properties != {"CVAT_PGSQL_USER", "CVAT_PGSQL_PASSWORD"}:
-    raise SystemExit("CVAT must use its dedicated PostgreSQL secret properties")
+if provider_properties != {
+    "CVAT_PGSQL_USER": "PGSQL_USER",
+    "CVAT_PGSQL_PASSWORD": "PGSQL_PASSWORD",
+}:
+    raise SystemExit("CVAT PostgreSQL provider mapping changed unexpectedly")
+postgres_template = postgres["spec"]["target"]["template"]["data"]
+if postgres_template.get("username") != "{{ .CVAT_PGSQL_USER }}" or (
+    postgres_template.get("password") != "{{ .CVAT_PGSQL_PASSWORD }}"
+):
+    raise SystemExit("CVAT generated Secret must retain CVAT-specific key names")
 
 if application["metadata"].get("annotations", {}).get(
     "argocd.argoproj.io/sync-wave"
@@ -343,6 +394,11 @@ PY
 pycache="$(mktemp -d)"
 trap 'rm -f "$rendered"; rm -rf "$pycache"' EXIT
 PYTHONPYCACHEPREFIX="$pycache" python3 -m compileall -q \
-  "$repo_root/apps/sportif-ml/trainer/sportif_ml"
+  "$repo_root/apps/sportif-ml/trainer/sportif_ml" \
+  "$repo_root/apps/sportif-ml/worker/sportif_ml_worker"
+
+PYTHONDONTWRITEBYTECODE=1 \
+PYTHONPATH="$repo_root/apps/sportif-ml/worker" python3 -m unittest discover \
+  -s "$repo_root/apps/sportif-ml/worker/tests" -q
 
 echo "Sportif ML active manifest validation: PASS"

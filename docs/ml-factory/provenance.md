@@ -6,6 +6,13 @@ status. Model manifests record architecture repository/revision/license,
 random initialization, dataset identity, artifact hashes, and the commercial
 gate fields.
 
-Use `python -m sportif_ml.provenance validate-input OBJECT_KEY` before frame
-extraction and `python -m sportif_ml.provenance release DATASET_ID` only after
-all mandatory artifacts exist.
+Stage 4B requires a source provenance object containing `schemaVersion`,
+`videoId`, `filename`, `objectKey`, `sha256`, `source`, `sourceRightsStatus`,
+`aiTrainingPermission`, `jurisdiction`, and `createdAtUtc`. The workflow refuses
+to continue unless rights status is `VERIFIED`, AI training permission is true,
+the object key and filename match, and the downloaded video SHA-256 matches.
+
+Successful validation writes `videos/<videoId>/input-validation.json` to the
+provenance bucket. Successful extraction writes
+`videos/<videoId>/frame-extraction.json` there and writes the JPEG frames plus
+`videos/<videoId>/frames-manifest.json` to the frames bucket.

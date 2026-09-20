@@ -181,17 +181,29 @@ kubectl -n sportif-ml get serviceaccount,role,rolebinding | grep -E \
 No Argo Server or public ingress is installed. Operate workflows through
 Kubernetes resources until an authenticated access design is approved.
 
-## Stage 4B: workflow and GPU trainer
+## Stage 4B: validated video ingest and frame extraction
+
+Stage 4B publishes the CPU worker image as a public, immutable GHCR artifact:
+
+```text
+ghcr.io/agogos-llc/sportif-ml-worker@sha256:7e23a3084ec2ababa26556fdb3a232f27a6ed5c43a999462a27b151c4fb2367e
+```
+
+The active `sportif-video-ingest` WorkflowTemplate performs only:
+
+```text
+validate-input → extract-frames
+```
+
+Both steps independently read the source video and provenance manifest from
+MinIO, verify rights metadata and SHA-256, probe the video, and write validation,
+frames, frame manifest, and extraction provenance back to MinIO. Submit it only
+with operator-provided object keys; the template contains no default footage.
 
 The live cluster has one allocatable GPU on the node labelled
-`accelerator=nvidia-v100`, with no GPU taint. The staged training template now
-uses that observed selector and requests one `nvidia.com/gpu` resource.
+`accelerator=nvidia-v100`. The full training workflow remains in
+`pipeline/workflows-training-staged.yaml` and is not active.
 
-Build `apps/sportif-ml/trainer/Dockerfile` on an amd64-capable builder, publish it
-to GHCR, and replace `:0.1.0` with an immutable digest. The Dockerfile uses a CUDA
-runtime and training fails if CUDA is unavailable instead of silently using CPU.
-Do not activate `pipeline/workflows.yaml` yet.
-
-The workflow still requires MinIO transfer, shared workspace handling, CVAT
-import/export, frame deduplication, real evaluation, MLflow logging, artifact
-packaging, and provenance publication before an end-to-end acceptance run.
+Later stages still require CVAT export, frame deduplication, dataset generation,
+approval, GPU training, real evaluation, MLflow logging, artifact packaging, and
+model provenance before an end-to-end acceptance run.

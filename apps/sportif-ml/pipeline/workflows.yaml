@@ -2,128 +2,96 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: sportif-ball-pipeline
+  name: sportif-video-ingest
   namespace: sportif-ml
+  labels:
+    app.kubernetes.io/component: video-ingest
 spec:
   serviceAccountName: sportif-ml-pipeline
   entrypoint: pipeline
+  activeDeadlineSeconds: 3600
+  podGC:
+    strategy: OnWorkflowCompletion
+  ttlStrategy:
+    secondsAfterCompletion: 86400
   arguments:
     parameters:
       - name: video-key
-        value: videos/input.mp4
-      - name: dataset-id
-        value: sportif-ball-v001
-      - name: dataset-approved
-        value: "false"
+      - name: provenance-key
+  volumes:
+    - name: work
+      emptyDir:
+        sizeLimit: 10Gi
+    - name: tmp
+      emptyDir:
+        sizeLimit: 256Mi
   templates:
     - name: pipeline
       dag:
         tasks:
           - name: validate-input
-            template: validate-input
+            template: worker
+            arguments:
+              parameters:
+                - name: command
+                  value: validate-input
           - name: extract-frames
             dependencies: [validate-input]
-            template: extract-frames
-          - name: prepare-dataset
-            dependencies: [extract-frames]
-            template: prepare-dataset
-          - name: validate-dataset
-            dependencies: [prepare-dataset]
-            template: validate-dataset
-          - name: dataset-approval
-            dependencies: [validate-dataset]
-            template: dataset-approval
-          - name: train
-            dependencies: [dataset-approval]
-            template: train
-          - name: evaluate
-            dependencies: [train]
-            template: evaluate
-          - name: export-onnx
-            dependencies: [evaluate]
-            template: export-onnx
+            template: worker
+            arguments:
+              parameters:
+                - name: command
+                  value: extract-frames
 
-    - name: validate-input
+    - name: worker
+      inputs:
+        parameters:
+          - name: command
+      nodeSelector:
+        kubernetes.io/os: linux
+        node-role.kubernetes.io/worker: worker
+      retryStrategy:
+        limit: "2"
+        retryPolicy: OnError
       container:
-        image: ghcr.io/agogos-llc/sportif-ball-trainer:0.1.0
-        command: [python, -m, sportif_ml.provenance]
-        args: [validate-input, "{{workflow.parameters.video-key}}"]
+        image: ghcr.io/agogos-llc/sportif-ml-worker@sha256:7e23a3084ec2ababa26556fdb3a232f27a6ed5c43a999462a27b151c4fb2367e
+        imagePullPolicy: IfNotPresent
+        command: [python, -m, sportif_ml_worker]
+        args:
+          - "{{inputs.parameters.command}}"
+          - --video-key
+          - "{{workflow.parameters.video-key}}"
+          - --provenance-key
+          - "{{workflow.parameters.provenance-key}}"
         envFrom:
-          - configMapRef: { name: sportif-ml-config }
-          - secretRef: { name: sportif-ml-storage }
-
-    - name: extract-frames
-      container:
-        image: ghcr.io/agogos-llc/sportif-ball-trainer:0.1.0
-        command: [python, -m, sportif_ml.extract_frames]
-        args: ["{{workflow.parameters.video-key}}"]
-        envFrom:
-          - configMapRef: { name: sportif-ml-config }
-          - secretRef: { name: sportif-ml-storage }
-
-    - name: prepare-dataset
-      container:
-        image: ghcr.io/agogos-llc/sportif-ball-trainer:0.1.0
-        command: [python, -m, sportif_ml.dataset]
-        args: [prepare, "{{workflow.parameters.dataset-id}}"]
-        envFrom:
-          - configMapRef: { name: sportif-ml-config }
-          - secretRef: { name: sportif-ml-storage }
-
-    - name: validate-dataset
-      container:
-        image: ghcr.io/agogos-llc/sportif-ball-trainer:0.1.0
-        command: [python, -m, sportif_ml.dataset]
-        args: [validate, "{{workflow.parameters.dataset-id}}"]
-        envFrom:
-          - configMapRef: { name: sportif-ml-config }
-          - secretRef: { name: sportif-ml-storage }
-
-    - name: dataset-approval
-      script:
-        image: python:3.12-slim
-        command: [python]
-        source: |
-          import sys
-          approved = "{{workflow.parameters.dataset-approved}}".lower() == "true"
-          if not approved:
-              raise SystemExit("dataset approval is required before training")
-          print("dataset approved")
-
-    - name: train
-      container:
-        image: ghcr.io/agogos-llc/sportif-ball-trainer:0.1.0
-        command: [python, -m, sportif_ml.train]
-        args: ["{{workflow.parameters.dataset-id}}"]
-        envFrom:
-          - configMapRef: { name: sportif-ml-config }
-          - secretRef: { name: sportif-ml-storage }
+          - configMapRef:
+              name: sportif-ml-config
+          - secretRef:
+              name: sportif-ml-storage
+        env:
+          - name: ML_WORK_DIR
+            value: /work
         resources:
           requests:
-            cpu: "2"
-            memory: 8Gi
-            nvidia.com/gpu: "1"
+            cpu: 250m
+            memory: 512Mi
+            ephemeral-storage: 1Gi
           limits:
-            cpu: "8"
-            memory: 16Gi
-            nvidia.com/gpu: "1"
-        nodeSelector:
-          accelerator: nvidia-v100
-
-    - name: evaluate
-      container:
-        image: ghcr.io/agogos-llc/sportif-ball-trainer:0.1.0
-        command: [python, -m, sportif_ml.evaluate]
-        args: ["{{workflow.parameters.dataset-id}}"]
-        envFrom:
-          - configMapRef: { name: sportif-ml-config }
-          - secretRef: { name: sportif-ml-storage }
-
-    - name: export-onnx
-      container:
-        image: ghcr.io/agogos-llc/sportif-ball-trainer:0.1.0
-        command: [python, -m, sportif_ml.export_onnx]
-        args: ["{{workflow.parameters.dataset-id}}"]
-        envFrom:
-          - configMapRef: { name: sportif-ml-config }
-          - secretRef: { name: sportif-ml-storage }
+            cpu: "2"
+            memory: 2Gi
+            ephemeral-storage: 12Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+          - name: work
+            mountPath: /work
+          - name: tmp
+            mountPath: /tmp
