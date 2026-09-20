@@ -51,12 +51,22 @@ installs into an ephemeral shared volume. Cluster egress to PyPI is required on
 pod initialization. Replace this bootstrap with a digest-pinned derivative image
 once an image build/publish workflow is available.
 
+The single-replica Deployment uses the `Recreate` strategy because its SQLite
+backend is stored on a `ReadWriteOnce` Longhorn PVC. This intentionally causes a
+short MLflow outage during upgrades, but prevents the old and new pods from
+contending for the same single-writer volume.
+
 Verify after Argo CD syncs the Stage 2 commit:
 
 ```bash
 kubectl -n sportif-ml rollout status deployment/mlflow --timeout=180s
 kubectl -n sportif-ml get service/mlflow pvc/mlflow-backend
-kubectl -n sportif-ml logs deployment/mlflow -c install-s3-dependencies
+MLFLOW_POD="$(kubectl -n sportif-ml get pods -l app=mlflow \
+  --sort-by=.metadata.creationTimestamp \
+  -o jsonpath='{.items[-1:].metadata.name}')"
+kubectl -n sportif-ml logs "$MLFLOW_POD" -c install-s3-dependencies
+kubectl -n sportif-ml exec "$MLFLOW_POD" -c mlflow -- \
+  python -c 'import boto3, os; print(boto3.__version__); print(os.environ["MLFLOW_S3_ENDPOINT_URL"])'
 kubectl -n sportif-ml port-forward service/mlflow 5000:5000
 curl --fail http://127.0.0.1:5000/
 ```

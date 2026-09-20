@@ -12,5 +12,7 @@ dataset approval parameter must be explicitly set to `true` after CVAT review.
 kubectl -n sportif-ml get pods,jobs,pvc
 kubectl -n sportif-ml get externalsecret sportif-ml-storage-sync
 kubectl -n sportif-ml rollout status deployment/mlflow
+kubectl -n sportif-ml get pods -l app=mlflow \
+  --sort-by=.metadata.creationTimestamp
 kubectl -n sportif-ml get events --sort-by=.lastTimestamp
 ```

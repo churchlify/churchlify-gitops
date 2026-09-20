@@ -17,6 +17,11 @@ metadata:
   namespace: sportif-ml
 spec:
   replicas: 1
+  # SQLite is stored on a single ReadWriteOnce Longhorn volume. The default
+  # RollingUpdate strategy can create a second pod that cannot attach the same
+  # volume and can leave the old replica blocking the rollout.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: mlflow

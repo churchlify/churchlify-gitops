@@ -61,6 +61,35 @@ for path in Path(sys.argv[1]).rglob("*.yaml"):
 print("Sportif ML YAML parse: PASS")
 PY
 
+python3 - "$rendered" <<'PY'
+from pathlib import Path
+import sys
+import yaml
+
+resources = [
+    resource
+    for resource in yaml.safe_load_all(Path(sys.argv[1]).read_text())
+    if resource
+]
+objects = {
+    (resource["kind"], resource["metadata"]["name"]): resource
+    for resource in resources
+}
+
+mlflow = objects.get(("Deployment", "mlflow"))
+backend = objects.get(("PersistentVolumeClaim", "mlflow-backend"))
+if mlflow and backend:
+    access_modes = backend["spec"].get("accessModes", [])
+    strategy = mlflow["spec"].get("strategy", {}).get("type", "RollingUpdate")
+    if "ReadWriteOnce" in access_modes and strategy != "Recreate":
+        raise SystemExit(
+            "MLflow must use Recreate while SQLite is stored on its "
+            "ReadWriteOnce PVC"
+        )
+
+print("Sportif ML rendered semantic validation: PASS")
+PY
+
 pycache="$(mktemp -d)"
 trap 'rm -f "$rendered"; rm -rf "$pycache"' EXIT
 PYTHONPYCACHEPREFIX="$pycache" python3 -m compileall -q \

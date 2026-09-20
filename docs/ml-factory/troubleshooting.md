@@ -11,10 +11,17 @@
 - MLflow is not Ready: inspect the Deployment logs, PVC binding, Longhorn volume
   events, and the generated `sportif-ml-storage` Secret. MLflow is intentionally
   available only through its ClusterIP Service in Stage 2.
+- MLflow rollout reports `old replicas are pending termination`: the SQLite
+  backend uses a `ReadWriteOnce` Longhorn PVC, so MLflow must use the `Recreate`
+  Deployment strategy. With two pods present, commands such as `kubectl logs
+  deployment/mlflow` or `kubectl exec deployment/mlflow` may select the old pod,
+  which has neither the new init container nor `boto3`. List the pods by creation
+  time and target the newest pod explicitly after the old pod terminates.
 - MLflow init container cannot download dependencies: verify cluster HTTPS egress
-  to PyPI and inspect `kubectl -n sportif-ml logs deployment/mlflow -c
-  install-s3-dependencies`. Every wheel is version-pinned and hash-verified; do
-  not remove `--require-hashes` to work around an integrity failure.
+  to PyPI and inspect the new pod explicitly with `kubectl -n sportif-ml logs
+  <new-mlflow-pod> -c install-s3-dependencies`. Every wheel is version-pinned and
+  hash-verified; do not remove `--require-hashes` to work around an integrity
+  failure.
 - CVAT OPA reports `cvat-backend-service:8080 connection refused`: OPA is a
   downstream symptom when the backend has no ready endpoints. Check the backend
   and KVrocks PVC events first. If Longhorn reports
