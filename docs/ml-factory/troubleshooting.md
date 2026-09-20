@@ -52,8 +52,15 @@
 - A GPU node does not need to be a Longhorn node. CVAT and MLflow are configured
   to use the registered worker nodes, while GPU training remains free to target
   the GPU node.
-- `WorkflowTemplate` is unknown: install pinned Argo Workflows CRDs/controller;
-  Argo CD and Argo Workflows are separate products.
+- `WorkflowTemplate` is unknown: inspect the `sportif-ml-argo-workflows` Argo CD
+  Application and verify `workflowtemplates.argoproj.io` exists. Argo CD and
+  Argo Workflows are separate products.
+- Argo Workflows controller is Pending: it must schedule on a node labelled
+  `node-role.kubernetes.io/worker=worker`; inspect node labels and namespace
+  quota. It must not be moved to the GPU node.
+- Argo Workflows controller logs RBAC denial: verify the chart rendered a
+  namespaced `Role`/`RoleBinding`, the controller has `--namespaced`, and no
+  ClusterWorkflowTemplate is being submitted. Do not broaden it to cluster-admin.
 - CVAT is missing: it is intentionally staged. Complete the shared PostgreSQL,
   Redis, RWX storage, and secret prerequisites before installing its Helm chart.
 - Workflow stops at approval: resubmit with `dataset-approved=true` only after

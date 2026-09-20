@@ -108,7 +108,7 @@ spec:
             memory: 16Gi
             nvidia.com/gpu: "1"
         nodeSelector:
-          accelerator: nvidia-gpu
+          accelerator: nvidia-v100
 
     - name: evaluate
       container:

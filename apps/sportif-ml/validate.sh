@@ -13,7 +13,7 @@ if grep -nE 'REPLACE|SET_FROM_|TODO_IMAGE|example.invalid' "$rendered"; then
 fi
 
 if grep -q '^kind: WorkflowTemplate$' "$rendered"; then
-  echo "WorkflowTemplate must remain staged until Argo Workflows is installed" >&2
+  echo "WorkflowTemplate must remain staged until the trainer and data flow are complete" >&2
   exit 1
 fi
 
@@ -59,6 +59,100 @@ import yaml
 for path in Path(sys.argv[1]).rglob("*.yaml"):
     list(yaml.safe_load_all(path.read_text()))
 print("Sportif ML YAML parse: PASS")
+PY
+
+python3 - \
+  "$repo_root/apps/sportif-ml/argo-workflows/values.yaml" \
+  "$repo_root/platform/argocd/sportif-ml/argo-workflows.yaml" \
+  "$repo_root/apps/sportif-ml/rbac.yaml" \
+  "$repo_root/apps/sportif-ml/pipeline/workflows.yaml" <<'PY'
+from pathlib import Path
+import sys
+import yaml
+
+values = yaml.safe_load(Path(sys.argv[1]).read_text())
+application = yaml.safe_load(Path(sys.argv[2]).read_text())
+rbac = [item for item in yaml.safe_load_all(Path(sys.argv[3]).read_text()) if item]
+workflow = yaml.safe_load(Path(sys.argv[4]).read_text())
+
+if values.get("singleNamespace") is not True:
+    raise SystemExit("Argo Workflows controller must remain namespace-scoped")
+if values.get("createAggregateRoles") is not False:
+    raise SystemExit("Argo Workflows aggregate ClusterRoles must remain disabled")
+if values.get("server", {}).get("enabled") is not False:
+    raise SystemExit("Argo Server must remain disabled until authenticated access is designed")
+if values.get("crds") != {"install": True, "keep": True}:
+    raise SystemExit("Argo Workflows CRDs must be installed and retained")
+
+workflow_values = values.get("workflow", {})
+if workflow_values.get("serviceAccount", {}).get("create") is not False:
+    raise SystemExit("The chart must not create the Sportif workflow ServiceAccount")
+if workflow_values.get("rbac", {}).get("create") is not False:
+    raise SystemExit("The chart must not create Sportif workflow executor RBAC")
+
+controller = values.get("controller", {})
+if controller.get("clusterWorkflowTemplates", {}).get("enabled") is not False:
+    raise SystemExit("ClusterWorkflowTemplate controller access must remain disabled")
+if controller.get("nodeSelector") != {
+    "kubernetes.io/os": "linux",
+    "node-role.kubernetes.io/worker": "worker",
+}:
+    raise SystemExit("Argo Workflows controller must target normal Linux workers")
+if not controller.get("resources", {}).get("requests") or not controller.get(
+    "resources", {}
+).get("limits"):
+    raise SystemExit("Argo Workflows controller requires explicit resource bounds")
+
+controller_tag = controller.get("image", {}).get("tag")
+if controller_tag != (
+    "v3.6.10@sha256:"
+    "c289d4cb4592022d48faf0085d657cee8a96ff49f0e978c7a1672736be7f2083"
+):
+    raise SystemExit("Argo Workflows controller image must remain digest-pinned")
+executor_tag = values.get("executor", {}).get("image", {}).get("tag")
+if executor_tag != (
+    "v3.6.10@sha256:"
+    "701da40bf65f9699ea7a1e732dbca696590fecb835d1c8719f000fb60aa30133"
+):
+    raise SystemExit("Argo Workflows executor image must remain digest-pinned")
+
+if application["metadata"].get("annotations", {}).get(
+    "argocd.argoproj.io/sync-wave"
+) != "2":
+    raise SystemExit("Argo Workflows must follow the foundation and CVAT sync waves")
+chart_source = application["spec"]["sources"][0]
+if chart_source.get("repoURL") != "https://argoproj.github.io/argo-helm":
+    raise SystemExit("Argo Workflows must use the official chart repository")
+if chart_source.get("chart") != "argo-workflows":
+    raise SystemExit("Unexpected Argo Workflows chart name")
+if chart_source.get("targetRevision") != "0.45.20":
+    raise SystemExit("Argo Workflows chart must remain pinned to 0.45.20")
+if "$values/apps/sportif-ml/argo-workflows/values.yaml" not in chart_source.get(
+    "helm", {}
+).get("valueFiles", []):
+    raise SystemExit("Argo Workflows Application must consume repository values")
+
+objects = {(item["kind"], item["metadata"]["name"]): item for item in rbac}
+service_account = objects.get(("ServiceAccount", "sportif-ml-pipeline"))
+role = objects.get(("Role", "sportif-ml-pipeline"))
+binding = objects.get(("RoleBinding", "sportif-ml-pipeline"))
+if not all((service_account, role, binding)):
+    raise SystemExit("Sportif workflow executor identity and RBAC are required")
+if role.get("rules") != [{
+    "apiGroups": ["argoproj.io"],
+    "resources": ["workflowtaskresults"],
+    "verbs": ["create", "patch"],
+}]:
+    raise SystemExit("Sportif workflow executor RBAC exceeds the required minimum")
+
+templates = {item["name"]: item for item in workflow["spec"]["templates"]}
+train = templates["train"]["container"]
+if train.get("nodeSelector") != {"accelerator": "nvidia-v100"}:
+    raise SystemExit("Training must use the verified live GPU selector")
+if train.get("resources", {}).get("limits", {}).get("nvidia.com/gpu") != "1":
+    raise SystemExit("Training must request exactly one Kubernetes GPU")
+
+print("Sportif ML Argo Workflows configuration validation: PASS")
 PY
 
 python3 - \

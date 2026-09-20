@@ -23,8 +23,10 @@ Application. Rollout is intentionally staged. The active foundation creates the
 namespace, quotas, configuration, and the scoped MinIO ExternalSecret request.
 MLflow and bucket creation are enabled only after that ExternalSecret is Ready.
 CVAT is installed from its supported Helm chart only after shared database/cache
-prerequisites exist. The Argo `WorkflowTemplate` remains staged until Argo
-Workflows and a published trainer image are verified.
+prerequisites exist. Argo Workflows `v3.6.10` is deployed as a controller-only,
+namespace-scoped child Application; its server is disabled. The Sportif
+`WorkflowTemplate` remains staged until the trainer image and artifact/data flow
+are complete.
 
 The checked-in Python and workflow files are an implementation scaffold, not a
 completed end-to-end pipeline. They do not yet transfer artifacts between MinIO
@@ -48,6 +50,10 @@ complete until those gaps are implemented and tested.
    dependency set into a shared read-only runtime volume. This is acceptable for
    the initial milestone; a digest-pinned derivative image and shared PostgreSQL
    should replace the init install and SQLite before scaling.
+5. Argo Workflows installs cluster-scoped CRDs, but controller permissions are
+   namespace-scoped to `sportif-ml`. The workflow executor identity can only
+   create and patch `workflowtaskresults`; workflow pod lifecycle remains owned
+   by the controller.
 
 No commercial or legal clearance is inferred from successful deployment. The
 provenance and release gates remain explicit engineering checks.

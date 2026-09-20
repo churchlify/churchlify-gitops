@@ -149,19 +149,49 @@ authentication mechanism; TLS alone is not an authentication control.
 The Stage 3 values disable the chart's bundled PostgreSQL, Redis, analytics,
 ClickHouse, Grafana, Traefik, and Nuclio to avoid duplicate platform services.
 
-## Stage 4: workflow and GPU trainer
+## Stage 4A: Argo Workflows control plane
 
-Install a pinned Argo Workflows release (Argo CD does not supply its CRDs), then
-verify `workflowtemplates.argoproj.io` exists. Inspect live GPU labels, taints,
-tolerations, and `nvidia.com/gpu` capacity. Update the staged workflow to those
-observed conventions; do not assume `accelerator=nvidia-gpu`.
+The repository deploys Argo Workflows `v3.6.10` from official chart `0.45.20`.
+That application version supports Kubernetes 1.29. The published chart package
+digest verified on September 20, 2026 is:
+
+```text
+sha256:80e9ffdfc4a8f7ec9e50d2bfcece2bae6ba76dc5d4af06638dddb717c0b8bad7
+```
+
+The child Application is `sportif-ml-argo-workflows` at sync wave `2`. It installs
+the eight Argo Workflows CRDs and a single controller restricted to the
+`sportif-ml` namespace. Argo Server, aggregate ClusterRoles, and
+ClusterWorkflowTemplate access are disabled. The controller runs only on normal
+workers and both controller and executor images are pinned by digest.
+
+After Argo CD syncs the Stage 4A commit, verify:
+
+```bash
+kubectl -n argocd get application sportif-ml-argo-workflows
+kubectl get crd workflows.argoproj.io workflowtemplates.argoproj.io \
+  workflowtaskresults.argoproj.io
+kubectl -n sportif-ml rollout status \
+  deployment/sportif-ml-argo-workflows-workflow-controller \
+  --timeout=300s
+kubectl -n sportif-ml get serviceaccount,role,rolebinding | grep -E \
+  'sportif-ml-pipeline|sportif-ml-argo-workflows'
+```
+
+No Argo Server or public ingress is installed. Operate workflows through
+Kubernetes resources until an authenticated access design is approved.
+
+## Stage 4B: workflow and GPU trainer
+
+The live cluster has one allocatable GPU on the node labelled
+`accelerator=nvidia-v100`, with no GPU taint. The staged training template now
+uses that observed selector and requests one `nvidia.com/gpu` resource.
 
 Build `apps/sportif-ml/trainer/Dockerfile` on an amd64-capable builder, publish it
 to GHCR, and replace `:0.1.0` with an immutable digest. The Dockerfile uses a CUDA
-runtime and training now fails if CUDA is unavailable instead of silently using
-CPU. Only then add `rbac.yaml`, `storage.yaml`, and `pipeline/workflows.yaml` to
-the active Kustomization.
+runtime and training fails if CUDA is unavailable instead of silently using CPU.
+Do not activate `pipeline/workflows.yaml` yet.
 
-The workflow still requires implementation of MinIO transfer, shared workspace
-mounting, CVAT import/export, real evaluation, MLflow logging, and artifact
-packaging before an end-to-end acceptance run.
+The workflow still requires MinIO transfer, shared workspace handling, CVAT
+import/export, frame deduplication, real evaluation, MLflow logging, artifact
+packaging, and provenance publication before an end-to-end acceptance run.

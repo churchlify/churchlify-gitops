@@ -12,6 +12,7 @@ resources:
   - externalsecret.yaml
   - cvat/externalsecrets.yaml
   - cvat/initializer-config.yaml
+  - rbac.yaml
   - pipeline
 
 labels:

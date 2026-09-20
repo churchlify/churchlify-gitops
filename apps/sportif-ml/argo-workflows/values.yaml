@@ -1,0 +1,94 @@
+# Argo Workflows chart 0.45.20 / application v3.6.10.
+# The controller is intentionally namespace-scoped and no Argo Server is
+# exposed. Workflow definitions remain staged until the trainer image and
+# artifact-transfer implementation are complete.
+images:
+  pullPolicy: IfNotPresent
+
+crds:
+  install: true
+  keep: true
+
+createAggregateRoles: false
+singleNamespace: true
+
+workflow:
+  serviceAccount:
+    create: false
+    name: sportif-ml-pipeline
+  rbac:
+    # The Sportif foundation owns the executor Role and RoleBinding.
+    create: false
+
+controller:
+  image:
+    registry: quay.io
+    repository: argoproj/workflow-controller
+    tag: v3.6.10@sha256:c289d4cb4592022d48faf0085d657cee8a96ff49f0e978c7a1672736be7f2083
+  replicas: 1
+  parallelism: 2
+  namespaceParallelism: 2
+  resourceRateLimit:
+    limit: 2
+    burst: 1
+  clusterWorkflowTemplates:
+    enabled: false
+  rbac:
+    create: true
+    accessAllSecrets: false
+    writeConfigMaps: false
+  serviceAccount:
+    create: true
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 8737
+    runAsGroup: 8737
+    fsGroup: 8737
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  nodeSelector:
+    kubernetes.io/os: linux
+    node-role.kubernetes.io/worker: worker
+  metricsConfig:
+    enabled: true
+    secure: false
+  workflowEvents:
+    enabled: false
+  nodeEvents:
+    enabled: false
+
+executor:
+  image:
+    registry: quay.io
+    repository: argoproj/argoexec
+    tag: v3.6.10@sha256:701da40bf65f9699ea7a1e732dbca696590fecb835d1c8719f000fb60aa30133
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    runAsNonRoot: true
+
+server:
+  enabled: false
