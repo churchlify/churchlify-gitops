@@ -5,9 +5,12 @@ The factory is an isolated `sportif-ml` namespace managed by
 `http://minio-service.platform.svc.cluster.local:9000`, External Secrets, and
 Longhorn. Components with additional prerequisites are activated in stages.
 
-The intended ingress endpoints are `https://annotate.churchlify.com` for CVAT
-and `https://mlflow.churchlify.com` for MLflow. CVAT is staged as pinned Helm
-values, while the workflow template is staged until Argo Workflows is installed.
+The reserved ingress endpoints are `https://annotate.churchlify.com` for CVAT
+and `https://mlflow.churchlify.com` for MLflow. Both remain cluster-internal
+until an existing platform authentication pattern is selected. CVAT is a pinned
+child Argo CD Application discovered recursively by `platform-root`; it follows
+the foundation Application by sync wave. The workflow template remains staged
+until Argo Workflows is installed.
 GPU label/taint conventions must be read from the live cluster before activation.
 
 The production clean-room candidate uses torchvision Faster R-CNN initialized

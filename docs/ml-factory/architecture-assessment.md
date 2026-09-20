@@ -13,8 +13,8 @@
   preference for `accelerator=nvidia-gpu`; it does not prove that this label, a
   GPU taint/toleration, or the NVIDIA device plugin exists in the live cluster.
 - Existing ingress uses nginx and cert-manager with the `letsencrypt-prod`
-  ClusterIssuer. The ML endpoints are therefore `annotate.churchlify.com` and
-  `mlflow.churchlify.com`.
+  ClusterIssuer. `annotate.churchlify.com` and `mlflow.churchlify.com` are
+  reserved, but remain disabled until platform authentication is selected.
 
 ## Initial design
 
@@ -39,7 +39,7 @@ complete until those gaps are implemented and tested.
 2. `global-db-secrets` must contain scoped `SPORTIF_ML_S3_ACCESS_KEY` and
    `SPORTIF_ML_S3_SECRET_KEY` values limited to the six ML buckets/prefixes.
 3. CVAT requires a dedicated database/user on the shared PostgreSQL service and
-   the existing Redis host/password. The staged Helm values disable bundled
+   the existing Redis host/password. The Helm values disable bundled
    PostgreSQL, Redis, ClickHouse, Grafana, Traefik, and Nuclio.
 4. MLflow currently uses a single-replica SQLite backend on Longhorn and MinIO
    artifacts through `MLFLOW_S3_ENDPOINT_URL`. It is not pinned to a concrete

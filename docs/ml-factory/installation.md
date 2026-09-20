@@ -89,36 +89,53 @@ Use the CVAT v2.45.0 Helm chart at immutable Git revision
    PostgreSQL.
 2. Create `cvat-postgres-secret` with keys `database`, `username`, `password`.
 3. Create `cvat-redis-secret` with the password key expected by the pinned chart.
-4. The staged `apps/sportif-ml/cvat/externalsecrets.yaml` defines those two
-   Secrets from the existing `global-db-secrets` fields. Keep it out of the
-   active Kustomization until the PostgreSQL `cvat` database and a
-   least-privilege user exist; reusing the shared application database user is
-   not a production substitute.
-5. Replace `SET_FROM_PLATFORM_SECRET` in an environment overlay with the actual
-   existing Redis hostname from the `REDIS_HOST` property; do not commit
-   credentials.
-6. Confirm Longhorn supports the requested RWX CVAT volume.
+4. Add `CVAT_PGSQL_USER` and `CVAT_PGSQL_PASSWORD` to `global-db-secrets`.
+   They must identify the dedicated CVAT role; the general Sportif application
+   database account is not used by this deployment.
+5. Confirm the existing `REDIS_PASSWORD` property is valid for
+   `redis-master.platform.svc.cluster.local`.
+6. Confirm Longhorn supports the requested RWX CVAT volume and the RWO KVrocks
+   volume.
 
-After those prerequisites are complete, activate the CVAT ExternalSecrets and
-Argo Application:
+`platform-root` recursively discovers `platform/argocd/sportif-ml/cvat.yaml`.
+The child Application has sync wave `1`, while the foundation Application owns
+the namespace and CVAT ExternalSecrets. Do not manually apply those resources.
+After creating the dedicated database role and adding the secret properties,
+verify GitOps reconciliation:
 
 ```bash
-# Run these from the GitOps repository checkout. On k8s-master-01, use the
-# administrator kubeconfig; apps/sportif-ml/k8s.conf is a repository-local
-# client config and is not present under the remote user's home directory.
-export KUBECONFIG=/etc/kubernetes/admin.conf
-kubectl apply -f apps/sportif-ml/cvat/externalsecrets.yaml
-kubectl apply -f platform/argocd/sportif-ml/cvat.yaml
-kubectl -n argocd get applications.argoproj.io sportif-ml-cvat
-kubectl -n sportif-ml get externalsecrets,secret
+kubectl -n sportif-ml get externalsecrets \
+  cvat-postgres-sync cvat-redis-sync
+kubectl -n sportif-ml wait --for=condition=Ready \
+  externalsecret/cvat-postgres-sync \
+  externalsecret/cvat-redis-sync \
+  --timeout=180s
+kubectl -n sportif-ml get secret \
+  cvat-postgres-secret cvat-redis-secret
+kubectl -n argocd get application sportif-ml-cvat
+kubectl -n sportif-ml get pods,pvc,service \
+  -l app.kubernetes.io/instance=cvat
 ```
 
-If the repository is not checked out on the master, apply the two manifests
-from a workstation that has the checkout and uses a valid kubeconfig. Do not
-set `KUBECONFIG=apps/sportif-ml/k8s.conf` from `~` unless that relative path
-actually exists there; otherwise kubectl silently falls back to localhost.
+CVAT remains cluster-internal for the initial milestone. After all CVAT
+workloads are Ready, test the frontend and backend Services independently:
 
-The staged values disable the chart's bundled PostgreSQL, Redis, analytics,
+```bash
+kubectl -n sportif-ml port-forward service/cvat-frontend-service 8081:80
+# In a second terminal:
+curl --fail http://127.0.0.1:8081/
+
+kubectl -n sportif-ml port-forward service/cvat-backend-service 8080:8080
+# In a second terminal:
+curl --fail http://127.0.0.1:8080/api/server/about
+```
+
+The frontend Service does not proxy `/api` to the backend, so a frontend-only
+port-forward is a component smoke test rather than a complete browser session.
+Enable `ingress.enabled` only after selecting an existing platform
+authentication mechanism; TLS alone is not an authentication control.
+
+The Stage 3 values disable the chart's bundled PostgreSQL, Redis, analytics,
 ClickHouse, Grafana, Traefik, and Nuclio to avoid duplicate platform services.
 
 ## Stage 4: workflow and GPU trainer

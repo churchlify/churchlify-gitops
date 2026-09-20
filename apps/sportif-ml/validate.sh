@@ -61,6 +61,82 @@ for path in Path(sys.argv[1]).rglob("*.yaml"):
 print("Sportif ML YAML parse: PASS")
 PY
 
+python3 - \
+  "$repo_root/apps/sportif-ml/cvat/values.yaml" \
+  "$repo_root/apps/sportif-ml/cvat/externalsecrets.yaml" \
+  "$repo_root/platform/argocd/sportif-ml/cvat.yaml" <<'PY'
+from pathlib import Path
+import sys
+import yaml
+
+values = yaml.safe_load(Path(sys.argv[1]).read_text())
+external_secrets = [
+    item for item in yaml.safe_load_all(Path(sys.argv[2]).read_text()) if item
+]
+application = yaml.safe_load(Path(sys.argv[3]).read_text())
+
+for component in ("postgresql", "redis"):
+    if values[component].get("enabled") is not False:
+        raise SystemExit(f"CVAT bundled {component} must remain disabled")
+for component in ("analytics", "clickhouse", "nuclio", "traefik"):
+    if values[component].get("enabled") is not False:
+        raise SystemExit(f"CVAT bundled {component} must remain disabled")
+
+if values["ingress"].get("enabled") is not False:
+    raise SystemExit(
+        "CVAT ingress must remain disabled until platform authentication is selected"
+    )
+
+backend = values["cvat"]["backend"]
+frontend = values["cvat"]["frontend"]
+opa = values["cvat"]["opa"]
+kvrocks = values["cvat"]["kvrocks"]
+if backend["defaultStorage"].get("storageClassName") != "longhorn":
+    raise SystemExit("CVAT backend storage must use Longhorn")
+if backend["defaultStorage"].get("accessModes") != ["ReadWriteMany"]:
+    raise SystemExit("CVAT backend storage must be ReadWriteMany")
+if kvrocks["defaultStorage"].get("storageClassName") != "longhorn":
+    raise SystemExit("CVAT KVrocks storage must use Longhorn")
+if kvrocks["defaultStorage"].get("accessModes") != ["ReadWriteOnce"]:
+    raise SystemExit("CVAT KVrocks storage must be ReadWriteOnce")
+
+for name, component in (
+    ("backend", backend),
+    ("frontend", frontend),
+    ("opa", opa),
+    ("kvrocks", kvrocks),
+):
+    resources = component.get("resources", {})
+    if not resources.get("requests") or not resources.get("limits"):
+        raise SystemExit(f"CVAT {name} requires explicit resource bounds")
+
+postgres = next(
+    item for item in external_secrets
+    if item["metadata"]["name"] == "cvat-postgres-sync"
+)
+properties = {
+    item["remoteRef"]["property"] for item in postgres["spec"]["data"]
+}
+if properties != {"CVAT_PGSQL_USER", "CVAT_PGSQL_PASSWORD"}:
+    raise SystemExit("CVAT must use its dedicated PostgreSQL secret properties")
+
+if application["metadata"].get("annotations", {}).get(
+    "argocd.argoproj.io/sync-wave"
+) != "1":
+    raise SystemExit("CVAT child Application must follow the foundation sync wave")
+chart_source = application["spec"]["sources"][0]
+if chart_source.get("targetRevision") != (
+    "125dd1e7006e7aadd8249c1256ec3a8945fcb191"
+):
+    raise SystemExit("CVAT source revision must remain immutable")
+if "$values/apps/sportif-ml/cvat/values.yaml" not in (
+    chart_source.get("helm", {}).get("valueFiles", [])
+):
+    raise SystemExit("CVAT child Application must consume repository values")
+
+print("Sportif ML CVAT configuration validation: PASS")
+PY
+
 python3 - "$rendered" <<'PY'
 from pathlib import Path
 import sys

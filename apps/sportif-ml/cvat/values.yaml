@@ -1,34 +1,32 @@
-# Staged values for the supported CVAT v2.45.0 Helm chart (chart 0.17.0).
-# This file is not part of the active sportif-ml Kustomization. Activate it only
-# after the shared PostgreSQL database/user, shared Redis credentials, and the
-# CVAT ExternalSecrets described in docs/ml-factory/installation.md exist.
+# Values for the supported CVAT v2.45.0 Helm chart (chart 0.17.0).
+# The child Argo CD Application is discovered by platform-root. Its sync wave
+# follows the namespace/foundation application, which owns the ExternalSecrets.
 
 cvat:
   backend:
-    # CVAT uses Longhorn-backed PVCs. Keep storage-backed components on
-    # registered Longhorn nodes; reserve the GPU node for training.
-    affinity: &longhornWorkerAffinity
-      nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-            - matchExpressions:
-                - key: kubernetes.io/hostname
-                  operator: In
-                  values:
-                    - k8s-worker-01
-                    - k8s-worker-02
-                    - k8s-worker-04
     image: cvat/server
     tag: v2.45.0
     imagePullPolicy: IfNotPresent
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 2Gi
     additionalEnv:
       # CVAT's entrypoint reads this variable even when analytics is disabled.
       - name: CLICKHOUSE_HOST
         value: ""
     server:
-      affinity: *longhornWorkerAffinity
+      replicas: 1
     worker:
-      affinity: *longhornWorkerAffinity
+      export:
+        replicas: 1
+      import:
+        replicas: 1
+      chunks:
+        replicas: 1
     defaultStorage:
       enabled: true
       storageClassName: longhorn
@@ -36,16 +34,43 @@ cvat:
         - ReadWriteMany
       size: 20Gi
   frontend:
-    affinity: *longhornWorkerAffinity
     image: cvat/ui
     tag: v2.45.0
     imagePullPolicy: IfNotPresent
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
 
   opa:
-    affinity: *longhornWorkerAffinity
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
 
   kvrocks:
-    affinity: *longhornWorkerAffinity
+    enabled: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+    defaultStorage:
+      enabled: true
+      storageClassName: longhorn
+      accessModes:
+        - ReadWriteOnce
+      size: 5Gi
 
 # Reuse platform services. Do not deploy duplicate PostgreSQL or Redis.
 postgresql:
@@ -80,7 +105,9 @@ traefik:
   enabled: false
 
 ingress:
-  enabled: true
+  # Keep CVAT cluster-internal for the initial milestone. Enable ingress only
+  # after an existing platform authentication pattern has been selected.
+  enabled: false
   hostname: annotate.churchlify.com
   className: nginx
   annotations:

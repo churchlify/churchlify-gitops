@@ -3,6 +3,10 @@ kind: Application
 metadata:
   name: sportif-ml-cvat
   namespace: argocd
+  annotations:
+    # platform-root recursively discovers this child Application. Sync it only
+    # after the foundation Application has created the namespace and secrets.
+    argocd.argoproj.io/sync-wave: "1"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
   labels:
