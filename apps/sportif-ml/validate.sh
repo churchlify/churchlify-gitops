@@ -117,6 +117,15 @@ if executor_tag != (
     "701da40bf65f9699ea7a1e732dbca696590fecb835d1c8719f000fb60aa30133"
 ):
     raise SystemExit("Argo Workflows executor image must remain digest-pinned")
+executor_security = values.get("executor", {}).get("securityContext", {})
+if executor_security.get("runAsNonRoot") is not True:
+    raise SystemExit("Argo Workflows executor must run non-root")
+if executor_security.get("runAsUser") != 8737 or executor_security.get("runAsGroup") != 8737:
+    raise SystemExit(
+        "Argo executor requires explicit UID/GID 8737 because argoexec declares USER 0"
+    )
+if executor_security.get("seccompProfile", {}).get("type") != "RuntimeDefault":
+    raise SystemExit("Argo Workflows executor requires RuntimeDefault seccomp")
 
 if application["metadata"].get("annotations", {}).get(
     "argocd.argoproj.io/sync-wave"

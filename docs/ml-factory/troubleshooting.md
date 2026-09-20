@@ -61,6 +61,11 @@
 - Argo Workflows controller logs RBAC denial: verify the chart rendered a
   namespaced `Role`/`RoleBinding`, the controller has `--namespaced`, and no
   ClusterWorkflowTemplate is being submitted. Do not broaden it to cluster-admin.
+- Workflow pods remain in `Init:CreateContainerConfigError` with
+  `runAsNonRoot=true, but image will run as root`: verify the controller ConfigMap
+  executor security context contains `runAsUser: 8737` and `runAsGroup: 8737`.
+  The upstream `argoexec` image declares user `0`; do not weaken the Sportif
+  worker container's non-root security context.
 - Video ingest reports `ImagePullBackOff`: verify the public worker digest remains
   available at `ghcr.io/agogos-llc/sportif-ml-worker` and that cluster nodes can
   reach GHCR. Do not replace the digest with a mutable tag.

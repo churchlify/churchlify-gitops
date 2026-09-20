@@ -164,6 +164,9 @@ the eight Argo Workflows CRDs and a single controller restricted to the
 `sportif-ml` namespace. Argo Server, aggregate ClusterRoles, and
 ClusterWorkflowTemplate access are disabled. The controller runs only on normal
 workers and both controller and executor images are pinned by digest.
+The injected Argo `init` and `wait` containers explicitly run as UID/GID `8737`.
+The upstream `argoexec` image declares user `0`, so `runAsNonRoot: true` without
+a numeric identity causes workflow pods to fail before the worker starts.
 
 After Argo CD syncs the Stage 4A commit, verify:
 

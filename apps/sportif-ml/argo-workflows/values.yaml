@@ -89,6 +89,12 @@ executor:
       drop:
         - ALL
     runAsNonRoot: true
+    # argoexec declares USER 0, so Kubernetes requires an explicit numeric
+    # non-root identity for the injected init and wait containers.
+    runAsUser: 8737
+    runAsGroup: 8737
+    seccompProfile:
+      type: RuntimeDefault
 
 server:
   enabled: false
