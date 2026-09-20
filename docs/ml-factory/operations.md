@@ -59,3 +59,13 @@ EOF
 Watch with `kubectl -n sportif-ml get workflows,pods --watch`. A successful run
 writes `input-validation.json` and `frame-extraction.json` to the provenance
 bucket and JPEG frames plus `frames-manifest.json` to the frames bucket.
+
+The first live acceptance Workflow, `sportif-video-ingest-h46bk`, completed on
+September 20, 2026 with both tasks successful. It produced and verified 4,724
+frames for approved source `VID-20260920-001`. The verification compared actual
+JPEG object count with both output documents, checked source SHA-256 linkage, and
+confirmed the first and last manifest-referenced frame objects exist.
+
+Completed Workflows are retained for 24 hours by the template TTL. Worker pods
+are removed after completion by pod GC, so use the Workflow status and persisted
+MinIO documents as the durable operational record.

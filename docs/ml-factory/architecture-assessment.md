@@ -25,14 +25,17 @@ MLflow and bucket creation are enabled only after that ExternalSecret is Ready.
 CVAT is installed from its supported Helm chart only after shared database/cache
 prerequisites exist. Argo Workflows `v3.6.10` is deployed as a controller-only,
 namespace-scoped child Application; its server is disabled. The Sportif
-`WorkflowTemplate` remains staged until the trainer image and artifact/data flow
-are complete.
+`sportif-video-ingest` WorkflowTemplate is active with a digest-pinned CPU worker
+for source validation and frame extraction. The GPU training WorkflowTemplate
+remains staged until its image and complete dataset/artifact flow are ready.
 
-The checked-in Python and workflow files are an implementation scaffold, not a
-completed end-to-end pipeline. They do not yet transfer artifacts between MinIO
-and workflow pods, import/export CVAT tasks, compute real evaluation metrics, or
-publish the complete release package. They must not be promoted as acceptance
-complete until those gaps are implemented and tested.
+Stage 4B transfers an approved source video and provenance metadata from MinIO,
+validates them, extracts frames, and publishes frame/provenance artifacts back to
+MinIO. The broader checked-in training workflow remains an implementation
+scaffold: it does not yet import/export CVAT tasks, generate and approve a
+dataset, compute real evaluation metrics, or publish the complete release
+package. It must not be promoted as end-to-end acceptance complete until those
+gaps are implemented and tested.
 
 ## Risks and prerequisites
 

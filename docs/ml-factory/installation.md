@@ -203,6 +203,13 @@ MinIO, verify rights metadata and SHA-256, probe the video, and write validation
 frames, frame manifest, and extraction provenance back to MinIO. Submit it only
 with operator-provided object keys; the template contains no default footage.
 
+The live acceptance run on September 20, 2026 completed successfully as Workflow
+`sportif-video-ingest-h46bk`. Both DAG tasks succeeded, and artifact verification
+confirmed 4,724 JPEG objects, matching manifest/provenance frame counts, matching
+source SHA-256 linkage, and the existence of the first and last referenced
+frames. This verifies Stage 4B only; it does not constitute dataset, training, or
+model-release acceptance.
+
 The live cluster has one allocatable GPU on the node labelled
 `accelerator=nvidia-v100`. The full training workflow remains in
 `pipeline/workflows-training-staged.yaml` and is not active.

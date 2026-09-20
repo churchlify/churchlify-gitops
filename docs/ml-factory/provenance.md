@@ -16,3 +16,10 @@ Successful validation writes `videos/<videoId>/input-validation.json` to the
 provenance bucket. Successful extraction writes
 `videos/<videoId>/frame-extraction.json` there and writes the JPEG frames plus
 `videos/<videoId>/frames-manifest.json` to the frames bucket.
+
+The September 20, 2026 Stage 4B acceptance run verified that the validation,
+frame manifest, and extraction documents shared the same video identity and
+source SHA-256; both recorded frame counts matched all 4,724 stored JPEG objects;
+and the first and last referenced frame objects were readable. This evidence is
+ingest provenance only and does not satisfy later dataset or commercial release
+gates.
