@@ -31,11 +31,18 @@
   and KVrocks PVC events first. If Longhorn reports
   `node.longhorn.io <node> not found`, the Kubernetes node is not registered in
   Longhorn and its volumes cannot attach.
-- Argo CD reports that `cvat-backend-initializer-r1` has an immutable pod
-  template: confirm the rendered Job has
-  `argocd.argoproj.io/sync-options: Replace=true`. A completed, manually renamed
-  recovery initializer can be deleted only after its migration logs show
-  success. Do not delete PostgreSQL data or CVAT PVCs to resolve this error.
+- Argo CD reports that `cvat-backend-initializer-r1` is missing: this is expected
+  after the `PreSync` hook succeeds because `HookSucceeded` deletes it. A failed
+  hook is removed by `BeforeHookCreation` on the next full sync. Do not use
+  `Replace=true`, manually rename initializer Jobs, or delete PostgreSQL/PVC data.
+- The initializer waits for ClickHouse while analytics is disabled: verify the
+  pod mounts `/etc/cvat/init.d/10-no-analytics.sh` from
+  `cvat-initializer-config`. The override must contain only PostgreSQL and Redis
+  migration commands.
+- Argo CD cannot update `cvat-kvrocks` claim templates: the existing StatefulSet
+  owns an immutable 100 GiB claim. Confirm the child Application ignores only
+  `/spec/volumeClaimTemplates` and has `RespectIgnoreDifferences=true`; never
+  delete the KVrocks PVC merely to resolve this diff.
 - Longhorn manager logs request CRDs such as `shards`, `snapshotgroups`, or
   `instancemanagerupgrades` that are absent from the API: the Longhorn manager,
   CRDs, and RBAC are from mismatched releases. Reconcile Longhorn as one pinned,

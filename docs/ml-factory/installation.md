@@ -95,15 +95,22 @@ Use the CVAT v2.45.0 Helm chart at immutable Git revision
 5. Confirm the existing `REDIS_PASSWORD` property is valid for
    `redis-master.platform.svc.cluster.local`.
 6. Confirm Longhorn supports the requested RWX CVAT volume and the RWO KVrocks
-   volume.
+   volume. CVAT CPU workloads are constrained to nodes carrying
+   `node-role.kubernetes.io/worker=worker`; the GPU node is not used.
 
 `platform-root` recursively discovers `platform/argocd/sportif-ml/cvat.yaml`.
 The child Application has sync wave `1`, while the foundation Application owns
 the namespace and CVAT ExternalSecrets. Do not manually apply those resources.
-The chart-generated initializer Job uses
-`argocd.argoproj.io/sync-options: Replace=true` because Kubernetes Job pod
-templates are immutable. Argo CD therefore recreates the initializer when its
-specification changes instead of attempting an invalid patch.
+The chart-generated initializer is an Argo CD `PreSync` hook. It mounts a
+foundation-owned script that runs PostgreSQL and Redis migrations without the
+stock CVAT 2.45 ClickHouse initialization, because analytics is disabled.
+Argo CD deletes a successful hook, so `cvat-backend-initializer-r1` being absent
+after a successful sync is expected. `BeforeHookCreation` removes a failed or
+stale hook before the next attempt.
+
+The existing KVrocks StatefulSet owns a 100 GiB PVC. Its immutable claim template
+is preserved, and the child Application ignores only
+`/spec/volumeClaimTemplates` while continuing to reconcile its pod template.
 After creating the dedicated database role and adding the secret properties,
 verify GitOps reconciliation:
 

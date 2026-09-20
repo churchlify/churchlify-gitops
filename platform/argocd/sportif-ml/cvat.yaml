@@ -28,12 +28,23 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: sportif-ml
+  ignoreDifferences:
+    # The existing KVrocks StatefulSet was created with a 100 GiB claim template
+    # before storageClassName was explicit. Kubernetes forbids mutating claim
+    # templates. Ignore only this immutable field; pod-template drift continues
+    # to reconcile normally.
+    - group: apps
+      kind: StatefulSet
+      name: cvat-kvrocks
+      jsonPointers:
+        - /spec/volumeClaimTemplates
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
       - CreateNamespace=false
+      - RespectIgnoreDifferences=true
     retry:
       limit: 5
       backoff:

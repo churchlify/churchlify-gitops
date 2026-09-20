@@ -11,6 +11,7 @@ resources:
   - training-config.yaml
   - externalsecret.yaml
   - cvat/externalsecrets.yaml
+  - cvat/initializer-config.yaml
   - pipeline
 
 labels:

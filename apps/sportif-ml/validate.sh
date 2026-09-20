@@ -64,7 +64,8 @@ PY
 python3 - \
   "$repo_root/apps/sportif-ml/cvat/values.yaml" \
   "$repo_root/apps/sportif-ml/cvat/externalsecrets.yaml" \
-  "$repo_root/platform/argocd/sportif-ml/cvat.yaml" <<'PY'
+  "$repo_root/platform/argocd/sportif-ml/cvat.yaml" \
+  "$repo_root/apps/sportif-ml/cvat/initializer-config.yaml" <<'PY'
 from pathlib import Path
 import sys
 import yaml
@@ -74,6 +75,7 @@ external_secrets = [
     item for item in yaml.safe_load_all(Path(sys.argv[2]).read_text()) if item
 ]
 application = yaml.safe_load(Path(sys.argv[3]).read_text())
+initializer_config = yaml.safe_load(Path(sys.argv[4]).read_text())
 
 for component in ("postgresql", "redis"):
     if values[component].get("enabled") is not False:
@@ -92,11 +94,30 @@ frontend = values["cvat"]["frontend"]
 opa = values["cvat"]["opa"]
 kvrocks = values["cvat"]["kvrocks"]
 initializer_annotations = backend.get("initializer", {}).get("annotations", {})
-if initializer_annotations.get("argocd.argoproj.io/sync-options") != "Replace=true":
+if initializer_annotations.get("argocd.argoproj.io/hook") != "PreSync":
     raise SystemExit(
-        "CVAT initializer Job requires Argo CD Replace=true because its pod "
-        "template is immutable"
+        "CVAT initializer must run as an Argo CD PreSync hook"
     )
+delete_policies = set(
+    initializer_annotations.get("argocd.argoproj.io/hook-delete-policy", "").split(",")
+)
+if delete_policies != {"BeforeHookCreation", "HookSucceeded"}:
+    raise SystemExit("CVAT initializer requires safe hook deletion policies")
+initializer = backend.get("initializer", {})
+mounts = initializer.get("additionalVolumeMounts", [])
+if not any(
+    mount.get("mountPath") == "/etc/cvat/init.d/10-no-analytics.sh"
+    and mount.get("readOnly") is True
+    for mount in mounts
+):
+    raise SystemExit("CVAT initializer must mount the no-analytics override")
+script = initializer_config.get("data", {}).get("10-no-analytics.sh", "")
+for required in ("cmd_init()", "manage.py migrate", "manage.py migrateredis"):
+    if required not in script:
+        raise SystemExit(f"CVAT initializer override is missing {required}")
+for forbidden in ("wait_for_clickhouse", "components/analytics/clickhouse/init.py"):
+    if forbidden in script:
+        raise SystemExit("CVAT no-analytics initializer must not invoke ClickHouse")
 if backend["defaultStorage"].get("storageClassName") != "longhorn":
     raise SystemExit("CVAT backend storage must use Longhorn")
 if backend["defaultStorage"].get("accessModes") != ["ReadWriteMany"]:
@@ -105,6 +126,33 @@ if kvrocks["defaultStorage"].get("storageClassName") != "longhorn":
     raise SystemExit("CVAT KVrocks storage must use Longhorn")
 if kvrocks["defaultStorage"].get("accessModes") != ["ReadWriteOnce"]:
     raise SystemExit("CVAT KVrocks storage must be ReadWriteOnce")
+if kvrocks["defaultStorage"].get("size") != "100Gi":
+    raise SystemExit("CVAT must preserve the existing 100Gi KVrocks claim")
+
+worker_expression = {
+    "key": "node-role.kubernetes.io/worker",
+    "operator": "In",
+    "values": ["worker"],
+}
+for name, component in (
+    ("backend", backend),
+    ("frontend", frontend),
+    ("opa", opa),
+    ("kvrocks", kvrocks),
+):
+    terms = (
+        component.get("affinity", {})
+        .get("nodeAffinity", {})
+        .get("requiredDuringSchedulingIgnoredDuringExecution", {})
+        .get("nodeSelectorTerms", [])
+    )
+    expressions = [
+        expression
+        for term in terms
+        for expression in term.get("matchExpressions", [])
+    ]
+    if worker_expression not in expressions:
+        raise SystemExit(f"CVAT {name} must target normal worker nodes")
 
 for name, component in (
     ("backend", backend),
@@ -139,6 +187,17 @@ if "$values/apps/sportif-ml/cvat/values.yaml" not in (
     chart_source.get("helm", {}).get("valueFiles", [])
 ):
     raise SystemExit("CVAT child Application must consume repository values")
+sync_options = application["spec"]["syncPolicy"].get("syncOptions", [])
+if "RespectIgnoreDifferences=true" not in sync_options:
+    raise SystemExit("CVAT sync must respect scoped ignored differences")
+ignored = application["spec"].get("ignoreDifferences", [])
+if ignored != [{
+    "group": "apps",
+    "kind": "StatefulSet",
+    "name": "cvat-kvrocks",
+    "jsonPointers": ["/spec/volumeClaimTemplates"],
+}]:
+    raise SystemExit("CVAT may ignore only the immutable KVrocks claim template")
 
 print("Sportif ML CVAT configuration validation: PASS")
 PY

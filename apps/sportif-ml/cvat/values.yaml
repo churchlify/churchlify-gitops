@@ -7,11 +7,31 @@ cvat:
     image: cvat/server
     tag: v2.45.0
     imagePullPolicy: IfNotPresent
+    affinity: &workerAffinity
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: node-role.kubernetes.io/worker
+                  operator: In
+                  values:
+                    - worker
     initializer:
-      # Kubernetes Jobs have immutable pod templates. Argo CD must recreate the
-      # initializer when chart values change instead of attempting a patch.
+      # Run migrations before the application resources. Successful hooks are
+      # deleted intentionally, so a missing initializer Job is healthy.
       annotations:
-        argocd.argoproj.io/sync-options: Replace=true
+        argocd.argoproj.io/hook: PreSync
+        argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+      additionalVolumes:
+        - name: initializer-config
+          configMap:
+            name: cvat-initializer-config
+            defaultMode: 0444
+      additionalVolumeMounts:
+        - name: initializer-config
+          mountPath: /etc/cvat/init.d/10-no-analytics.sh
+          subPath: 10-no-analytics.sh
+          readOnly: true
     resources:
       requests:
         cpu: 100m
@@ -43,6 +63,7 @@ cvat:
     tag: v2.45.0
     imagePullPolicy: IfNotPresent
     replicas: 1
+    affinity: *workerAffinity
     resources:
       requests:
         cpu: 50m
@@ -53,6 +74,7 @@ cvat:
 
   opa:
     replicas: 1
+    affinity: *workerAffinity
     resources:
       requests:
         cpu: 50m
@@ -63,6 +85,7 @@ cvat:
 
   kvrocks:
     enabled: true
+    affinity: *workerAffinity
     resources:
       requests:
         cpu: 100m
@@ -75,7 +98,9 @@ cvat:
       storageClassName: longhorn
       accessModes:
         - ReadWriteOnce
-      size: 5Gi
+      # Preserve the existing allocation. StatefulSet claim templates are
+      # immutable, and the live PVC was originally provisioned at 100 GiB.
+      size: 100Gi
 
 # Reuse platform services. Do not deploy duplicate PostgreSQL or Redis.
 postgresql:
