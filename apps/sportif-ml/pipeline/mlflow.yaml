@@ -25,8 +25,6 @@ spec:
       labels:
         app: mlflow
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: k8s-worker-01
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -35,9 +33,43 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        - name: install-s3-dependencies
+          image: ghcr.io/mlflow/mlflow:v2.18.0@sha256:09d25b0c80efa2c1dd4b5e4834a1a0ed861d6b1c2b43017ff99493bd5c6bb4ee
+          imagePullPolicy: IfNotPresent
+          command: [python, -m, pip, install]
+          args:
+            - --disable-pip-version-check
+            - --no-cache-dir
+            - --no-deps
+            - --require-hashes
+            - --target
+            - /opt/mlflow-dependencies
+            - --requirement
+            - /requirements/requirements.txt
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: mlflow-dependencies
+              mountPath: /opt/mlflow-dependencies
+            - name: mlflow-s3-requirements
+              mountPath: /requirements
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
       containers:
         - name: mlflow
-          image: ghcr.io/mlflow/mlflow:v2.18.0
+          image: ghcr.io/mlflow/mlflow:v2.18.0@sha256:09d25b0c80efa2c1dd4b5e4834a1a0ed861d6b1c2b43017ff99493bd5c6bb4ee
           imagePullPolicy: IfNotPresent
           command: [mlflow, server]
           args:
@@ -54,12 +86,18 @@ spec:
                 name: sportif-ml-config
             - secretRef:
                 name: sportif-ml-storage
+          env:
+            - name: PYTHONPATH
+              value: /opt/mlflow-dependencies
           ports:
             - name: http
               containerPort: 5000
           volumeMounts:
             - name: backend
               mountPath: /mlflow
+            - name: mlflow-dependencies
+              mountPath: /opt/mlflow-dependencies
+              readOnly: true
           readinessProbe:
             httpGet:
               path: /
@@ -91,3 +129,10 @@ spec:
         - name: backend
           persistentVolumeClaim:
             claimName: mlflow-backend
+        - name: mlflow-dependencies
+          emptyDir: {}
+        - name: mlflow-s3-requirements
+          configMap:
+            name: mlflow-s3-dependencies
+        - name: tmp
+          emptyDir: {}

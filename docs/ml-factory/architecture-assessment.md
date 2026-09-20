@@ -42,8 +42,12 @@ complete until those gaps are implemented and tested.
    the existing Redis host/password. The staged Helm values disable bundled
    PostgreSQL, Redis, ClickHouse, Grafana, Traefik, and Nuclio.
 4. MLflow currently uses a single-replica SQLite backend on Longhorn and MinIO
-   artifacts. This is acceptable only for the initial small milestone; shared
-   PostgreSQL should replace SQLite before scaling or running multiple replicas.
+   artifacts through `MLFLOW_S3_ENDPOINT_URL`. It is not pinned to a concrete
+   node. Because the upstream MLflow 2.18.0 image omits the optional S3 client,
+   a non-root init container installs a fully pinned, SHA-256-verified boto3
+   dependency set into a shared read-only runtime volume. This is acceptable for
+   the initial milestone; a digest-pinned derivative image and shared PostgreSQL
+   should replace the init install and SQLite before scaling.
 
 No commercial or legal clearance is inferred from successful deployment. The
 provenance and release gates remain explicit engineering checks.

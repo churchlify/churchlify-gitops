@@ -36,16 +36,27 @@ manual namespace manifest is required.
 ## Stage 2: MinIO buckets and MLflow
 
 Stage 2 is active after the successful Stage 1 sync at revision `a31e086`.
-The six ML buckets are pre-provisioned, so the application deploys only
-`services.yaml` and `mlflow.yaml`. Bucket administration is deliberately kept
-out of the Argo application; the scoped identity needs object access to the
-existing buckets, not bucket-creation privileges.
+The six ML buckets are pre-provisioned, so the application deploys the MLflow
+Service, dependency ConfigMap, PVC, and Deployment. Bucket administration is
+deliberately kept out of the Argo application; the scoped identity needs object
+access to the existing buckets, not bucket-creation privileges.
+
+MLflow uses `MLFLOW_S3_ENDPOINT_URL` to reach the existing in-cluster MinIO
+Service and is deliberately not pinned to a specific Kubernetes node.
+The upstream `ghcr.io/mlflow/mlflow:v2.18.0` image is pinned by its verified
+multi-architecture digest, but it does not contain the optional `boto3` S3
+client. `mlflow-dependencies.yaml` therefore supplies a complete,
+version-pinned and SHA-256-verified dependency set that a non-root init container
+installs into an ephemeral shared volume. Cluster egress to PyPI is required on
+pod initialization. Replace this bootstrap with a digest-pinned derivative image
+once an image build/publish workflow is available.
 
 Verify after Argo CD syncs the Stage 2 commit:
 
 ```bash
 kubectl -n sportif-ml rollout status deployment/mlflow --timeout=180s
 kubectl -n sportif-ml get service/mlflow pvc/mlflow-backend
+kubectl -n sportif-ml logs deployment/mlflow -c install-s3-dependencies
 kubectl -n sportif-ml port-forward service/mlflow 5000:5000
 curl --fail http://127.0.0.1:5000/
 ```

@@ -22,6 +22,29 @@ if grep -q 'name: cvat$' "$rendered"; then
   exit 1
 fi
 
+if grep -q 'kubernetes.io/hostname:' "$rendered"; then
+  echo "active Sportif ML manifests must not pin workloads to a node name" >&2
+  exit 1
+fi
+
+if grep -q 'name: mlflow$' "$rendered" \
+  && ! grep -q 'MLFLOW_S3_ENDPOINT_URL:' "$rendered"; then
+  echo "MLflow requires MLFLOW_S3_ENDPOINT_URL for the MinIO artifact store" >&2
+  exit 1
+fi
+
+if grep -q 'name: mlflow$' "$rendered" \
+  && ! grep -q 'name: mlflow-s3-dependencies$' "$rendered"; then
+  echo "MLflow requires the hash-locked S3 dependency ConfigMap" >&2
+  exit 1
+fi
+
+if grep -q 'name: mlflow$' "$rendered" \
+  && grep -q 'image: ghcr.io/mlflow/mlflow:v2.18.0$' "$rendered"; then
+  echo "MLflow images must be pinned by digest" >&2
+  exit 1
+fi
+
 if find "$repo_root" -type f \( -path '*/__pycache__/*' -o -name '*.pyc' \) \
   -not -path '*/.git/*' | grep -q .; then
   echo "compiled Python artifacts must not be committed" >&2

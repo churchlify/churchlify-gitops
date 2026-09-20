@@ -5,6 +5,7 @@ metadata:
   namespace: sportif-ml
 data:
   AWS_ENDPOINT_URL: http://minio-service.platform.svc.cluster.local:9000
+  MLFLOW_S3_ENDPOINT_URL: http://minio-service.platform.svc.cluster.local:9000
   AWS_DEFAULT_REGION: us-east-1
   ML_RAW_BUCKET: sportif-ml-raw
   ML_FRAMES_BUCKET: sportif-ml-frames

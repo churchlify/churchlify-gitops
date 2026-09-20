@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - config.yaml
+  - mlflow-dependencies.yaml
   - services.yaml
   - mlflow.yaml
 

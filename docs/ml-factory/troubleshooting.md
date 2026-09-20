@@ -6,10 +6,15 @@
 - `ExternalSecret` not Ready: verify `platform-secrets` and the exact remote
   properties documented in `installation.md`.
 - MLflow cannot access artifacts: verify the six pre-provisioned ML buckets,
-  their versioning settings, and the scoped identity's object permissions.
+  their versioning settings, the scoped identity's object permissions, and that
+  `MLFLOW_S3_ENDPOINT_URL` resolves to the platform MinIO Service.
 - MLflow is not Ready: inspect the Deployment logs, PVC binding, Longhorn volume
   events, and the generated `sportif-ml-storage` Secret. MLflow is intentionally
   available only through its ClusterIP Service in Stage 2.
+- MLflow init container cannot download dependencies: verify cluster HTTPS egress
+  to PyPI and inspect `kubectl -n sportif-ml logs deployment/mlflow -c
+  install-s3-dependencies`. Every wheel is version-pinned and hash-verified; do
+  not remove `--require-hashes` to work around an integrity failure.
 - CVAT OPA reports `cvat-backend-service:8080 connection refused`: OPA is a
   downstream symptom when the backend has no ready endpoints. Check the backend
   and KVrocks PVC events first. If Longhorn reports
