@@ -87,6 +87,21 @@ if mlflow and backend:
             "ReadWriteOnce PVC"
         )
 
+    pod_spec = mlflow["spec"]["template"]["spec"]
+    init_containers = {
+        container["name"]: container
+        for container in pod_spec.get("initContainers", [])
+    }
+    dependency_init = init_containers.get("install-s3-dependencies")
+    if not dependency_init:
+        raise SystemExit("MLflow requires install-s3-dependencies")
+    args = dependency_init.get("args", [])
+    for required_arg in ("--require-hashes", "--retries", "--timeout"):
+        if required_arg not in args:
+            raise SystemExit(
+                f"MLflow dependency init container requires {required_arg}"
+            )
+
 print("Sportif ML rendered semantic validation: PASS")
 PY
 

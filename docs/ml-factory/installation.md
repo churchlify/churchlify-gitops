@@ -49,7 +49,9 @@ client. `mlflow-dependencies.yaml` therefore supplies a complete,
 version-pinned and SHA-256-verified dependency set that a non-root init container
 installs into an ephemeral shared volume. Cluster egress to PyPI is required on
 pod initialization. Replace this bootstrap with a digest-pinned derivative image
-once an image build/publish workflow is available.
+once an image build/publish workflow is available. Pip network attempts are
+bounded to three retries with a 15-second timeout so unavailable egress fails
+visibly instead of leaving initialization apparently stuck for an extended time.
 
 The single-replica Deployment uses the `Recreate` strategy because its SQLite
 backend is stored on a `ReadWriteOnce` Longhorn PVC. This intentionally causes a

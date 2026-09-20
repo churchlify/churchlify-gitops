@@ -21,7 +21,11 @@
   to PyPI and inspect the new pod explicitly with `kubectl -n sportif-ml logs
   <new-mlflow-pod> -c install-s3-dependencies`. Every wheel is version-pinned and
   hash-verified; do not remove `--require-hashes` to work around an integrity
-  failure.
+  failure. Inspect `.status.initContainerStatuses` and pod events before trying
+  `kubectl exec`: the `mlflow` container does not exist as a running process while
+  the pod is `Init:0/1`. The init download uses three retries and a 15-second
+  network timeout; repeated connection failures indicate DNS, proxy, CA, or HTTPS
+  egress policy problems that must be fixed or avoided with a prebuilt image.
 - CVAT OPA reports `cvat-backend-service:8080 connection refused`: OPA is a
   downstream symptom when the backend has no ready endpoints. Check the backend
   and KVrocks PVC events first. If Longhorn reports

@@ -48,6 +48,10 @@ spec:
             - --no-cache-dir
             - --no-deps
             - --require-hashes
+            - --retries
+            - "3"
+            - --timeout
+            - "15"
             - --target
             - /opt/mlflow-dependencies
             - --requirement
