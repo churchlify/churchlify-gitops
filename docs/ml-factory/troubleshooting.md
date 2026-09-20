@@ -31,6 +31,11 @@
   and KVrocks PVC events first. If Longhorn reports
   `node.longhorn.io <node> not found`, the Kubernetes node is not registered in
   Longhorn and its volumes cannot attach.
+- Argo CD reports that `cvat-backend-initializer-r1` has an immutable pod
+  template: confirm the rendered Job has
+  `argocd.argoproj.io/sync-options: Replace=true`. A completed, manually renamed
+  recovery initializer can be deleted only after its migration logs show
+  success. Do not delete PostgreSQL data or CVAT PVCs to resolve this error.
 - Longhorn manager logs request CRDs such as `shards`, `snapshotgroups`, or
   `instancemanagerupgrades` that are absent from the API: the Longhorn manager,
   CRDs, and RBAC are from mismatched releases. Reconcile Longhorn as one pinned,

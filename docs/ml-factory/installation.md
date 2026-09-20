@@ -100,6 +100,10 @@ Use the CVAT v2.45.0 Helm chart at immutable Git revision
 `platform-root` recursively discovers `platform/argocd/sportif-ml/cvat.yaml`.
 The child Application has sync wave `1`, while the foundation Application owns
 the namespace and CVAT ExternalSecrets. Do not manually apply those resources.
+The chart-generated initializer Job uses
+`argocd.argoproj.io/sync-options: Replace=true` because Kubernetes Job pod
+templates are immutable. Argo CD therefore recreates the initializer when its
+specification changes instead of attempting an invalid patch.
 After creating the dedicated database role and adding the secret properties,
 verify GitOps reconciliation:
 

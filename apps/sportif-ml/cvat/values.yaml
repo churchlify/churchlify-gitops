@@ -7,6 +7,11 @@ cvat:
     image: cvat/server
     tag: v2.45.0
     imagePullPolicy: IfNotPresent
+    initializer:
+      # Kubernetes Jobs have immutable pod templates. Argo CD must recreate the
+      # initializer when chart values change instead of attempting a patch.
+      annotations:
+        argocd.argoproj.io/sync-options: Replace=true
     resources:
       requests:
         cpu: 100m

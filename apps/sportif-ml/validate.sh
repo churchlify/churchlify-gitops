@@ -91,6 +91,12 @@ backend = values["cvat"]["backend"]
 frontend = values["cvat"]["frontend"]
 opa = values["cvat"]["opa"]
 kvrocks = values["cvat"]["kvrocks"]
+initializer_annotations = backend.get("initializer", {}).get("annotations", {})
+if initializer_annotations.get("argocd.argoproj.io/sync-options") != "Replace=true":
+    raise SystemExit(
+        "CVAT initializer Job requires Argo CD Replace=true because its pod "
+        "template is immutable"
+    )
 if backend["defaultStorage"].get("storageClassName") != "longhorn":
     raise SystemExit("CVAT backend storage must use Longhorn")
 if backend["defaultStorage"].get("accessModes") != ["ReadWriteMany"]:
