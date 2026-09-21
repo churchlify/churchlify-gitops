@@ -280,9 +280,15 @@ class CvatClient:
                 headers={"Content-Type": "application/json"},
             )
         labels = project.get("labels")
-        if labels is None:
-            project = self.request("GET", f"/api/projects/{project['id']}")
-            labels = project.get("labels")
+        if isinstance(labels, dict):
+            label_document = self.request("GET", f"/api/labels?{urlencode({'project_id': project['id']})}")
+            labels = label_document.get("results") if isinstance(label_document, dict) else None
+            if (
+                not isinstance(labels, list)
+                or label_document.get("count") != len(labels)
+                or label_document.get("next") is not None
+            ):
+                raise SystemExit("CVAT project labels lookup returned an invalid response")
         if not isinstance(labels, list) or [(item.get("name"), item.get("type")) for item in labels] != [
             ("ball", "rectangle")
         ]:

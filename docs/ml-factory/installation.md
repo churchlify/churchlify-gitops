@@ -190,7 +190,7 @@ ownership only for the CVAT project and tasks it creates.
 The handoff worker is published and pinned as:
 
 ```text
-ghcr.io/agogos-llc/sportif-ml-worker@sha256:a466ce34805c1d5cc522df40008d995c1470e4b6d2979a98be89d75ab3a90d9b
+ghcr.io/agogos-llc/sportif-ml-worker@sha256:7e62bd6f13d0a0486e4acdb1b69175422d5d550f687c4baf523ff7dff227254f
 ```
 
 After the token is stored, activate the two staged resources in Git:

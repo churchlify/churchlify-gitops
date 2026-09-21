@@ -14,5 +14,6 @@ resources:
 # intentionally not managed here because the buckets are pre-provisioned.
 # CVAT is deployed from its supported Helm chart. Stage 4C activates only the
 # CPU video-ingest and deterministic frame selection. The separately submitted
-# CVAT handoff workflow remains staged until its token and digest are ready.
-# Dataset preparation and training also remain staged.
+# CVAT handoff is active with a dedicated token and digest-pinned worker, but it
+# still runs only through explicit Workflow submission. Dataset preparation and
+# training remain staged.

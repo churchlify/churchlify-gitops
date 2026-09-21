@@ -12,11 +12,6 @@ if grep -nE 'REPLACE|SET_FROM_|TODO_IMAGE|example.invalid' "$rendered"; then
   exit 1
 fi
 
-if [ "$(grep -c '^kind: WorkflowTemplate$' "$rendered" || true)" -ne 1 ]; then
-  echo "exactly one Stage 4C WorkflowTemplate must be active" >&2
-  exit 1
-fi
-
 if grep -q 'name: cvat$' "$rendered"; then
   echo "CVAT must be installed through its supported Helm chart" >&2
   exit 1
@@ -431,6 +426,21 @@ objects = {
     (resource["kind"], resource["metadata"]["name"]): resource
     for resource in resources
 }
+
+workflow_templates = {
+    resource["metadata"]["name"]
+    for resource in resources
+    if resource.get("kind") == "WorkflowTemplate"
+}
+expected_workflow_templates = {
+    "sportif-video-ingest",
+    "sportif-cvat-handoff",
+}
+if workflow_templates != expected_workflow_templates:
+    raise SystemExit(
+        "active WorkflowTemplates must be exactly "
+        f"{sorted(expected_workflow_templates)}; got {sorted(workflow_templates)}"
+    )
 
 mlflow = objects.get(("Deployment", "mlflow"))
 backend = objects.get(("PersistentVolumeClaim", "mlflow-backend"))

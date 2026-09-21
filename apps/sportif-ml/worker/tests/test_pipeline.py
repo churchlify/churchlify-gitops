@@ -278,6 +278,61 @@ class WorkerValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "only the rectangle label 'ball'"):
                 client.ensure_project()
 
+    def test_cvat_project_accepts_linked_paginated_ball_label(self):
+        client = CvatClient("http://cvat", "token")
+        with patch.object(
+            client,
+            "request",
+            side_effect=[
+                {
+                    "count": 1,
+                    "results": [
+                        {
+                            "id": 10,
+                            "name": CVAT_PROJECT_NAME,
+                            "labels": {"url": "http://cvat/api/labels?project_id=10"},
+                        }
+                    ],
+                },
+                {
+                    "count": 1,
+                    "next": None,
+                    "previous": None,
+                    "results": [{"name": "ball", "type": "rectangle"}],
+                },
+            ],
+        ) as request:
+            project = client.ensure_project()
+        self.assertEqual(project["id"], 10)
+        request.assert_any_call("GET", "/api/labels?project_id=10")
+
+    def test_cvat_project_rejects_incomplete_linked_label_page(self):
+        client = CvatClient("http://cvat", "token")
+        with patch.object(
+            client,
+            "request",
+            side_effect=[
+                {
+                    "count": 1,
+                    "results": [
+                        {
+                            "id": 10,
+                            "name": CVAT_PROJECT_NAME,
+                            "labels": {"url": "http://cvat/api/labels?project_id=10"},
+                        }
+                    ],
+                },
+                {
+                    "count": 2,
+                    "next": "http://cvat/api/labels?page=2&project_id=10",
+                    "previous": None,
+                    "results": [{"name": "ball", "type": "rectangle"}],
+                },
+            ],
+        ):
+            with self.assertRaisesRegex(SystemExit, "labels lookup returned an invalid response"):
+                client.ensure_project()
+
     def test_cvat_request_uses_token_authorization(self):
         class Response:
             status = 200
