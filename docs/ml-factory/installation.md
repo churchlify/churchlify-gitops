@@ -189,7 +189,7 @@ Kubernetes resources until an authenticated access design is approved.
 Stage 4B publishes the CPU worker image as a public, immutable GHCR artifact:
 
 ```text
-ghcr.io/agogos-llc/sportif-ml-worker@sha256:7e23a3084ec2ababa26556fdb3a232f27a6ed5c43a999462a27b151c4fb2367e
+ghcr.io/agogos-llc/sportif-ml-worker@sha256:f8bf3b1eb61d2cee5cef69ecfcb5d6a41940f66d1fc80c19b40352a1494d09d8
 ```
 
 The active `sportif-video-ingest` WorkflowTemplate performs only:
@@ -214,6 +214,28 @@ The live cluster has one allocatable GPU on the node labelled
 `accelerator=nvidia-v100`. The full training workflow remains in
 `pipeline/workflows-training-staged.yaml` and is not active.
 
-Later stages still require CVAT export, frame deduplication, dataset generation,
-approval, GPU training, real evaluation, MLflow logging, artifact packaging, and
-model provenance before an end-to-end acceptance run.
+Later stages still require CVAT import/export, human annotation and review,
+dataset generation and approval, GPU training, real evaluation, MLflow logging,
+artifact packaging, and model provenance before an end-to-end acceptance run.
+
+## Stage 4C: deterministic frame selection
+
+Stage 4C extends the active CPU workflow to:
+
+```text
+validate-input → extract-frames → deduplicate
+```
+
+The `deduplicate` command verifies every JPEG against `frames-manifest.json`,
+computes a deterministic 64-bit difference hash, and compares each chronological
+frame with the last selected frame. The first frame is always selected; later
+frames are selected only when their Hamming distance is greater than
+`FRAME_PHASH_THRESHOLD` (default `8`). The threshold must be an integer from
+`0` through `64`.
+
+Original JPEG objects are not deleted or copied. The worker writes
+`videos/<videoId>/selected-frames-manifest.json` to the frames bucket and
+`videos/<videoId>/frame-selection.json` to the provenance bucket. The latter
+records every selection decision so the result can be audited and reproduced.
+CVAT API mutation, annotation export, dataset preparation, approval, and all GPU
+stages remain inactive.

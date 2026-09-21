@@ -42,6 +42,13 @@ spec:
               parameters:
                 - name: command
                   value: extract-frames
+          - name: deduplicate
+            dependencies: [extract-frames]
+            template: worker
+            arguments:
+              parameters:
+                - name: command
+                  value: deduplicate
 
     - name: worker
       inputs:
@@ -54,7 +61,7 @@ spec:
         limit: "2"
         retryPolicy: OnError
       container:
-        image: ghcr.io/agogos-llc/sportif-ml-worker@sha256:7e23a3084ec2ababa26556fdb3a232f27a6ed5c43a999462a27b151c4fb2367e
+        image: ghcr.io/agogos-llc/sportif-ml-worker@sha256:f8bf3b1eb61d2cee5cef69ecfcb5d6a41940f66d1fc80c19b40352a1494d09d8
         imagePullPolicy: IfNotPresent
         command: [python, -m, sportif_ml_worker]
         args:

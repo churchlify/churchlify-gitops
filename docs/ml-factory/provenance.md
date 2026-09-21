@@ -17,6 +17,13 @@ provenance bucket. Successful extraction writes
 `videos/<videoId>/frame-extraction.json` there and writes the JPEG frames plus
 `videos/<videoId>/frames-manifest.json` to the frames bucket.
 
+Stage 4C writes `videos/<videoId>/frame-selection.json` to the provenance bucket
+and `videos/<videoId>/selected-frames-manifest.json` to the frames bucket. These
+documents record the source manifest, algorithm identifier, hash width,
+comparison policy, configured threshold, original and selected counts,
+per-frame hashes, distances, and selection decisions. Selected entries continue
+to reference the SHA-256-verified original JPEG objects.
+
 The September 20, 2026 Stage 4B acceptance run verified that the validation,
 frame manifest, and extraction documents shared the same video identity and
 source SHA-256; both recorded frame counts matched all 4,724 stored JPEG objects;

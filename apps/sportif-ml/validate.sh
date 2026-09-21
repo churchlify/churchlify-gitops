@@ -13,7 +13,7 @@ if grep -nE 'REPLACE|SET_FROM_|TODO_IMAGE|example.invalid' "$rendered"; then
 fi
 
 if [ "$(grep -c '^kind: WorkflowTemplate$' "$rendered" || true)" -ne 1 ]; then
-  echo "exactly one Stage 4B WorkflowTemplate must be active" >&2
+  echo "exactly one Stage 4C WorkflowTemplate must be active" >&2
   exit 1
 fi
 
@@ -157,7 +157,7 @@ if role.get("rules") != [{
     raise SystemExit("Sportif workflow executor RBAC exceeds the required minimum")
 
 if workflow["metadata"]["name"] != "sportif-video-ingest":
-    raise SystemExit("only the Stage 4B video-ingest WorkflowTemplate may be active")
+    raise SystemExit("only the Stage 4C video-ingest WorkflowTemplate may be active")
 spec = workflow["spec"]
 if spec.get("serviceAccountName") != "sportif-ml-pipeline":
     raise SystemExit("video ingest must use the minimal pipeline ServiceAccount")
@@ -166,12 +166,17 @@ if parameters != {"video-key", "provenance-key"}:
     raise SystemExit("video ingest requires explicit video and provenance keys")
 templates = {item["name"]: item for item in spec["templates"]}
 if set(templates) != {"pipeline", "worker"}:
-    raise SystemExit("Stage 4B may activate only pipeline and worker templates")
+    raise SystemExit("Stage 4C may activate only pipeline and worker templates")
 tasks = templates["pipeline"]["dag"]["tasks"]
-if [task["name"] for task in tasks] != ["validate-input", "extract-frames"]:
-    raise SystemExit("Stage 4B must contain only validate-input then extract-frames")
+if [task["name"] for task in tasks] != ["validate-input", "extract-frames", "deduplicate"]:
+    raise SystemExit("Stage 4C must contain only validate-input, extract-frames, then deduplicate")
 if tasks[1].get("dependencies") != ["validate-input"]:
     raise SystemExit("frame extraction must depend on successful input validation")
+if tasks[2].get("dependencies") != ["extract-frames"]:
+    raise SystemExit("frame deduplication must depend on successful frame extraction")
+commands = [task["arguments"]["parameters"][0]["value"] for task in tasks]
+if commands != ["validate-input", "extract-frames", "deduplicate"]:
+    raise SystemExit("Stage 4C tasks must invoke the expected worker commands")
 worker = templates["worker"]
 if worker.get("nodeSelector") != {
     "kubernetes.io/os": "linux",
@@ -181,18 +186,21 @@ if worker.get("nodeSelector") != {
 container = worker["container"]
 if container.get("image") != (
     "ghcr.io/agogos-llc/sportif-ml-worker@sha256:"
-    "7e23a3084ec2ababa26556fdb3a232f27a6ed5c43a999462a27b151c4fb2367e"
+    "f8bf3b1eb61d2cee5cef69ecfcb5d6a41940f66d1fc80c19b40352a1494d09d8"
 ):
-    raise SystemExit("Stage 4B worker image must remain digest-pinned")
+    raise SystemExit("Stage 4C worker image must remain digest-pinned")
 if not container.get("resources", {}).get("requests") or not container.get(
     "resources", {}
 ).get("limits"):
-    raise SystemExit("Stage 4B worker requires explicit resource bounds")
+    raise SystemExit("Stage 4C worker requires explicit resource bounds")
 security = container.get("securityContext", {})
 if security.get("runAsNonRoot") is not True or security.get("readOnlyRootFilesystem") is not True:
-    raise SystemExit("Stage 4B worker must run non-root with a read-only root filesystem")
+    raise SystemExit("Stage 4C worker must run non-root with a read-only root filesystem")
 if any(name in templates for name in ("train", "evaluate", "export-onnx")):
-    raise SystemExit("training stages must remain inactive during Stage 4B")
+    raise SystemExit("training stages must remain inactive during Stage 4C")
+config = worker.get("container", {}).get("envFrom", [])
+if {next(iter(item)) for item in config} != {"configMapRef", "secretRef"}:
+    raise SystemExit("Stage 4C worker must use scoped configuration and storage credentials")
 
 training_templates = {
     item["name"]: item for item in training_workflow["spec"]["templates"]

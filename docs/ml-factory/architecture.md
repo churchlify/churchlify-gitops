@@ -9,8 +9,9 @@ The reserved ingress endpoints are `https://annotate.churchlify.com` for CVAT
 and `https://mlflow.churchlify.com` for MLflow. Both remain cluster-internal
 until an existing platform authentication pattern is selected. CVAT is a pinned
 child Argo CD Application discovered recursively by `platform-root`; it follows
-the foundation Application by sync wave. The workflow template remains staged
-until Argo Workflows is installed.
+the foundation Application by sync wave. Argo Workflows runs the active
+validation, extraction, and deterministic frame-selection pipeline without a
+public server or UI.
 GPU label/taint conventions must be read from the live cluster before activation.
 
 The production clean-room candidate uses torchvision Faster R-CNN initialized
@@ -18,6 +19,7 @@ with no pretrained model or backbone weights. Benchmark candidates listed in
 the implementation prompt remain research-only and are not promoted by this
 configuration.
 
-The trainer, evaluator, and workflow are not yet an end-to-end production
-implementation. In particular, artifact movement, CVAT automation, real metric
-calculation, MLflow publication, and release packaging remain required work.
+The trainer and evaluator are not yet an end-to-end production implementation.
+CVAT task automation, annotation export, dataset generation and approval, real
+metric calculation, MLflow publication, and release packaging remain required
+work.

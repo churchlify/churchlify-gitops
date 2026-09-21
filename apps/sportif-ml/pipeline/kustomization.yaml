@@ -11,5 +11,6 @@ resources:
 # Stage 2 is active: MLflow uses the existing versioned ML buckets and the
 # scoped sportif-ml-storage Secret created during Stage 1. Bucket creation is
 # intentionally not managed here because the buckets are pre-provisioned.
-# CVAT is deployed from its supported Helm chart. Stage 4B activates only the
-# CPU video-ingest workflow. The full dataset/training workflow remains staged.
+# CVAT is deployed from its supported Helm chart. Stage 4C activates only the
+# CPU video-ingest and deterministic frame-selection workflow. CVAT mutation and
+# the full dataset/training workflow remain staged.

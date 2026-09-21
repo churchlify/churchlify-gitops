@@ -31,11 +31,12 @@ remains staged until its image and complete dataset/artifact flow are ready.
 
 Stage 4B transfers an approved source video and provenance metadata from MinIO,
 validates them, extracts frames, and publishes frame/provenance artifacts back to
-MinIO. The broader checked-in training workflow remains an implementation
-scaffold: it does not yet import/export CVAT tasks, generate and approve a
-dataset, compute real evaluation metrics, or publish the complete release
-package. It must not be promoted as end-to-end acceptance complete until those
-gaps are implemented and tested.
+MinIO. Stage 4C deterministically selects representative frames and records every
+decision without modifying the source JPEGs. The broader checked-in training
+workflow remains an implementation scaffold: it does not yet import/export CVAT
+tasks, generate and approve a dataset, compute real evaluation metrics, or
+publish the complete release package. It must not be promoted as end-to-end
+acceptance complete until those gaps are implemented and tested.
 
 ## Risks and prerequisites
 

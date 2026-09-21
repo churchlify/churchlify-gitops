@@ -58,7 +58,15 @@ EOF
 
 Watch with `kubectl -n sportif-ml get workflows,pods --watch`. A successful run
 writes `input-validation.json` and `frame-extraction.json` to the provenance
-bucket and JPEG frames plus `frames-manifest.json` to the frames bucket.
+bucket and JPEG frames plus `frames-manifest.json` to the frames bucket. Stage 4C
+then writes `frame-selection.json` to provenance and
+`selected-frames-manifest.json` to frames.
+
+Before importing frames into CVAT, verify `frame-selection.json` has `status:
+PASS`, its original count matches `frames-manifest.json`, its selected count
+matches `selected-frames-manifest.json`, and every selected object key remains
+under `videos/<videoId>/frames/`. Changing `FRAME_PHASH_THRESHOLD` changes the
+selection set and requires a new workflow run and review.
 
 The first live acceptance Workflow, `sportif-video-ingest-h46bk`, completed on
 September 20, 2026 with both tasks successful. It produced and verified 4,724

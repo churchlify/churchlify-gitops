@@ -11,6 +11,8 @@ spec:
     parameters:
       - name: video-key
         value: videos/input.mp4
+      - name: provenance-key
+        value: videos/input/source-provenance.json
       - name: dataset-id
         value: sportif-ball-v001
       - name: dataset-approved
@@ -24,8 +26,11 @@ spec:
           - name: extract-frames
             dependencies: [validate-input]
             template: extract-frames
-          - name: prepare-dataset
+          - name: deduplicate
             dependencies: [extract-frames]
+            template: deduplicate
+          - name: prepare-dataset
+            dependencies: [deduplicate]
             template: prepare-dataset
           - name: validate-dataset
             dependencies: [prepare-dataset]
@@ -66,6 +71,20 @@ spec:
         image: ghcr.io/agogos-llc/sportif-ball-trainer:0.1.0
         command: [python, -m, sportif_ml.dataset]
         args: [prepare, "{{workflow.parameters.dataset-id}}"]
+        envFrom:
+          - configMapRef: { name: sportif-ml-config }
+          - secretRef: { name: sportif-ml-storage }
+
+    - name: deduplicate
+      container:
+        image: ghcr.io/agogos-llc/sportif-ml-worker@sha256:f8bf3b1eb61d2cee5cef69ecfcb5d6a41940f66d1fc80c19b40352a1494d09d8
+        command: [python, -m, sportif_ml_worker]
+        args:
+          - deduplicate
+          - --video-key
+          - "{{workflow.parameters.video-key}}"
+          - --provenance-key
+          - "{{workflow.parameters.provenance-key}}"
         envFrom:
           - configMapRef: { name: sportif-ml-config }
           - secretRef: { name: sportif-ml-storage }

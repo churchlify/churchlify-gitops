@@ -75,8 +75,16 @@
 - Frame extraction produces no images: inspect FFprobe/FFmpeg errors, confirm the
   source has a readable video stream, and verify the namespace has enough
   ephemeral storage for the downloaded video and generated JPEGs.
-- CVAT is missing: it is intentionally staged. Complete the shared PostgreSQL,
-  Redis, RWX storage, and secret prerequisites before installing its Helm chart.
+- Frame selection rejects a manifest: verify its video ID and source SHA-256
+  match provenance, frame IDs and object keys use the expected video prefix,
+  timestamps are strictly increasing, and every downloaded JPEG matches its
+  manifest SHA-256. Do not bypass these checks.
+- Frame selection retains too many or too few images: inspect the recorded
+  Hamming distances before changing `FRAME_PHASH_THRESHOLD`. Lower values retain
+  more frames; higher values retain fewer. Re-run the workflow after any change.
+- CVAT components are missing or unhealthy: inspect the `sportif-ml-cvat` child
+  Application, shared PostgreSQL and Redis connectivity, RWX storage, External
+  Secrets, and the initializer hook. Do not install a second standalone CVAT.
 - Workflow stops at approval: resubmit with `dataset-approved=true` only after
   CVAT review and dataset validation.
 - GPU Pending: inspect the live NVIDIA device plugin, labels, allocatable

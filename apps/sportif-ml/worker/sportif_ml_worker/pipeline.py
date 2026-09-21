@@ -13,6 +13,8 @@ from fractions import Fraction
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from PIL import Image, UnidentifiedImageError
+
 
 SUPPORTED_VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv"}
 VIDEO_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
@@ -26,12 +28,19 @@ class Settings:
     provenance_bucket: str
     work_dir: Path
     frame_fps: float
+    frame_phash_threshold: int
 
     @classmethod
     def from_environment(cls) -> "Settings":
         fps = float(os.environ.get("FRAME_FPS", "3"))
         if not math.isfinite(fps) or fps <= 0 or fps > 30:
             raise SystemExit("FRAME_FPS must be greater than 0 and no more than 30")
+        try:
+            threshold = int(os.environ.get("FRAME_PHASH_THRESHOLD", "8"))
+        except ValueError as error:
+            raise SystemExit("FRAME_PHASH_THRESHOLD must be an integer from 0 to 64") from error
+        if threshold < 0 or threshold > 64:
+            raise SystemExit("FRAME_PHASH_THRESHOLD must be an integer from 0 to 64")
         return cls(
             endpoint_url=_required_environment("AWS_ENDPOINT_URL"),
             raw_bucket=_required_environment("ML_RAW_BUCKET"),
@@ -39,6 +48,7 @@ class Settings:
             provenance_bucket=_required_environment("ML_PROVENANCE_BUCKET"),
             work_dir=Path(os.environ.get("ML_WORK_DIR", "/work")),
             frame_fps=fps,
+            frame_phash_threshold=threshold,
         )
 
 
@@ -77,12 +87,109 @@ def _upload_json(s3, bucket: str, key: str, document: Any) -> None:
     s3.put_object(Bucket=bucket, Key=key, Body=body, ContentType="application/json")
 
 
+def _download_json(s3, bucket: str, key: str) -> dict[str, Any]:
+    try:
+        document = json.loads(s3.get_object(Bucket=bucket, Key=key)["Body"].read())
+    except Exception as error:
+        raise SystemExit(f"failed to read JSON from s3://{bucket}/{key}: {error}") from error
+    if not isinstance(document, dict):
+        raise SystemExit(f"s3://{bucket}/{key} must contain one JSON object")
+    return document
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as source:
         for chunk in iter(lambda: source.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _difference_hash(path: Path) -> int:
+    try:
+        with Image.open(path) as image:
+            grayscale = image.convert("L").resize((9, 8), Image.Resampling.LANCZOS)
+            pixels = grayscale.tobytes()
+    except (OSError, UnidentifiedImageError) as error:
+        raise SystemExit(f"invalid frame image {path.name}: {error}") from error
+    value = 0
+    for row in range(8):
+        offset = row * 9
+        for column in range(8):
+            value = (value << 1) | int(pixels[offset + column] > pixels[offset + column + 1])
+    return value
+
+
+def _hamming_distance(left: int, right: int) -> int:
+    return (left ^ right).bit_count()
+
+
+def _select_frame_hashes(frame_hashes: list[tuple[str, int]], threshold: int) -> list[dict[str, Any]]:
+    if not frame_hashes:
+        raise SystemExit("frame manifest contains no frames")
+    decisions = []
+    previous_selected_id = ""
+    previous_selected_hash = 0
+    for index, (frame_id, frame_hash) in enumerate(frame_hashes):
+        distance = None if index == 0 else _hamming_distance(previous_selected_hash, frame_hash)
+        selected = index == 0 or distance is not None and distance > threshold
+        decision = {
+            "frameId": frame_id,
+            "perceptualHash": f"{frame_hash:016x}",
+            "selected": selected,
+            "distanceFromPreviousSelected": distance,
+        }
+        if selected:
+            previous_selected_id = frame_id
+            previous_selected_hash = frame_hash
+        else:
+            decision["duplicateOfFrameId"] = previous_selected_id
+        decisions.append(decision)
+    return decisions
+
+
+def _validate_frames_manifest(document: dict[str, Any], video_id: str, source_sha256: str) -> list[dict[str, Any]]:
+    if document.get("schemaVersion") != 1:
+        raise SystemExit("unsupported frames manifest schemaVersion")
+    if document.get("videoId") != video_id:
+        raise SystemExit("frames manifest videoId does not match provenance")
+    if document.get("sourceVideoSha256") != source_sha256:
+        raise SystemExit("frames manifest source SHA-256 does not match provenance")
+    frames = document.get("frames")
+    if not isinstance(frames, list) or not frames:
+        raise SystemExit("frames manifest must contain a non-empty frames list")
+    if document.get("frameCount") != len(frames):
+        raise SystemExit("frames manifest frameCount does not match frames list")
+    expected_prefix = f"videos/{video_id}/frames/"
+    seen_ids: set[str] = set()
+    seen_keys: set[str] = set()
+    previous_timestamp = -1.0
+    for frame in frames:
+        if not isinstance(frame, dict):
+            raise SystemExit("each frames manifest entry must be an object")
+        frame_id = frame.get("frameId")
+        object_key = frame.get("objectKey")
+        timestamp = frame.get("timestampSeconds")
+        if not isinstance(frame_id, str) or not re.fullmatch(r"frame-[0-9]{6}", frame_id):
+            raise SystemExit("frames manifest contains an invalid frameId")
+        if frame_id in seen_ids:
+            raise SystemExit("frames manifest contains duplicate frameId values")
+        if frame.get("videoId") != video_id:
+            raise SystemExit("frames manifest entry videoId does not match provenance")
+        if object_key != f"{expected_prefix}{frame_id}.jpg":
+            raise SystemExit("frames manifest contains an unexpected frame object key")
+        if object_key in seen_keys:
+            raise SystemExit("frames manifest contains duplicate object keys")
+        if not re.fullmatch(r"[0-9a-f]{64}", str(frame.get("sha256", ""))):
+            raise SystemExit("frames manifest contains an invalid frame SHA-256")
+        if not isinstance(timestamp, (int, float)) or not math.isfinite(timestamp) or timestamp < 0:
+            raise SystemExit("frames manifest contains an invalid timestamp")
+        if timestamp <= previous_timestamp:
+            raise SystemExit("frames manifest timestamps must be strictly increasing")
+        seen_ids.add(frame_id)
+        seen_keys.add(object_key)
+        previous_timestamp = float(timestamp)
+    return frames
 
 
 def _load_provenance(path: Path, video_key: str) -> dict[str, Any]:
@@ -299,6 +406,98 @@ def extract_frames(video_key: str, provenance_key: str) -> None:
                 "videoId": video_id,
                 "frameCount": len(frames),
                 "manifestKey": manifest_key,
+            }
+        )
+    )
+
+
+def deduplicate_frames(video_key: str, provenance_key: str) -> None:
+    settings = Settings.from_environment()
+    video_key = _safe_object_key(video_key, expected_suffixes=SUPPORTED_VIDEO_SUFFIXES)
+    provenance_key = _safe_object_key(provenance_key, expected_suffixes={".json"})
+    s3 = _s3_client(settings)
+    input_dir = settings.work_dir / "selection-input"
+    shutil.rmtree(input_dir, ignore_errors=True)
+    input_dir.mkdir(parents=True, exist_ok=True)
+    provenance_path = input_dir / "source-provenance.json"
+    _download(s3, settings.provenance_bucket, provenance_key, provenance_path)
+    provenance = _load_provenance(provenance_path, video_key)
+    video_id = provenance["videoId"]
+    prefix = f"videos/{video_id}"
+    source_manifest_key = f"{prefix}/frames-manifest.json"
+    source_manifest = _download_json(s3, settings.frames_bucket, source_manifest_key)
+    frames = _validate_frames_manifest(source_manifest, video_id, provenance["sha256"])
+
+    frame_hashes = []
+    for frame in frames:
+        frame_path = input_dir / f"{frame['frameId']}.jpg"
+        _download(s3, settings.frames_bucket, frame["objectKey"], frame_path)
+        if _sha256(frame_path) != frame["sha256"]:
+            raise SystemExit(f"frame SHA-256 does not match manifest: {frame['frameId']}")
+        frame_hashes.append((frame["frameId"], _difference_hash(frame_path)))
+        frame_path.unlink()
+
+    decisions = _select_frame_hashes(frame_hashes, settings.frame_phash_threshold)
+    decisions_by_id = {decision["frameId"]: decision for decision in decisions}
+    selected_frames = [
+        {**frame, "perceptualHash": decisions_by_id[frame["frameId"]]["perceptualHash"]}
+        for frame in frames
+        if decisions_by_id[frame["frameId"]]["selected"]
+    ]
+    selected_manifest_key = f"{prefix}/selected-frames-manifest.json"
+    _upload_json(
+        s3,
+        settings.frames_bucket,
+        selected_manifest_key,
+        {
+            "schemaVersion": 1,
+            "videoId": video_id,
+            "sourceVideoSha256": provenance["sha256"],
+            "sourceManifestKey": source_manifest_key,
+            "frameSelection": {
+                "algorithm": "difference-hash-v1",
+                "hashBits": 64,
+                "comparison": "previous-selected-frame",
+                "hammingDistanceThreshold": settings.frame_phash_threshold,
+                "selectionRule": "select-first-or-distance-greater-than-threshold",
+            },
+            "originalFrameCount": len(frames),
+            "selectedFrameCount": len(selected_frames),
+            "frames": selected_frames,
+        },
+    )
+    selection_key = f"{prefix}/frame-selection.json"
+    _upload_json(
+        s3,
+        settings.provenance_bucket,
+        selection_key,
+        {
+            "schemaVersion": 1,
+            "status": "PASS",
+            "completedAtUtc": datetime.now(timezone.utc).isoformat(),
+            "videoId": video_id,
+            "sourceVideoSha256": provenance["sha256"],
+            "framesBucket": settings.frames_bucket,
+            "sourceManifestKey": source_manifest_key,
+            "selectedManifestKey": selected_manifest_key,
+            "algorithm": "difference-hash-v1",
+            "hashBits": 64,
+            "comparison": "previous-selected-frame",
+            "hammingDistanceThreshold": settings.frame_phash_threshold,
+            "originalFrameCount": len(frames),
+            "selectedFrameCount": len(selected_frames),
+            "decisions": decisions,
+        },
+    )
+    print(
+        json.dumps(
+            {
+                "status": "PASS",
+                "videoId": video_id,
+                "originalFrameCount": len(frames),
+                "selectedFrameCount": len(selected_frames),
+                "selectedManifestKey": selected_manifest_key,
+                "selectionKey": selection_key,
             }
         )
     )
