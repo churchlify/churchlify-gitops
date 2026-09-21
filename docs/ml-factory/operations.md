@@ -74,6 +74,13 @@ frames for approved source `VID-20260920-001`. The verification compared actual
 JPEG object count with both output documents, checked source SHA-256 linkage, and
 confirmed the first and last manifest-referenced frame objects exist.
 
+The Stage 4C acceptance Workflow, `sportif-video-ingest-2hflb`, completed on
+September 21, 2026 with all three tasks successful. At threshold `8`, it selected
+165 of 4,724 frames and rejected 4,559 near-duplicates. Independent verification
+checked the selection status, video/source identity, counts, per-frame decision
+mapping, perceptual hashes, duplicate references, and the SHA-256 of the first
+and last selected JPEG objects.
+
 Completed Workflows are retained for 24 hours by the template TTL. Worker pods
 are removed after completion by pod GC, so use the Workflow status and persisted
 MinIO documents as the durable operational record.

@@ -186,13 +186,14 @@ Kubernetes resources until an authenticated access design is approved.
 
 ## Stage 4B: validated video ingest and frame extraction
 
-Stage 4B publishes the CPU worker image as a public, immutable GHCR artifact:
+The current CPU worker image, retaining Stage 4B behavior and adding Stage 4C
+frame selection, is published as a public, immutable GHCR artifact:
 
 ```text
 ghcr.io/agogos-llc/sportif-ml-worker@sha256:f8bf3b1eb61d2cee5cef69ecfcb5d6a41940f66d1fc80c19b40352a1494d09d8
 ```
 
-The active `sportif-video-ingest` WorkflowTemplate performs only:
+The Stage 4B acceptance version of `sportif-video-ingest` performed:
 
 ```text
 validate-input → extract-frames
@@ -239,3 +240,11 @@ Original JPEG objects are not deleted or copied. The worker writes
 records every selection decision so the result can be audited and reproduced.
 CVAT API mutation, annotation export, dataset preparation, approval, and all GPU
 stages remain inactive.
+
+The live Stage 4C acceptance run completed successfully on September 21, 2026 as
+Workflow `sportif-video-ingest-2hflb`, with all three tasks successful. Independent
+MinIO verification confirmed 4,724 original frames, 165 selected frames, and
+4,559 rejected near-duplicates at threshold `8`. It also verified source SHA-256
+linkage, decision/manifest consistency, and the SHA-256 of the first and last
+selected JPEG objects. This is frame-selection acceptance only; human annotation,
+dataset approval, training, and model release remain outside its scope.

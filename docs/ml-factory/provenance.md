@@ -30,3 +30,11 @@ source SHA-256; both recorded frame counts matched all 4,724 stored JPEG objects
 and the first and last referenced frame objects were readable. This evidence is
 ingest provenance only and does not satisfy later dataset or commercial release
 gates.
+
+The September 21, 2026 Stage 4C acceptance run selected 165 of those 4,724
+frames at Hamming-distance threshold `8`, rejecting 4,559 near-duplicates.
+Independent verification confirmed matching source/video identity across all
+four documents, selected-count and decision consistency, valid duplicate
+references, matching perceptual hashes, and the SHA-256 of the first and last
+selected JPEG objects. This evidence does not imply annotation or dataset
+approval.
