@@ -23,14 +23,14 @@ kubectl -n sportif-ml rollout status \
   deployment/sportif-ml-argo-workflows-workflow-controller
 kubectl get crd workflows.argoproj.io workflowtemplates.argoproj.io
 kubectl -n sportif-ml get workflowtemplate sportif-video-ingest
-kubectl -n sportif-ml port-forward service/cvat-frontend-service 8081:80
-kubectl -n sportif-ml port-forward service/cvat-backend-service 8080:8080
+kubectl -n sportif-ml get ingress cvat
+kubectl -n sportif-ml get externalsecret sportif-ml-cvat-ingress-auth-sync
 ```
 
-Use `http://127.0.0.1:8081/` for a frontend component check and
-`http://127.0.0.1:8080/api/server/about` for the backend health check. These
-separate forwards do not provide a complete browser session because `/api`
-routing is normally supplied by the disabled ingress.
+Use `https://annotate.churchlify.com` for a complete browser session. Enter the
+ingress username `babs` and the password stored in the operator's macOS
+Keychain, then sign in with a separate human CVAT account. The chart ingress
+routes backend paths and the frontend under the same authenticated origin.
 
 Argo Workflows is controller-only. There is no Argo Server Service or UI. Submit
 an approved ingest run with a generated Workflow resource:

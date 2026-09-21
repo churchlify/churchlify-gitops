@@ -128,11 +128,11 @@ kubectl -n sportif-ml get pods,pvc,service \
   -l app.kubernetes.io/instance=cvat
 ```
 
-CVAT remains cluster-internal for the initial milestone. After all CVAT
-workloads are Ready, test the frontend and backend Services independently:
+After all CVAT workloads are Ready, test the frontend and backend Services
+independently:
 
 ```bash
-kubectl -n sportif-ml port-forward service/cvat-frontend-service 8081:80
+kubectl -n sportif-ml port-forward service/cvat-frontend-service 8081:8000
 # In a second terminal:
 curl --fail http://127.0.0.1:8081/
 
@@ -143,8 +143,23 @@ curl --fail http://127.0.0.1:8080/api/server/about
 
 The frontend Service does not proxy `/api` to the backend, so a frontend-only
 port-forward is a component smoke test rather than a complete browser session.
-Enable `ingress.enabled` only after selecting an existing platform
-authentication mechanism; TLS alone is not an authentication control.
+The supported chart ingress provides same-origin routing and requires nginx
+Basic Authentication before CVAT's own login.
+
+The ingress username is `babs`. On the operator Mac, retrieve the generated
+password without storing it in shell history:
+
+```bash
+security find-generic-password \
+  -s annotate.churchlify.com \
+  -a babs \
+  -w
+```
+
+The plaintext password is stored only in the macOS Keychain. Kubernetes stores
+only the bcrypt `htpasswd` verifier in `global-db-secrets` under
+`CVAT_INGRESS_AUTH`; External Secrets exposes only the `auth` key required by
+nginx in `sportif-ml-cvat-ingress-auth`.
 
 ### CVAT automation account and token
 

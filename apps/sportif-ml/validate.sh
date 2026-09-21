@@ -275,10 +275,25 @@ for component in ("analytics", "clickhouse", "nuclio", "traefik"):
     if values[component].get("enabled") is not False:
         raise SystemExit(f"CVAT bundled {component} must remain disabled")
 
-if values["ingress"].get("enabled") is not False:
-    raise SystemExit(
-        "CVAT ingress must remain disabled until platform authentication is selected"
-    )
+ingress = values["ingress"]
+if ingress.get("enabled") is not True:
+    raise SystemExit("CVAT authenticated ingress must remain enabled")
+if ingress.get("hostname") != "annotate.churchlify.com":
+    raise SystemExit("CVAT ingress hostname changed unexpectedly")
+if ingress.get("className") != "nginx":
+    raise SystemExit("CVAT ingress must use nginx")
+if ingress.get("tls") is not True or ingress.get("tlsSecretName") != "sportif-ml-cvat-tls":
+    raise SystemExit("CVAT ingress must use its dedicated TLS Secret")
+ingress_annotations = ingress.get("annotations", {})
+required_ingress_annotations = {
+    "cert-manager.io/cluster-issuer": "letsencrypt-prod",
+    "nginx.ingress.kubernetes.io/auth-type": "basic",
+    "nginx.ingress.kubernetes.io/auth-secret": "sportif-ml-cvat-ingress-auth",
+    "nginx.ingress.kubernetes.io/auth-realm": "Authentication Required - Sportif CVAT",
+}
+for key, value in required_ingress_annotations.items():
+    if ingress_annotations.get(key) != value:
+        raise SystemExit(f"CVAT ingress requires {key}={value!r}")
 
 backend = values["cvat"]["backend"]
 frontend = values["cvat"]["frontend"]
@@ -373,6 +388,22 @@ if postgres_template.get("username") != "{{ .CVAT_PGSQL_USER }}" or (
     postgres_template.get("password") != "{{ .CVAT_PGSQL_PASSWORD }}"
 ):
     raise SystemExit("CVAT generated Secret must retain CVAT-specific key names")
+
+ingress_auth = next(
+    item for item in external_secrets
+    if item["metadata"]["name"] == "sportif-ml-cvat-ingress-auth-sync"
+)
+if ingress_auth["spec"]["target"].get("name") != "sportif-ml-cvat-ingress-auth":
+    raise SystemExit("CVAT ingress auth must generate its dedicated Secret")
+if ingress_auth["spec"]["target"].get("template", {}).get("data") != {
+    "auth": "{{ .CVAT_INGRESS_AUTH }}"
+}:
+    raise SystemExit("CVAT ingress auth Secret must expose only the nginx auth key")
+if ingress_auth["spec"].get("data") != [{
+    "secretKey": "CVAT_INGRESS_AUTH",
+    "remoteRef": {"key": "global-db-secrets", "property": "CVAT_INGRESS_AUTH"},
+}]:
+    raise SystemExit("CVAT ingress auth may read only CVAT_INGRESS_AUTH")
 
 if automation_secret["metadata"].get("name") != "sportif-ml-cvat-automation-sync":
     raise SystemExit("Unexpected staged CVAT automation ExternalSecret name")

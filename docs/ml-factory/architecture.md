@@ -5,11 +5,14 @@ The factory is an isolated `sportif-ml` namespace managed by
 `http://minio-service.platform.svc.cluster.local:9000`, External Secrets, and
 Longhorn. Components with additional prerequisites are activated in stages.
 
-The reserved ingress endpoints are `https://annotate.churchlify.com` for CVAT
-and `https://mlflow.churchlify.com` for MLflow. Both remain cluster-internal
-until an existing platform authentication pattern is selected. CVAT is a pinned
-child Argo CD Application discovered recursively by `platform-root`; it follows
-the foundation Application by sync wave. Argo Workflows runs the active
+The CVAT endpoint is `https://annotate.churchlify.com`. Nginx requires a
+dedicated Basic Authentication credential before presenting CVAT's own human
+login, and TLS is issued by `letsencrypt-prod`. The bcrypt verifier is
+synchronized from `global-db-secrets`; the plaintext ingress password is not
+stored in Git or Kubernetes. `https://mlflow.churchlify.com` remains disabled.
+CVAT is a pinned child Argo CD Application discovered recursively by
+`platform-root`; it follows the foundation Application by sync wave. Argo
+Workflows runs the active
 validation, extraction, and deterministic frame-selection pipeline without a
 public server or UI. The CVAT handoff is a separate, explicitly submitted
 workflow so successful ingest cannot create annotation tasks implicitly.

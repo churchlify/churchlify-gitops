@@ -13,8 +13,9 @@
   preference for `accelerator=nvidia-gpu`; it does not prove that this label, a
   GPU taint/toleration, or the NVIDIA device plugin exists in the live cluster.
 - Existing ingress uses nginx and cert-manager with the `letsencrypt-prod`
-  ClusterIssuer. `annotate.churchlify.com` and `mlflow.churchlify.com` are
-  reserved, but remain disabled until platform authentication is selected.
+  ClusterIssuer. `annotate.churchlify.com` is active behind an nginx Basic Auth
+  gate followed by CVAT's own human login. `mlflow.churchlify.com` remains
+  disabled.
 
 ## Initial design
 

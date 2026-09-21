@@ -99,8 +99,17 @@
   naming/ownership conflict manually. CVAT cannot replace data attached to an
   existing task.
 - CVAT UI opens but API calls fail: the frontend Service does not proxy `/api`.
-  Use an approved same-origin ingress, VPN, or reverse proxy that sends `/api` to
-  `cvat-backend-service:8080` and other paths to `cvat-frontend-service:80`.
+  Confirm the chart-managed `cvat` Ingress routes `/api`, `/admin`, `/static`,
+  `/django-rq`, and `/profiler` to `cvat-backend-service:8080`, with `/` routed
+  to `cvat-frontend-service:8000`.
+- `annotate.churchlify.com` returns nginx `404`: the `cvat` Ingress is missing or
+  not reconciled. Check the `sportif-ml-cvat` Argo CD Application.
+- `annotate.churchlify.com` returns `503`: verify
+  `sportif-ml-cvat-ingress-auth-sync` is Ready, the generated Secret contains an
+  `auth` key, and both CVAT Services have endpoints.
+- Browser ingress credentials are unavailable: retrieve them from the operator
+  Mac with `security find-generic-password -s annotate.churchlify.com -a babs -w`.
+  Do not replace the bcrypt verifier with a plaintext password.
 - Workflow stops at approval: resubmit with `dataset-approved=true` only after
   CVAT review and dataset validation.
 - GPU Pending: inspect the live NVIDIA device plugin, labels, allocatable
