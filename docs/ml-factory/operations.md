@@ -68,6 +68,68 @@ matches `selected-frames-manifest.json`, and every selected object key remains
 under `videos/<videoId>/frames/`. Changing `FRAME_PHASH_THRESHOLD` changes the
 selection set and requires a new workflow run and review.
 
+## CVAT handoff
+
+Do not activate or submit the handoff until the dedicated automation token is
+Ready and the workflow image is pinned by digest. Submit one explicit handoff:
+
+```bash
+VIDEO_KEY='videos/<approved-video>.mp4'
+PROVENANCE_KEY='videos/<video-id>/source-provenance.json'
+
+cat <<EOF | kubectl -n sportif-ml create -f -
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: sportif-cvat-handoff-
+spec:
+  workflowTemplateRef:
+    name: sportif-cvat-handoff
+  arguments:
+    parameters:
+      - name: video-key
+        value: ${VIDEO_KEY}
+      - name: provenance-key
+        value: ${PROVENANCE_KEY}
+EOF
+```
+
+The workflow serializes handoffs, revalidates source rights, verifies
+`selected-frames-manifest.json`, checks `frame-selection.json`, downloads only
+same-video selected objects, verifies every SHA-256, creates or reuses the
+single-label project, and creates or reuses `sportif-ball-<videoId>`. A retry
+does not create a second matching task. It fails rather than guessing if CVAT
+contains duplicate names or an existing task has a different frame count.
+
+After success, inspect `videos/<videoId>/cvat-handoff.json` through the approved
+MinIO operator path. Confirm `status: PASS`, the expected source SHA-256 and
+selected count, project/task IDs and names, and
+`annotationPolicy.datasetApprovalGranted: false`.
+
+### Required human actions after handoff
+
+1. Provide browser access through an approved authenticated ingress, private VPN,
+   or controlled local reverse proxy. Do not expose the internal Services with an
+   unauthenticated public ingress.
+2. Sign in as a human CVAT user, not `sportif-ml-automation`.
+3. Open `Sportif Soccer Ball Annotation` and locate
+   `sportif-ball-<videoId>`.
+4. Confirm the task has exactly the selected-frame count and only the `ball`
+   rectangle label.
+5. Assign an annotator. Assign a distinct reviewer where staffing permits; if
+   one person performs both roles, record that exception in completion
+   provenance.
+6. Follow `annotation-guidelines.md`. Resolve all review issues before export.
+7. Export **YOLO 1.1** only after review is complete. Record the task ID, export
+   time, CVAT version, format, artifact SHA-256, annotator, reviewer, issue count,
+   and review result in annotation-completion provenance.
+8. Keep dataset preparation and training disabled until export validation and an
+   explicit dataset approval pass.
+
+To rotate or revoke the automation token, delete its CVAT token in Django,
+create a replacement, patch `global-db-secrets`, wait for the ExternalSecret to
+refresh, and only then resume handoffs. Existing CVAT tasks are unaffected.
+
 The first live acceptance Workflow, `sportif-video-ingest-h46bk`, completed on
 September 20, 2026 with both tasks successful. It produced and verified 4,724
 frames for approved source `VID-20260920-001`. The verification compared actual

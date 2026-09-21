@@ -146,6 +146,78 @@ port-forward is a component smoke test rather than a complete browser session.
 Enable `ingress.enabled` only after selecting an existing platform
 authentication mechanism; TLS alone is not an authentication control.
 
+### CVAT automation account and token
+
+The handoff workflow uses a dedicated normal CVAT user. It must not be staff,
+superuser, or a Kubernetes administrator. Create it once from the live backend;
+the account has an unusable password, and only its REST token is exported:
+
+```bash
+export KUBECONFIG="$PWD/apps/sportif-ml/k8s.conf"
+CVAT_POD="$(kubectl -n sportif-ml get pod \
+  -l app.kubernetes.io/instance=cvat,component=server \
+  -o jsonpath='{.items[0].metadata.name}')"
+
+CVAT_API_TOKEN="$(kubectl -n sportif-ml exec "$CVAT_POD" -c cvat-backend -- \
+  python manage.py shell -c '
+from django.contrib.auth import get_user_model
+from rest_framework.authtoken.models import Token
+User = get_user_model()
+user, created = User.objects.get_or_create(
+    username="sportif-ml-automation",
+    defaults={"email": "sportif-ml-automation@invalid.local"},
+)
+user.is_staff = False
+user.is_superuser = False
+user.is_active = True
+user.set_unusable_password()
+user.save()
+print(Token.objects.get_or_create(user=user)[0].key)
+' | tail -n 1)"
+
+test -n "$CVAT_API_TOKEN"
+test "${#CVAT_API_TOKEN}" -ge 32
+kubectl -n platform patch secret global-db-secrets --type merge \
+  -p "$(jq -n --arg token "$CVAT_API_TOKEN" \
+    '{stringData:{CVAT_API_TOKEN:$token}}')"
+unset CVAT_API_TOKEN
+```
+
+Do not print the token again, commit it, place it in a Workflow parameter, or
+give this account staff/superuser privileges. The account receives object-level
+ownership only for the CVAT project and tasks it creates.
+
+The handoff worker is published and pinned as:
+
+```text
+ghcr.io/agogos-llc/sportif-ml-worker@sha256:a466ce34805c1d5cc522df40008d995c1470e4b6d2979a98be89d75ab3a90d9b
+```
+
+After the token is stored, activate the two staged resources in Git:
+
+```yaml
+# apps/sportif-ml/kustomization.yaml, under resources:
+- cvat/automation-externalsecret-staged.yaml
+
+# apps/sportif-ml/pipeline/kustomization.yaml, under resources:
+- workflows-cvat-handoff.yaml
+```
+
+Commit and push those two resource-list changes; do not apply the staged files
+manually. Then verify External Secrets and GitOps reconciliation:
+
+```bash
+kubectl -n sportif-ml wait --for=condition=Ready \
+  externalsecret/sportif-ml-cvat-automation-sync --timeout=180s
+kubectl -n sportif-ml get secret sportif-ml-cvat-automation \
+  -o jsonpath='{.data.CVAT_API_TOKEN}' | base64 --decode | wc -c
+kubectl -n argocd get application sportif-ml
+kubectl -n sportif-ml get workflowtemplate sportif-cvat-handoff
+```
+
+The byte count verifies presence without disclosing the token. Never retrieve
+the token value for routine troubleshooting.
+
 The Stage 3 values disable the chart's bundled PostgreSQL, Redis, analytics,
 ClickHouse, Grafana, Traefik, and Nuclio to avoid duplicate platform services.
 

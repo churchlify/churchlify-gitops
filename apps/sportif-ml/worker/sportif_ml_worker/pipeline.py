@@ -7,17 +7,25 @@ import os
 import re
 import shutil
 import subprocess
+import time
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from fractions import Fraction
 from pathlib import Path, PurePosixPath
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from PIL import Image, UnidentifiedImageError
 
 
 SUPPORTED_VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv"}
 VIDEO_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+CVAT_PROJECT_NAME = "Sportif Soccer Ball Annotation"
+CVAT_TASK_PREFIX = "sportif-ball-"
 
 
 @dataclass(frozen=True)
@@ -95,6 +103,244 @@ def _download_json(s3, bucket: str, key: str) -> dict[str, Any]:
     if not isinstance(document, dict):
         raise SystemExit(f"s3://{bucket}/{key} must contain one JSON object")
     return document
+
+
+def _validate_selected_frames_manifest(
+    document: dict[str, Any], video_id: str, source_sha256: str
+) -> list[dict[str, Any]]:
+    if document.get("schemaVersion") != 1:
+        raise SystemExit("unsupported selected frames manifest schemaVersion")
+    if document.get("videoId") != video_id:
+        raise SystemExit("selected frames manifest videoId does not match provenance")
+    if document.get("sourceVideoSha256") != source_sha256:
+        raise SystemExit("selected frames manifest source SHA-256 does not match provenance")
+    expected_source_key = f"videos/{video_id}/frames-manifest.json"
+    if document.get("sourceManifestKey") != expected_source_key:
+        raise SystemExit("selected frames manifest references an unexpected source manifest")
+    selection = document.get("frameSelection")
+    if not isinstance(selection, dict) or selection.get("algorithm") != "difference-hash-v1":
+        raise SystemExit("selected frames manifest has an unsupported selection algorithm")
+    frames = document.get("frames")
+    if not isinstance(frames, list) or not frames:
+        raise SystemExit("selected frames manifest must contain a non-empty frames list")
+    if document.get("selectedFrameCount") != len(frames):
+        raise SystemExit("selected frames manifest count does not match frames list")
+    expected_prefix = f"videos/{video_id}/frames/"
+    seen_ids: set[str] = set()
+    seen_keys: set[str] = set()
+    previous_timestamp = -1.0
+    for frame in frames:
+        if not isinstance(frame, dict):
+            raise SystemExit("selected frame entries must be JSON objects")
+        frame_id = frame.get("frameId")
+        object_key = frame.get("objectKey")
+        timestamp = frame.get("timestampSeconds")
+        if not isinstance(frame_id, str) or not re.fullmatch(r"frame-[0-9]{6}", frame_id):
+            raise SystemExit("selected frame has an invalid frameId")
+        if frame_id in seen_ids:
+            raise SystemExit(f"selected frames manifest repeats frameId: {frame_id}")
+        if frame.get("videoId") != video_id:
+            raise SystemExit(f"selected frame belongs to another video: {frame_id}")
+        if object_key != f"{expected_prefix}{frame_id}.jpg":
+            raise SystemExit(f"selected frame has an invalid object key: {frame_id}")
+        if object_key in seen_keys:
+            raise SystemExit(f"selected frames manifest repeats object key: {object_key}")
+        if not isinstance(frame.get("sha256"), str) or not SHA256_PATTERN.fullmatch(frame["sha256"]):
+            raise SystemExit(f"selected frame has an invalid SHA-256: {frame_id}")
+        if not isinstance(timestamp, (int, float)) or not math.isfinite(timestamp) or timestamp < 0:
+            raise SystemExit(f"selected frame has an invalid timestamp: {frame_id}")
+        if timestamp < previous_timestamp:
+            raise SystemExit("selected frames must be ordered chronologically")
+        if not isinstance(frame.get("perceptualHash"), str) or not re.fullmatch(
+            r"[0-9a-f]{16}", frame["perceptualHash"]
+        ):
+            raise SystemExit(f"selected frame has an invalid perceptual hash: {frame_id}")
+        seen_ids.add(frame_id)
+        seen_keys.add(object_key)
+        previous_timestamp = float(timestamp)
+    return frames
+
+
+def _validate_frame_selection(
+    document: dict[str, Any],
+    video_id: str,
+    source_sha256: str,
+    selected_frames: list[dict[str, Any]],
+) -> None:
+    if document.get("schemaVersion") != 1 or document.get("status") != "PASS":
+        raise SystemExit("frame selection provenance must have schemaVersion 1 and status PASS")
+    if document.get("videoId") != video_id or document.get("sourceVideoSha256") != source_sha256:
+        raise SystemExit("frame selection provenance identity does not match source provenance")
+    if document.get("selectedManifestKey") != f"videos/{video_id}/selected-frames-manifest.json":
+        raise SystemExit("frame selection provenance references an unexpected selected manifest")
+    if document.get("selectedFrameCount") != len(selected_frames):
+        raise SystemExit("frame selection provenance selected count does not match manifest")
+    decisions = document.get("decisions")
+    if not isinstance(decisions, list):
+        raise SystemExit("frame selection provenance must contain decisions")
+    selected_decisions = [
+        item for item in decisions if isinstance(item, dict) and item.get("selected") is True
+    ]
+    if len(selected_decisions) != len(selected_frames):
+        raise SystemExit("frame selection provenance decisions do not match selected count")
+    expected = [
+        (frame["frameId"], frame["perceptualHash"])
+        for frame in selected_frames
+    ]
+    actual = [
+        (decision.get("frameId"), decision.get("perceptualHash"))
+        for decision in selected_decisions
+    ]
+    if actual != expected:
+        raise SystemExit("frame selection provenance selected decisions do not match manifest")
+
+
+def _encode_multipart(fields: list[tuple[str, Any]]) -> tuple[bytes, str]:
+    boundary = f"sportif-ml-{uuid.uuid4().hex}"
+    body = bytearray()
+    for name, value in fields:
+        body.extend(f"--{boundary}\r\n".encode())
+        if isinstance(value, tuple):
+            filename, content, content_type = value
+            body.extend(
+                (
+                    f'Content-Disposition: form-data; name="{name}"; filename="{filename}"\r\n'
+                    f"Content-Type: {content_type}\r\n\r\n"
+                ).encode()
+            )
+            body.extend(content)
+        else:
+            body.extend(f'Content-Disposition: form-data; name="{name}"\r\n\r\n{value}'.encode())
+        body.extend(b"\r\n")
+    body.extend(f"--{boundary}--\r\n".encode())
+    return bytes(body), f"multipart/form-data; boundary={boundary}"
+
+
+class CvatClient:
+    def __init__(self, base_url: str, token: str, *, opener=urlopen, sleep=time.sleep):
+        if not base_url.startswith(("http://", "https://")):
+            raise SystemExit("CVAT_API_URL must use http or https")
+        if not token or any(character.isspace() for character in token):
+            raise SystemExit("CVAT_API_TOKEN must be a non-empty token without whitespace")
+        self.base_url = base_url.rstrip("/")
+        self.headers = {"Authorization": f"Token {token}", "Accept": "application/vnd.cvat+json"}
+        self.opener = opener
+        self.sleep = sleep
+
+    def request(self, method: str, path: str, *, fields=None, body=None, headers=None) -> Any:
+        request_headers = {**self.headers, **(headers or {})}
+        if fields is not None:
+            body, content_type = _encode_multipart(fields)
+            request_headers["Content-Type"] = content_type
+        request = Request(
+            f"{self.base_url}{path}",
+            data=body.encode() if isinstance(body, str) else body,
+            headers=request_headers,
+            method=method,
+        )
+        try:
+            with self.opener(request, timeout=120) as response:
+                status = response.status
+                data = response.read()
+        except HTTPError as error:
+            detail = error.read().decode("utf-8", errors="replace")[:1000]
+            raise SystemExit(f"CVAT API {method} {path} failed with HTTP {error.code}: {detail}") from error
+        except URLError as error:
+            raise SystemExit(f"CVAT API {method} {path} connection failed: {error.reason}") from error
+        if status < 200 or status >= 300:
+            detail = data.decode("utf-8", errors="replace")[:1000]
+            raise SystemExit(f"CVAT API {method} {path} failed with HTTP {status}: {detail}")
+        if not data:
+            return None
+        try:
+            return json.loads(data)
+        except json.JSONDecodeError as error:
+            raise SystemExit(f"CVAT API {method} {path} returned invalid JSON") from error
+
+    def _exactly_one_or_none(self, resource: str, name: str) -> dict[str, Any] | None:
+        document = self.request("GET", f"/api/{resource}?{urlencode({'name': name})}")
+        results = document.get("results") if isinstance(document, dict) else None
+        if not isinstance(results, list):
+            raise SystemExit(f"CVAT {resource} lookup returned an invalid response")
+        exact = [item for item in results if item.get("name") == name]
+        count = document.get("count")
+        if len(exact) > 1 or isinstance(count, int) and count > 1:
+            raise SystemExit(f"CVAT contains duplicate {resource} named {name!r}")
+        return exact[0] if exact else None
+
+    def ensure_project(self) -> dict[str, Any]:
+        project = self._exactly_one_or_none("projects", CVAT_PROJECT_NAME)
+        if project is None:
+            project = self.request(
+                "POST",
+                "/api/projects",
+                body=json.dumps(
+                    {"name": CVAT_PROJECT_NAME, "labels": [{"name": "ball", "type": "rectangle"}]}
+                ),
+                headers={"Content-Type": "application/json"},
+            )
+        labels = project.get("labels")
+        if labels is None:
+            project = self.request("GET", f"/api/projects/{project['id']}")
+            labels = project.get("labels")
+        if not isinstance(labels, list) or [(item.get("name"), item.get("type")) for item in labels] != [
+            ("ball", "rectangle")
+        ]:
+            raise SystemExit("CVAT annotation project must contain only the rectangle label 'ball'")
+        return project
+
+    def ensure_task(self, video_id: str, project_id: int, frame_count: int) -> tuple[dict[str, Any], bool]:
+        name = f"{CVAT_TASK_PREFIX}{video_id}"
+        task = self._exactly_one_or_none("tasks", name)
+        created = False
+        if task is None:
+            task = self.request(
+                "POST",
+                "/api/tasks",
+                body=json.dumps({"name": name, "project_id": project_id, "segment_size": frame_count}),
+                headers={"Content-Type": "application/json"},
+            )
+            created = True
+        if task.get("project_id") != project_id:
+            raise SystemExit("existing CVAT task belongs to an unexpected project")
+        size = task.get("size", 0)
+        if not isinstance(size, int) or size not in (0, frame_count):
+            raise SystemExit("existing CVAT task has a frame count that does not match the selected manifest")
+        return task, created
+
+    def upload_images(self, task_id: int, paths: list[Path]) -> str:
+        data_path = f"/api/tasks/{task_id}/data"
+        self.request("POST", data_path, headers={"Upload-Start": ""})
+        for offset in range(0, len(paths), 25):
+            fields: list[tuple[str, Any]] = [("image_quality", "100")]
+            for index, path in enumerate(paths[offset : offset + 25]):
+                fields.append((f"client_files[{index}]", (path.name, path.read_bytes(), "image/jpeg")))
+            self.request("POST", data_path, fields=fields, headers={"Upload-Multiple": ""})
+        finish_fields: list[tuple[str, Any]] = [
+            ("image_quality", "100"),
+            ("sorting_method", "predefined"),
+        ]
+        finish_fields.extend(("upload_file_order", path.name) for path in paths)
+        result = self.request(
+            "POST", data_path, fields=finish_fields, headers={"Upload-Finish": ""}
+        )
+        request_id = result.get("rq_id") if isinstance(result, dict) else None
+        if not request_id:
+            raise SystemExit("CVAT data upload did not return a request ID")
+        return request_id
+
+    def wait_for_request(self, request_id: str, *, attempts: int = 180) -> dict[str, Any]:
+        for _attempt in range(attempts):
+            request = self.request("GET", f"/api/requests/{request_id}")
+            status = request.get("status")
+            if status == "finished":
+                return request
+            if status == "failed":
+                raise SystemExit(f"CVAT request failed: {request.get('message', 'unknown error')}")
+            if status not in {"queued", "started"}:
+                raise SystemExit(f"CVAT request returned unexpected status: {status!r}")
+            self.sleep(2)
+        raise SystemExit("timed out waiting for CVAT data upload")
 
 
 def _sha256(path: Path) -> str:
@@ -499,5 +745,83 @@ def deduplicate_frames(video_key: str, provenance_key: str) -> None:
                 "selectedManifestKey": selected_manifest_key,
                 "selectionKey": selection_key,
             }
+        )
+    )
+
+
+def handoff_to_cvat(video_key: str, provenance_key: str) -> None:
+    settings = Settings.from_environment()
+    video_key = _safe_object_key(video_key, expected_suffixes=SUPPORTED_VIDEO_SUFFIXES)
+    provenance_key = _safe_object_key(provenance_key, expected_suffixes={".json"})
+    s3 = _s3_client(settings)
+    input_dir = settings.work_dir / "cvat-handoff-input"
+    shutil.rmtree(input_dir, ignore_errors=True)
+    input_dir.mkdir(parents=True, exist_ok=True)
+    provenance_path = input_dir / "source-provenance.json"
+    _download(s3, settings.provenance_bucket, provenance_key, provenance_path)
+    provenance = _load_provenance(provenance_path, video_key)
+    video_id = provenance["videoId"]
+    prefix = f"videos/{video_id}"
+    selected_manifest_key = f"{prefix}/selected-frames-manifest.json"
+    selected_manifest = _download_json(s3, settings.frames_bucket, selected_manifest_key)
+    frames = _validate_selected_frames_manifest(selected_manifest, video_id, provenance["sha256"])
+    selection_key = f"{prefix}/frame-selection.json"
+    selection = _download_json(s3, settings.provenance_bucket, selection_key)
+    _validate_frame_selection(selection, video_id, provenance["sha256"], frames)
+
+    paths = []
+    for frame in frames:
+        path = input_dir / f"{frame['frameId']}.jpg"
+        _download(s3, settings.frames_bucket, frame["objectKey"], path)
+        if _sha256(path) != frame["sha256"]:
+            raise SystemExit(f"selected frame SHA-256 does not match manifest: {frame['frameId']}")
+        paths.append(path)
+
+    client = CvatClient(_required_environment("CVAT_API_URL"), _required_environment("CVAT_API_TOKEN"))
+    project = client.ensure_project()
+    task, created = client.ensure_task(video_id, project["id"], len(paths))
+    if task.get("size", 0) == 0:
+        request_id = client.upload_images(task["id"], paths)
+        client.wait_for_request(request_id)
+        task = client.request("GET", f"/api/tasks/{task['id']}")
+    if task.get("size") != len(paths):
+        raise SystemExit("CVAT task frame count does not match selected manifest after upload")
+
+    handoff_key = f"{prefix}/cvat-handoff.json"
+    _upload_json(
+        s3,
+        settings.provenance_bucket,
+        handoff_key,
+        {
+            "schemaVersion": 1,
+            "status": "PASS",
+            "completedAtUtc": datetime.now(timezone.utc).isoformat(),
+            "videoId": video_id,
+            "sourceVideoSha256": provenance["sha256"],
+            "selectedManifestKey": selected_manifest_key,
+            "frameSelectionKey": selection_key,
+            "selectedFrameCount": len(frames),
+            "cvat": {
+                "apiUrl": client.base_url,
+                "projectId": project["id"],
+                "projectName": CVAT_PROJECT_NAME,
+                "taskId": task["id"],
+                "taskName": task["name"],
+                "taskCreatedByThisRun": created,
+                "labelSchema": [{"name": "ball", "type": "rectangle"}],
+                "assignee": task.get("assignee"),
+                "status": task.get("status"),
+            },
+            "annotationPolicy": {
+                "assignmentRequired": True,
+                "humanReviewRequired": True,
+                "exportRequired": True,
+                "datasetApprovalGranted": False,
+            },
+        },
+    )
+    print(
+        json.dumps(
+            {"status": "PASS", "videoId": video_id, "taskId": task["id"], "handoffKey": handoff_key}
         )
     )

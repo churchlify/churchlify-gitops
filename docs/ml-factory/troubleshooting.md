@@ -85,6 +85,22 @@
 - CVAT components are missing or unhealthy: inspect the `sportif-ml-cvat` child
   Application, shared PostgreSQL and Redis connectivity, RWX storage, External
   Secrets, and the initializer hook. Do not install a second standalone CVAT.
+- `sportif-ml-cvat-automation-sync` is not Ready: confirm the operator completed
+  the non-admin account bootstrap and that `global-db-secrets` contains the exact
+  `CVAT_API_TOKEN` property. Do not commit or echo the token.
+- CVAT handoff returns HTTP 401 or 403: verify the token belongs to the active
+  `sportif-ml-automation` user and has not been deleted. Do not make the account
+  staff or superuser to bypass an authorization failure.
+- CVAT handoff rejects duplicate projects/tasks: inspect CVAT as a human operator
+  and resolve the duplicate ownership/name conflict. Never let automation choose
+  one arbitrarily or delete annotation data automatically.
+- CVAT handoff finds a task with the wrong frame count: preserve the task for
+  investigation, compare it with `selected-frames-manifest.json`, and correct the
+  naming/ownership conflict manually. CVAT cannot replace data attached to an
+  existing task.
+- CVAT UI opens but API calls fail: the frontend Service does not proxy `/api`.
+  Use an approved same-origin ingress, VPN, or reverse proxy that sends `/api` to
+  `cvat-backend-service:8080` and other paths to `cvat-frontend-service:80`.
 - Workflow stops at approval: resubmit with `dataset-approved=true` only after
   CVAT review and dataset validation.
 - GPU Pending: inspect the live NVIDIA device plugin, labels, allocatable

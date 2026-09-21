@@ -66,7 +66,8 @@ python3 - \
   "$repo_root/platform/argocd/sportif-ml/argo-workflows.yaml" \
   "$repo_root/apps/sportif-ml/rbac.yaml" \
   "$repo_root/apps/sportif-ml/pipeline/workflows.yaml" \
-  "$repo_root/apps/sportif-ml/pipeline/workflows-training-staged.yaml" <<'PY'
+  "$repo_root/apps/sportif-ml/pipeline/workflows-training-staged.yaml" \
+  "$repo_root/apps/sportif-ml/pipeline/workflows-cvat-handoff.yaml" <<'PY'
 from pathlib import Path
 import sys
 import yaml
@@ -76,6 +77,7 @@ application = yaml.safe_load(Path(sys.argv[2]).read_text())
 rbac = [item for item in yaml.safe_load_all(Path(sys.argv[3]).read_text()) if item]
 workflow = yaml.safe_load(Path(sys.argv[4]).read_text())
 training_workflow = yaml.safe_load(Path(sys.argv[5]).read_text())
+handoff_workflow = yaml.safe_load(Path(sys.argv[6]).read_text())
 
 if values.get("singleNamespace") is not True:
     raise SystemExit("Argo Workflows controller must remain namespace-scoped")
@@ -211,6 +213,45 @@ if train.get("nodeSelector") != {"accelerator": "nvidia-v100"}:
 if train.get("resources", {}).get("limits", {}).get("nvidia.com/gpu") != "1":
     raise SystemExit("Training must request exactly one Kubernetes GPU")
 
+if handoff_workflow["metadata"].get("name") != "sportif-cvat-handoff":
+    raise SystemExit("Unexpected staged CVAT handoff WorkflowTemplate name")
+handoff_spec = handoff_workflow["spec"]
+if handoff_spec.get("serviceAccountName") != "sportif-ml-pipeline":
+    raise SystemExit("CVAT handoff must use the minimal pipeline ServiceAccount")
+if {item["name"] for item in handoff_spec["arguments"]["parameters"]} != {
+    "video-key", "provenance-key"
+}:
+    raise SystemExit("CVAT handoff requires explicit video and provenance keys")
+if handoff_spec.get("synchronization", {}).get("mutex", {}).get("name") != (
+    "sportif-cvat-handoff"
+):
+    raise SystemExit("CVAT handoff must serialize task creation")
+handoff = handoff_spec["templates"]
+if len(handoff) != 1 or handoff[0].get("name") != "handoff":
+    raise SystemExit("CVAT handoff may contain only its guarded import template")
+if handoff[0].get("nodeSelector") != {
+    "kubernetes.io/os": "linux",
+    "node-role.kubernetes.io/worker": "worker",
+}:
+    raise SystemExit("CVAT handoff must target normal Linux worker nodes")
+handoff_container = handoff[0]["container"]
+if "@sha256:" not in handoff_container.get("image", ""):
+    raise SystemExit("CVAT handoff worker image must be pinned by digest")
+if handoff_container.get("args", [None])[0] != "handoff-cvat":
+    raise SystemExit("CVAT handoff must invoke only the handoff-cvat command")
+secret_refs = {
+    item["secretRef"]["name"]
+    for item in handoff_container.get("envFrom", [])
+    if "secretRef" in item
+}
+if secret_refs != {"sportif-ml-storage", "sportif-ml-cvat-automation"}:
+    raise SystemExit("CVAT handoff must use only scoped storage and CVAT credentials")
+handoff_security = handoff_container.get("securityContext", {})
+if handoff_security.get("runAsNonRoot") is not True or (
+    handoff_security.get("readOnlyRootFilesystem") is not True
+):
+    raise SystemExit("CVAT handoff worker must run non-root with a read-only root filesystem")
+
 print("Sportif ML Argo Workflows configuration validation: PASS")
 PY
 
@@ -218,7 +259,8 @@ python3 - \
   "$repo_root/apps/sportif-ml/cvat/values.yaml" \
   "$repo_root/apps/sportif-ml/cvat/externalsecrets.yaml" \
   "$repo_root/platform/argocd/sportif-ml/cvat.yaml" \
-  "$repo_root/apps/sportif-ml/cvat/initializer-config.yaml" <<'PY'
+  "$repo_root/apps/sportif-ml/cvat/initializer-config.yaml" \
+  "$repo_root/apps/sportif-ml/cvat/automation-externalsecret-staged.yaml" <<'PY'
 from pathlib import Path
 import sys
 import yaml
@@ -229,6 +271,7 @@ external_secrets = [
 ]
 application = yaml.safe_load(Path(sys.argv[3]).read_text())
 initializer_config = yaml.safe_load(Path(sys.argv[4]).read_text())
+automation_secret = yaml.safe_load(Path(sys.argv[5]).read_text())
 
 for component in ("postgresql", "redis"):
     if values[component].get("enabled") is not False:
@@ -335,6 +378,16 @@ if postgres_template.get("username") != "{{ .CVAT_PGSQL_USER }}" or (
     postgres_template.get("password") != "{{ .CVAT_PGSQL_PASSWORD }}"
 ):
     raise SystemExit("CVAT generated Secret must retain CVAT-specific key names")
+
+if automation_secret["metadata"].get("name") != "sportif-ml-cvat-automation-sync":
+    raise SystemExit("Unexpected staged CVAT automation ExternalSecret name")
+if automation_secret["spec"]["target"].get("name") != "sportif-ml-cvat-automation":
+    raise SystemExit("CVAT automation must generate its dedicated Secret")
+if automation_secret["spec"].get("data") != [{
+    "secretKey": "CVAT_API_TOKEN",
+    "remoteRef": {"key": "global-db-secrets", "property": "CVAT_API_TOKEN"},
+}]:
+    raise SystemExit("CVAT automation ExternalSecret may expose only CVAT_API_TOKEN")
 
 if application["metadata"].get("annotations", {}).get(
     "argocd.argoproj.io/sync-wave"

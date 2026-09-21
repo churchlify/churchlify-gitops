@@ -38,3 +38,11 @@ four documents, selected-count and decision consistency, valid duplicate
 references, matching perceptual hashes, and the SHA-256 of the first and last
 selected JPEG objects. This evidence does not imply annotation or dataset
 approval.
+
+The CVAT handoff writes `videos/<videoId>/cvat-handoff.json` to the provenance
+bucket only after the selected manifest, frame-selection provenance, and every
+selected JPEG pass validation and CVAT reports the expected task frame count.
+It records the CVAT project/task IDs and names, label schema, selected-frame
+count, source identity, assignment state, and explicit false dataset-approval
+gate. It does not represent completed annotation, review, export, or dataset
+approval.

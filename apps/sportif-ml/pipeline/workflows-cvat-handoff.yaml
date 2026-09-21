@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/argoproj/argo-workflows/main/api/jsonschema/schema.json
+# Staged until the automation token exists. Add this file to
+# pipeline/kustomization.yaml only after that manual prerequisite is complete.
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: sportif-cvat-handoff
+  namespace: sportif-ml
+  labels:
+    app.kubernetes.io/component: cvat-handoff
+spec:
+  serviceAccountName: sportif-ml-pipeline
+  entrypoint: handoff
+  activeDeadlineSeconds: 3600
+  synchronization:
+    mutex:
+      name: sportif-cvat-handoff
+  podGC:
+    strategy: OnWorkflowCompletion
+  ttlStrategy:
+    secondsAfterCompletion: 86400
+  arguments:
+    parameters:
+      - name: video-key
+      - name: provenance-key
+  volumes:
+    - name: work
+      emptyDir:
+        sizeLimit: 4Gi
+    - name: tmp
+      emptyDir:
+        sizeLimit: 256Mi
+  templates:
+    - name: handoff
+      nodeSelector:
+        kubernetes.io/os: linux
+        node-role.kubernetes.io/worker: worker
+      retryStrategy:
+        limit: "1"
+        retryPolicy: OnError
+      container:
+        image: ghcr.io/agogos-llc/sportif-ml-worker@sha256:a466ce34805c1d5cc522df40008d995c1470e4b6d2979a98be89d75ab3a90d9b
+        imagePullPolicy: IfNotPresent
+        command: [python, -m, sportif_ml_worker]
+        args:
+          - handoff-cvat
+          - --video-key
+          - "{{workflow.parameters.video-key}}"
+          - --provenance-key
+          - "{{workflow.parameters.provenance-key}}"
+        envFrom:
+          - configMapRef:
+              name: sportif-ml-config
+          - secretRef:
+              name: sportif-ml-storage
+          - secretRef:
+              name: sportif-ml-cvat-automation
+        env:
+          - name: ML_WORK_DIR
+            value: /work
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+            ephemeral-storage: 512Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+            ephemeral-storage: 5Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+          - name: work
+            mountPath: /work
+          - name: tmp
+            mountPath: /tmp
