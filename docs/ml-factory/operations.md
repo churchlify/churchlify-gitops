@@ -29,8 +29,10 @@ kubectl -n sportif-ml get externalsecret sportif-ml-cvat-ingress-auth-sync
 
 Use `https://annotate.churchlify.com` for a complete browser session. Enter the
 ingress username `babs` and the password stored in the operator's macOS
-Keychain, then sign in with a separate human CVAT account. The chart ingress
-routes backend paths and the frontend under the same authenticated origin.
+Keychain, then sign in to CVAT as the separate human user `babs`. Retrieve the
+CVAT password from Keychain service `annotate.churchlify.com/cvat`; the ingress
+and CVAT passwords are distinct. The chart ingress routes backend paths and the
+frontend under the same authenticated origin.
 
 Argo Workflows is controller-only. There is no Argo Server Service or UI. Submit
 an approved ingest run with a generated Workflow resource:

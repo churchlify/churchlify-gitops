@@ -110,6 +110,11 @@
 - Browser ingress credentials are unavailable: retrieve them from the operator
   Mac with `security find-generic-password -s annotate.churchlify.com -a babs -w`.
   Do not replace the bcrypt verifier with a plaintext password.
+- Human CVAT credentials are unavailable: retrieve the `babs` password from the
+  operator Mac with `security find-generic-password -s
+  annotate.churchlify.com/cvat -a babs -w`. This is deliberately distinct from
+  the browser ingress password. Do not use `sportif-ml-automation` interactively
+  or grant the human account staff/superuser privileges.
 - Workflow stops at approval: resubmit with `dataset-approved=true` only after
   CVAT review and dataset validation.
 - GPU Pending: inspect the live NVIDIA device plugin, labels, allocatable

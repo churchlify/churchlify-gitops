@@ -161,6 +161,25 @@ only the bcrypt `htpasswd` verifier in `global-db-secrets` under
 `CVAT_INGRESS_AUTH`; External Secrets exposes only the `auth` key required by
 nginx in `sportif-ml-cvat-ingress-auth`.
 
+### Human CVAT account
+
+The human annotator account is separate from both the ingress credential and
+the `sportif-ml-automation` account. The initial account is the normal,
+non-staff, non-superuser CVAT user `babs`. Retrieve its generated password from
+the operator Mac without storing it in shell history:
+
+```bash
+security find-generic-password \
+  -s annotate.churchlify.com/cvat \
+  -a babs \
+  -w
+```
+
+The plaintext CVAT password is stored only in the macOS Keychain. Do not place
+it in Kubernetes, Git, workflow parameters, shell scripts, or annotation
+provenance. Project/task ownership remains with the automation account for
+idempotency; assign annotation work to the human account instead.
+
 ### CVAT automation account and token
 
 The handoff workflow uses a dedicated normal CVAT user. It must not be staff,
