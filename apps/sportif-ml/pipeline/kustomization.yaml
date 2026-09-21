@@ -7,6 +7,7 @@ resources:
   - services.yaml
   - mlflow.yaml
   - workflows.yaml
+  - workflows-cvat-handoff.yaml
 
 # Stage 2 is active: MLflow uses the existing versioned ML buckets and the
 # scoped sportif-ml-storage Secret created during Stage 1. Bucket creation is
