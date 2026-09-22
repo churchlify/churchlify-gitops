@@ -146,6 +146,8 @@ role = objects.get(("Role", "sportif-ml-pipeline"))
 binding = objects.get(("RoleBinding", "sportif-ml-pipeline"))
 if not all((service_account, role, binding)):
     raise SystemExit("Sportif workflow executor identity and RBAC are required")
+if service_account.get("imagePullSecrets") != [{"name": "sportif-ml-registry"}]:
+    raise SystemExit("Sportif workflow ServiceAccount requires the managed GHCR pull secret")
 if role.get("rules") != [{
     "apiGroups": ["argoproj.io"],
     "resources": ["workflowtaskresults"],
@@ -202,8 +204,57 @@ if {next(iter(item)) for item in config} != {"configMapRef", "secretRef"}:
 training_templates = {
     item["name"]: item for item in training_workflow["spec"]["templates"]
 }
-train = training_templates["train"]["container"]
-if train.get("nodeSelector") != {"accelerator": "nvidia-v100"}:
+if training_workflow["metadata"].get("name") != "sportif-ball-training":
+    raise SystemExit("Unexpected approved-dataset training WorkflowTemplate name")
+training_spec = training_workflow["spec"]
+if training_spec.get("synchronization", {}).get("mutex", {}).get("name") != (
+    "sportif-ball-training"
+):
+    raise SystemExit("Training workflows must serialize access to the shared RWO PVC")
+if {item["name"] for item in training_spec["arguments"]["parameters"]} != {"dataset-id"}:
+    raise SystemExit("Training workflow may accept only the approved dataset ID")
+if training_spec.get("volumes", [])[0].get("persistentVolumeClaim", {}).get(
+    "claimName"
+) != "sportif-ml-work":
+    raise SystemExit("Training workflow must use the shared work PVC")
+tasks = training_templates["pipeline"]["dag"]["tasks"]
+expected_tasks = [
+    "materialize-dataset",
+    "validate-dataset",
+    "train",
+    "evaluate",
+    "export-onnx",
+    "create-provenance",
+    "publish-candidate",
+]
+if [task["name"] for task in tasks] != expected_tasks:
+    raise SystemExit("Training workflow stages or order are unexpected")
+for index, task in enumerate(tasks[1:], 1):
+    if task.get("dependencies") != [expected_tasks[index - 1]]:
+        raise SystemExit("Training workflow must run serially on the shared RWO PVC")
+for template_name in (
+    "trainer-one-arg",
+    "trainer-two-args",
+    "trainer-three-args",
+    "gpu-trainer",
+):
+    template = training_templates[template_name]
+    if template.get("nodeSelector") != {"accelerator": "nvidia-v100"}:
+        raise SystemExit("All training stages must remain on the verified GPU node")
+    container = template["container"]
+    if "@sha256:" not in container.get("image", ""):
+        raise SystemExit("Trainer image must be pinned by digest")
+    security = container.get("securityContext", {})
+    if security.get("readOnlyRootFilesystem") is not True or security.get(
+        "allowPrivilegeEscalation"
+    ) is not False:
+        raise SystemExit("Trainer containers require hardened filesystem and privilege settings")
+    if {item["mountPath"] for item in container.get("volumeMounts", [])} != {
+        "/work", "/tmp"
+    }:
+        raise SystemExit("Trainer containers must mount shared work and writable tmp storage")
+train = training_templates["gpu-trainer"]["container"]
+if training_templates["gpu-trainer"].get("nodeSelector") != {"accelerator": "nvidia-v100"}:
     raise SystemExit("Training must use the verified live GPU selector")
 if train.get("resources", {}).get("limits", {}).get("nvidia.com/gpu") != "1":
     raise SystemExit("Training must request exactly one Kubernetes GPU")
@@ -466,12 +517,17 @@ workflow_templates = {
 expected_workflow_templates = {
     "sportif-video-ingest",
     "sportif-cvat-handoff",
+    "sportif-ball-training",
 }
 if workflow_templates != expected_workflow_templates:
     raise SystemExit(
         "active WorkflowTemplates must be exactly "
         f"{sorted(expected_workflow_templates)}; got {sorted(workflow_templates)}"
     )
+
+work = objects.get(("PersistentVolumeClaim", "sportif-ml-work"))
+if not work or work["spec"].get("accessModes") != ["ReadWriteOnce"]:
+    raise SystemExit("Training requires the dedicated ReadWriteOnce work PVC")
 
 mlflow = objects.get(("Deployment", "mlflow"))
 backend = objects.get(("PersistentVolumeClaim", "mlflow-backend"))

@@ -26,6 +26,8 @@ def dataset_root(dataset_id):
 
 def validate(dataset_id):
     root = dataset_root(dataset_id)
+    manifest_path = root / "dataset-manifest.json"
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     errors = []
     image_count = 0
     annotation_count = 0
@@ -84,13 +86,17 @@ def validate(dataset_id):
                 errors.append(f"rights metadata is not commercially eligible: {item.get('videoId')}")
 
     result = {
+        "schemaVersion": 1,
         "status": "PASS" if not errors else "FAIL",
+        "datasetId": dataset_id,
+        "contentSha256": manifest.get("contentSha256"),
         "images": image_count,
         "annotations": annotation_count,
         "videos": len(set().union(*videos.values())),
         "leakageDetected": any("leakage" in error for error in errors),
         "invalidLabels": sum("label" in error or "box" in error for error in errors),
         "missingLabels": sum("missing label" in error for error in errors),
+        "rightsVerified": not any("rights metadata" in error for error in errors),
         "errors": errors,
     }
     (root / "dataset-validation.json").write_text(json.dumps(result, indent=2) + "\n")

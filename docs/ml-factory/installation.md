@@ -318,12 +318,15 @@ frames. This verifies Stage 4B only; it does not constitute dataset, training, o
 model-release acceptance.
 
 The live cluster has one allocatable GPU on the node labelled
-`accelerator=nvidia-v100`. The full training workflow remains in
-`pipeline/workflows-training-staged.yaml` and is not active.
+`accelerator=nvidia-v100`. After dataset approval, the training-only workflow in
+`pipeline/workflows-training-staged.yaml` is active as
+`sportif-ball-training`, but it still runs only through explicit Workflow
+submission. It uses the `sportif-ml-work` PVC and a digest-pinned private trainer
+image with a pull credential synchronized by External Secrets.
 
-Later stages still require CVAT import/export, human annotation and review,
-dataset generation and approval, GPU training, real evaluation, MLflow logging,
-artifact packaging, and model provenance before an end-to-end acceptance run.
+GPU training, held-out evaluation, ONNX runtime validation, artifact packaging,
+and model provenance execute in that workflow. Successful execution produces a
+candidate and does not constitute model-release acceptance.
 
 ## Stage 4C: deterministic frame selection
 

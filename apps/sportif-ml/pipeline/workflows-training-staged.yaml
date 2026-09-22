@@ -2,121 +2,262 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: sportif-ball-pipeline
+  name: sportif-ball-training
   namespace: sportif-ml
+  labels:
+    app.kubernetes.io/component: ball-training
 spec:
   serviceAccountName: sportif-ml-pipeline
   entrypoint: pipeline
+  activeDeadlineSeconds: 604800
+  synchronization:
+    mutex:
+      name: sportif-ball-training
+  podGC:
+    strategy: OnWorkflowCompletion
+  ttlStrategy:
+    secondsAfterCompletion: 604800
+  podSpecPatch: |
+    {"securityContext":{"runAsNonRoot":true,"runAsUser":10001,"runAsGroup":10001,"fsGroup":10001,"fsGroupChangePolicy":"OnRootMismatch","seccompProfile":{"type":"RuntimeDefault"}}}
   arguments:
     parameters:
-      - name: video-key
-        value: videos/input.mp4
-      - name: provenance-key
-        value: videos/input/source-provenance.json
       - name: dataset-id
         value: sportif-ball-v001
-      - name: dataset-approved
-        value: "false"
+  volumes:
+    - name: work
+      persistentVolumeClaim:
+        claimName: sportif-ml-work
+    - name: tmp
+      emptyDir:
+        sizeLimit: 4Gi
   templates:
     - name: pipeline
       dag:
         tasks:
-          - name: validate-input
-            template: validate-input
-          - name: extract-frames
-            dependencies: [validate-input]
-            template: extract-frames
-          - name: deduplicate
-            dependencies: [extract-frames]
-            template: deduplicate
-          - name: prepare-dataset
-            dependencies: [deduplicate]
-            template: prepare-dataset
+          - name: materialize-dataset
+            template: trainer-two-args
+            arguments:
+              parameters:
+                - name: module
+                  value: sportif_ml.storage
+                - name: argument-one
+                  value: materialize
+                - name: argument-two
+                  value: "{{workflow.parameters.dataset-id}}"
           - name: validate-dataset
-            dependencies: [prepare-dataset]
-            template: validate-dataset
-          - name: dataset-approval
-            dependencies: [validate-dataset]
-            template: dataset-approval
+            dependencies: [materialize-dataset]
+            template: trainer-two-args
+            arguments:
+              parameters:
+                - name: module
+                  value: sportif_ml.dataset
+                - name: argument-one
+                  value: validate
+                - name: argument-two
+                  value: "{{workflow.parameters.dataset-id}}"
           - name: train
-            dependencies: [dataset-approval]
-            template: train
+            dependencies: [validate-dataset]
+            template: gpu-trainer
+            arguments:
+              parameters:
+                - name: module
+                  value: sportif_ml.train
+                - name: argument
+                  value: "{{workflow.parameters.dataset-id}}"
           - name: evaluate
             dependencies: [train]
-            template: evaluate
+            template: gpu-trainer
+            arguments:
+              parameters:
+                - name: module
+                  value: sportif_ml.evaluate
+                - name: argument
+                  value: "{{workflow.parameters.dataset-id}}"
           - name: export-onnx
             dependencies: [evaluate]
-            template: export-onnx
+            template: trainer-one-arg
+            arguments:
+              parameters:
+                - name: module
+                  value: sportif_ml.export_onnx
+                - name: argument
+                  value: "{{workflow.parameters.dataset-id}}"
+          - name: create-provenance
+            dependencies: [export-onnx]
+            template: trainer-two-args
+            arguments:
+              parameters:
+                - name: module
+                  value: sportif_ml.provenance
+                - name: argument-one
+                  value: release
+                - name: argument-two
+                  value: "{{workflow.parameters.dataset-id}}"
+          - name: publish-candidate
+            dependencies: [create-provenance]
+            template: trainer-three-args
+            arguments:
+              parameters:
+                - name: module
+                  value: sportif_ml.storage
+                - name: argument-one
+                  value: publish
+                - name: argument-two
+                  value: "{{workflow.parameters.dataset-id}}"
+                - name: argument-three
+                  value: "{{workflow.name}}"
 
-    - name: validate-input
+    - name: trainer-one-arg
+      inputs:
+        parameters:
+          - name: module
+          - name: argument
+      nodeSelector:
+        accelerator: nvidia-v100
+      retryStrategy:
+        limit: "1"
+        retryPolicy: OnError
       container:
-        image: ghcr.io/agogos-llc/sportif-ball-trainer:0.1.0
-        command: [python, -m, sportif_ml.provenance]
-        args: [validate-input, "{{workflow.parameters.video-key}}"]
+        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:f5f7940cb6288268b2529bf59efd7219a846777533fdea0ab8ebf0db29a9f427
+        imagePullPolicy: IfNotPresent
+        command: [python, -m, "{{inputs.parameters.module}}"]
+        args: ["{{inputs.parameters.argument}}"]
         envFrom:
-          - configMapRef: { name: sportif-ml-config }
-          - secretRef: { name: sportif-ml-storage }
+          - configMapRef:
+              name: sportif-ml-config
+          - secretRef:
+              name: sportif-ml-storage
+        env:
+          - name: ML_WORK_DIR
+            value: /work/{{workflow.uid}}
+        resources:
+          requests:
+            cpu: "1"
+            memory: 4Gi
+          limits:
+            cpu: "4"
+            memory: 16Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+          readOnlyRootFilesystem: true
+        volumeMounts:
+          - name: work
+            mountPath: /work
+          - name: tmp
+            mountPath: /tmp
 
-    - name: extract-frames
+    - name: trainer-two-args
+      inputs:
+        parameters:
+          - name: module
+          - name: argument-one
+          - name: argument-two
+      nodeSelector:
+        accelerator: nvidia-v100
+      retryStrategy:
+        limit: "1"
+        retryPolicy: OnError
       container:
-        image: ghcr.io/agogos-llc/sportif-ball-trainer:0.1.0
-        command: [python, -m, sportif_ml.extract_frames]
-        args: ["{{workflow.parameters.video-key}}"]
-        envFrom:
-          - configMapRef: { name: sportif-ml-config }
-          - secretRef: { name: sportif-ml-storage }
-
-    - name: prepare-dataset
-      container:
-        image: ghcr.io/agogos-llc/sportif-ball-trainer:0.1.0
-        command: [python, -m, sportif_ml.dataset]
-        args: [prepare, "{{workflow.parameters.dataset-id}}"]
-        envFrom:
-          - configMapRef: { name: sportif-ml-config }
-          - secretRef: { name: sportif-ml-storage }
-
-    - name: deduplicate
-      container:
-        image: ghcr.io/agogos-llc/sportif-ml-worker@sha256:f8bf3b1eb61d2cee5cef69ecfcb5d6a41940f66d1fc80c19b40352a1494d09d8
-        command: [python, -m, sportif_ml_worker]
+        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:f5f7940cb6288268b2529bf59efd7219a846777533fdea0ab8ebf0db29a9f427
+        imagePullPolicy: IfNotPresent
+        command: [python, -m, "{{inputs.parameters.module}}"]
         args:
-          - deduplicate
-          - --video-key
-          - "{{workflow.parameters.video-key}}"
-          - --provenance-key
-          - "{{workflow.parameters.provenance-key}}"
+          - "{{inputs.parameters.argument-one}}"
+          - "{{inputs.parameters.argument-two}}"
         envFrom:
-          - configMapRef: { name: sportif-ml-config }
-          - secretRef: { name: sportif-ml-storage }
+          - configMapRef:
+              name: sportif-ml-config
+          - secretRef:
+              name: sportif-ml-storage
+        env:
+          - name: ML_WORK_DIR
+            value: /work/{{workflow.uid}}
+        resources:
+          requests:
+            cpu: "1"
+            memory: 4Gi
+          limits:
+            cpu: "4"
+            memory: 16Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+          readOnlyRootFilesystem: true
+        volumeMounts:
+          - name: work
+            mountPath: /work
+          - name: tmp
+            mountPath: /tmp
 
-    - name: validate-dataset
+    - name: trainer-three-args
+      inputs:
+        parameters:
+          - name: module
+          - name: argument-one
+          - name: argument-two
+          - name: argument-three
+      nodeSelector:
+        accelerator: nvidia-v100
+      retryStrategy:
+        limit: "1"
+        retryPolicy: OnError
       container:
-        image: ghcr.io/agogos-llc/sportif-ball-trainer:0.1.0
-        command: [python, -m, sportif_ml.dataset]
-        args: [validate, "{{workflow.parameters.dataset-id}}"]
+        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:f5f7940cb6288268b2529bf59efd7219a846777533fdea0ab8ebf0db29a9f427
+        imagePullPolicy: IfNotPresent
+        command: [python, -m, "{{inputs.parameters.module}}"]
+        args:
+          - "{{inputs.parameters.argument-one}}"
+          - "{{inputs.parameters.argument-two}}"
+          - "{{inputs.parameters.argument-three}}"
         envFrom:
-          - configMapRef: { name: sportif-ml-config }
-          - secretRef: { name: sportif-ml-storage }
+          - configMapRef:
+              name: sportif-ml-config
+          - secretRef:
+              name: sportif-ml-storage
+        env:
+          - name: ML_WORK_DIR
+            value: /work/{{workflow.uid}}
+        resources:
+          requests:
+            cpu: "1"
+            memory: 4Gi
+          limits:
+            cpu: "4"
+            memory: 16Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+          readOnlyRootFilesystem: true
+        volumeMounts:
+          - name: work
+            mountPath: /work
+          - name: tmp
+            mountPath: /tmp
 
-    - name: dataset-approval
-      script:
-        image: python:3.12-slim
-        command: [python]
-        source: |
-          import sys
-          approved = "{{workflow.parameters.dataset-approved}}".lower() == "true"
-          if not approved:
-              raise SystemExit("dataset approval is required before training")
-          print("dataset approved")
-
-    - name: train
+    - name: gpu-trainer
+      inputs:
+        parameters:
+          - name: module
+          - name: argument
+      nodeSelector:
+        accelerator: nvidia-v100
       container:
-        image: ghcr.io/agogos-llc/sportif-ball-trainer:0.1.0
-        command: [python, -m, sportif_ml.train]
-        args: ["{{workflow.parameters.dataset-id}}"]
+        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:f5f7940cb6288268b2529bf59efd7219a846777533fdea0ab8ebf0db29a9f427
+        imagePullPolicy: IfNotPresent
+        command: [python, -m, "{{inputs.parameters.module}}"]
+        args: ["{{inputs.parameters.argument}}"]
         envFrom:
-          - configMapRef: { name: sportif-ml-config }
-          - secretRef: { name: sportif-ml-storage }
+          - configMapRef:
+              name: sportif-ml-config
+          - secretRef:
+              name: sportif-ml-storage
+        env:
+          - name: ML_WORK_DIR
+            value: /work/{{workflow.uid}}
         resources:
           requests:
             cpu: "2"
@@ -124,25 +265,15 @@ spec:
             nvidia.com/gpu: "1"
           limits:
             cpu: "8"
-            memory: 16Gi
+            memory: 24Gi
             nvidia.com/gpu: "1"
-        nodeSelector:
-          accelerator: nvidia-v100
-
-    - name: evaluate
-      container:
-        image: ghcr.io/agogos-llc/sportif-ball-trainer:0.1.0
-        command: [python, -m, sportif_ml.evaluate]
-        args: ["{{workflow.parameters.dataset-id}}"]
-        envFrom:
-          - configMapRef: { name: sportif-ml-config }
-          - secretRef: { name: sportif-ml-storage }
-
-    - name: export-onnx
-      container:
-        image: ghcr.io/agogos-llc/sportif-ball-trainer:0.1.0
-        command: [python, -m, sportif_ml.export_onnx]
-        args: ["{{workflow.parameters.dataset-id}}"]
-        envFrom:
-          - configMapRef: { name: sportif-ml-config }
-          - secretRef: { name: sportif-ml-storage }
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+          readOnlyRootFilesystem: true
+        volumeMounts:
+          - name: work
+            mountPath: /work
+          - name: tmp
+            mountPath: /tmp

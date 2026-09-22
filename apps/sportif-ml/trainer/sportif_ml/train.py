@@ -26,7 +26,7 @@ class YoloDetectionDataset(Dataset):
         image_path = self.images[index]
         image = Image.open(image_path).convert("RGB")
         width, height = image.size
-        tensor = torch.from_numpy(np.asarray(image)).permute(2, 0, 1).float() / 255
+        tensor = torch.from_numpy(np.array(image, copy=True)).permute(2, 0, 1).float() / 255
         label_path = self.label_dir / image_path.relative_to(self.image_dir).with_suffix(".txt")
         boxes = []
         labels = []
@@ -34,7 +34,11 @@ class YoloDetectionDataset(Dataset):
             class_id, center_x, center_y, box_width, box_height = map(float, line.split())
             boxes.append([(center_x - box_width / 2) * width, (center_y - box_height / 2) * height, (center_x + box_width / 2) * width, (center_y + box_height / 2) * height])
             labels.append(int(class_id) + 1)
-        target = {"boxes": torch.tensor(boxes, dtype=torch.float32), "labels": torch.tensor(labels, dtype=torch.int64), "image_id": torch.tensor([index])}
+        target = {
+            "boxes": torch.tensor(boxes, dtype=torch.float32).reshape(-1, 4),
+            "labels": torch.tensor(labels, dtype=torch.int64),
+            "image_id": torch.tensor([index]),
+        }
         return tensor, target
 
 
@@ -47,6 +51,9 @@ def train(dataset_id):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
     root = dataset_root(dataset_id)
     validation_result = validate(dataset_id)
     model = build_model()
@@ -57,18 +64,37 @@ def train(dataset_id):
     loader = DataLoader(YoloDetectionDataset(root, "train"), batch_size=int(os.environ.get("TRAINING_BATCH_SIZE", "2")), shuffle=True, collate_fn=collate)
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(os.environ.get("TRAINING_LEARNING_RATE", "0.001")))
     epochs = int(os.environ.get("TRAINING_EPOCHS", "150"))
+    epoch_losses = []
     model.train()
-    for _ in range(epochs):
+    for epoch in range(epochs):
+        running_loss = 0.0
+        batches = 0
         for images, targets in loader:
             losses = model([image.to(device) for image in images], [{key: value.to(device) for key, value in target.items()} for target in targets])
             loss = sum(losses.values())
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            running_loss += loss.detach().item()
+            batches += 1
+        epoch_loss = running_loss / max(batches, 1)
+        epoch_losses.append(epoch_loss)
+        print(json.dumps({"epoch": epoch + 1, "epochs": epochs, "loss": epoch_loss}), flush=True)
     output = root / "artifacts"
     output.mkdir(parents=True, exist_ok=True)
     torch.save(model.state_dict(), output / "model.pt")
-    metadata = {"datasetId": dataset_id, "device": str(device), "epochs": epochs, "validation": validation_result, **initialization_metadata()}
+    metadata = {
+        "datasetId": dataset_id,
+        "device": str(device),
+        "epochs": epochs,
+        "batchSize": loader.batch_size,
+        "learningRate": optimizer.param_groups[0]["lr"],
+        "seed": seed,
+        "epochLosses": epoch_losses,
+        "finalLoss": epoch_losses[-1],
+        "validation": validation_result,
+        **initialization_metadata(),
+    }
     (output / "training-metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
 
 

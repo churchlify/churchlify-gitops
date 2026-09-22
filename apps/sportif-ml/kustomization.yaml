@@ -9,7 +9,9 @@ resources:
   - namespace.yaml
   - namespace-scoped.yaml
   - training-config.yaml
+  - storage.yaml
   - externalsecret.yaml
+  - registry-externalsecret.yaml
   - cvat/externalsecrets.yaml
   - cvat/initializer-config.yaml
   - rbac.yaml
