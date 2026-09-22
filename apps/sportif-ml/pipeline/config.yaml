@@ -18,7 +18,7 @@ data:
   CVAT_API_URL: http://cvat-backend-service:8080
   DATASET_ID: sportif-ball-v001
   DATASET_SEED: "42"
-  DATASET_APPROVED: "false"
+  DATASET_APPROVED: "true"
   MODEL_ID: sportif-ball-detector-v001
   TRAINING_EPOCHS: "150"
   TRAINING_BATCH_SIZE: "2"
