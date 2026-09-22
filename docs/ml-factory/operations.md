@@ -182,6 +182,12 @@ and mirrored provenance under
 `s3://sportif-ml-provenance/models/sportif-ball-detector-v001/<workflow-name>/`.
 Do not treat successful execution as model-release approval.
 
+Evaluation fails the workflow before export or publication unless mAP50 is at
+least `0.50`, mAP50-95 is at least `0.20`, precision is at least `0.60`, and
+recall is at least `0.60`. A failed evaluator still writes `metrics.json` to the
+run workspace with `executionStatus: PASS`, `qualityGateStatus: FAIL`, and the
+exact threshold failures for diagnosis.
+
 The first live acceptance Workflow, `sportif-video-ingest-h46bk`, completed on
 September 20, 2026 with both tasks successful. It produced and verified 4,724
 frames for approved source `VID-20260920-001`. The verification compared actual

@@ -118,7 +118,7 @@ spec:
         limit: "1"
         retryPolicy: OnError
       container:
-        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:b654401e52df961dc5344c6602213794259705e3f20faf5e36f41e2fc5e2d2d3
+        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:d082db5741c26a8af68897dc247c5beebcad5da8c302cf68bd630630003eb491
         imagePullPolicy: IfNotPresent
         command: [python, -m, "{{inputs.parameters.module}}"]
         args: ["{{inputs.parameters.argument}}"]
@@ -160,7 +160,7 @@ spec:
         limit: "1"
         retryPolicy: OnError
       container:
-        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:b654401e52df961dc5344c6602213794259705e3f20faf5e36f41e2fc5e2d2d3
+        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:d082db5741c26a8af68897dc247c5beebcad5da8c302cf68bd630630003eb491
         imagePullPolicy: IfNotPresent
         command: [python, -m, "{{inputs.parameters.module}}"]
         args:
@@ -205,7 +205,7 @@ spec:
         limit: "1"
         retryPolicy: OnError
       container:
-        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:b654401e52df961dc5344c6602213794259705e3f20faf5e36f41e2fc5e2d2d3
+        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:d082db5741c26a8af68897dc247c5beebcad5da8c302cf68bd630630003eb491
         imagePullPolicy: IfNotPresent
         command: [python, -m, "{{inputs.parameters.module}}"]
         args:
@@ -248,7 +248,7 @@ spec:
       podSpecPatch: |
         {"runtimeClassName":"nvidia"}
       container:
-        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:b654401e52df961dc5344c6602213794259705e3f20faf5e36f41e2fc5e2d2d3
+        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:d082db5741c26a8af68897dc247c5beebcad5da8c302cf68bd630630003eb491
         imagePullPolicy: IfNotPresent
         command: [python, -m, "{{inputs.parameters.module}}"]
         args: ["{{inputs.parameters.argument}}"]

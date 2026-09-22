@@ -5,7 +5,13 @@ from pathlib import Path
 import torch
 from PIL import Image
 
-from sportif_ml.evaluate import average_precision, box_iou
+from sportif_ml.evaluate import (
+    average_precision,
+    box_iou,
+    evaluate_quality_gate,
+    persist_evaluation_result,
+)
+from sportif_ml.provenance import require_passing_evaluation
 from sportif_ml.storage import REQUIRED_DATASET_FILES, _parse_checksums
 from sportif_ml.train import YoloDetectionDataset
 
@@ -51,6 +57,76 @@ class TrainerTests(unittest.TestCase):
 
             self.assertIn(Path("dataset-manifest.json"), expected)
             self.assertNotIn("dataset-manifest.json", expected)
+
+    def test_zero_quality_metrics_fail_closed(self):
+        decision = evaluate_quality_gate(
+            {"mAP50": 0.0, "mAP50-95": 0.0, "precision": 0.0, "recall": 0.0},
+            {},
+        )
+
+        self.assertEqual(decision["qualityGateStatus"], "FAIL")
+        self.assertEqual(len(decision["qualityGateFailures"]), 4)
+
+    def test_quality_threshold_boundaries_pass(self):
+        decision = evaluate_quality_gate(
+            {"mAP50": 0.50, "mAP50-95": 0.20, "precision": 0.60, "recall": 0.60},
+            {},
+        )
+
+        self.assertEqual(decision["qualityGateStatus"], "PASS")
+        self.assertEqual(decision["qualityGateFailures"], [])
+
+    def test_configured_quality_thresholds_are_applied(self):
+        decision = evaluate_quality_gate(
+            {"mAP50": 0.79, "mAP50-95": 0.39, "precision": 0.69, "recall": 0.59},
+            {
+                "EVALUATION_MIN_MAP50": "0.80",
+                "EVALUATION_MIN_MAP50_95": "0.40",
+                "EVALUATION_MIN_PRECISION": "0.70",
+                "EVALUATION_MIN_RECALL": "0.60",
+            },
+        )
+
+        self.assertEqual(decision["qualityGateStatus"], "FAIL")
+        self.assertEqual(
+            {item["metric"] for item in decision["qualityGateFailures"]},
+            {"mAP50", "mAP50-95", "precision", "recall"},
+        )
+
+    def test_provenance_rejects_failed_quality_gate(self):
+        with self.assertRaisesRegex(SystemExit, "model quality gate must pass"):
+            require_passing_evaluation(
+                {
+                    "executionStatus": "PASS",
+                    "qualityGateStatus": "FAIL",
+                    "qualityGateFailures": [{"metric": "mAP50"}],
+                }
+            )
+
+    def test_provenance_accepts_clean_passing_quality_gate(self):
+        require_passing_evaluation(
+            {
+                "executionStatus": "PASS",
+                "qualityGateStatus": "PASS",
+                "qualityGateFailures": [],
+            }
+        )
+
+    def test_failed_quality_result_is_persisted_before_exit(self):
+        result = {
+            "executionStatus": "PASS",
+            "qualityGateStatus": "FAIL",
+            "qualityGateFailures": [
+                {"metric": "mAP50", "actual": 0.0, "minimum": 0.5}
+            ],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "metrics.json"
+
+            with self.assertRaisesRegex(SystemExit, "model quality gate failed"):
+                persist_evaluation_result(path, result)
+
+            self.assertEqual(__import__("json").loads(path.read_text()), result)
 
 
 if __name__ == "__main__":

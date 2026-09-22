@@ -7,6 +7,15 @@ from pathlib import Path
 from .dataset import dataset_root
 
 
+def require_passing_evaluation(metrics):
+    if metrics.get("executionStatus") != "PASS":
+        raise SystemExit("evaluation execution must pass")
+    if metrics.get("qualityGateStatus") != "PASS":
+        raise SystemExit("model quality gate must pass")
+    if metrics.get("qualityGateFailures") != []:
+        raise SystemExit("passing evaluation must not contain quality-gate failures")
+
+
 def validate_input(video_key):
     root = Path(os.environ.get("ML_WORK_DIR", "/work"))
     manifest_path = root / "raw" / "video-provenance.json"
@@ -42,8 +51,9 @@ def release(dataset_id):
         raise SystemExit("dataset validation and human approval are required")
     metrics = json.loads((artifacts / "metrics.json").read_text())
     onnx_validation = json.loads((artifacts / "onnx-validation.json").read_text())
-    if metrics.get("status") != "PASS" or onnx_validation.get("runtimeValidation") != "PASS":
-        raise SystemExit("evaluation and ONNX runtime validation must pass")
+    require_passing_evaluation(metrics)
+    if onnx_validation.get("runtimeValidation") != "PASS":
+        raise SystemExit("ONNX runtime validation must pass")
     manifest = {
         "schemaVersion": 1,
         "modelId": os.environ.get("MODEL_ID", "sportif-ball-detector-v001"),

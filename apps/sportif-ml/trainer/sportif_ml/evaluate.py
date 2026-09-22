@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -8,6 +9,46 @@ import torch
 from .dataset import dataset_root
 from .model import build_model
 from .train import YoloDetectionDataset
+
+
+QUALITY_THRESHOLDS = {
+    "mAP50": ("EVALUATION_MIN_MAP50", 0.50),
+    "mAP50-95": ("EVALUATION_MIN_MAP50_95", 0.20),
+    "precision": ("EVALUATION_MIN_PRECISION", 0.60),
+    "recall": ("EVALUATION_MIN_RECALL", 0.60),
+}
+
+
+def evaluate_quality_gate(metrics, environ=None):
+    environ = os.environ if environ is None else environ
+    thresholds = {
+        metric: float(environ.get(variable, default))
+        for metric, (variable, default) in QUALITY_THRESHOLDS.items()
+    }
+    failures = [
+        {
+            "metric": metric,
+            "actual": float(metrics[metric]),
+            "minimum": minimum,
+        }
+        for metric, minimum in thresholds.items()
+        if float(metrics[metric]) < minimum
+    ]
+    return {
+        "qualityGateStatus": "PASS" if not failures else "FAIL",
+        "qualityThresholds": thresholds,
+        "qualityGateFailures": failures,
+    }
+
+
+def persist_evaluation_result(path, result):
+    Path(path).write_text(json.dumps(result, indent=2) + "\n")
+    if result["qualityGateStatus"] != "PASS":
+        failed = ", ".join(
+            f'{item["metric"]}={item["actual"]:.6f} < {item["minimum"]:.6f}'
+            for item in result["qualityGateFailures"]
+        )
+        raise SystemExit(f"model quality gate failed: {failed}")
 
 
 def box_iou(boxes1, boxes2):
@@ -98,10 +139,11 @@ def evaluate(dataset_id):
         "mAP50-95": float(np.mean([value[0] for value in evaluations.values()])),
         "falsePositives": false_positives,
         "falseNegatives": false_negatives,
-        "status": "PASS",
+        "executionStatus": "PASS",
     }
-    (root / "artifacts" / "metrics.json").write_text(json.dumps(result, indent=2) + "\n")
+    result.update(evaluate_quality_gate(result))
     print(json.dumps(result))
+    persist_evaluation_result(root / "artifacts" / "metrics.json", result)
 
 
 if __name__ == "__main__":

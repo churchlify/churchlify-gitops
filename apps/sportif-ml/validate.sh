@@ -513,6 +513,21 @@ objects = {
     for resource in resources
 }
 
+ml_config = objects.get(("ConfigMap", "sportif-ml-config"))
+if not ml_config:
+    raise SystemExit("Sportif ML runtime ConfigMap is missing")
+quality_thresholds = {
+    "EVALUATION_MIN_MAP50": "0.50",
+    "EVALUATION_MIN_MAP50_95": "0.20",
+    "EVALUATION_MIN_PRECISION": "0.60",
+    "EVALUATION_MIN_RECALL": "0.60",
+}
+if {
+    name: ml_config.get("data", {}).get(name)
+    for name in quality_thresholds
+} != quality_thresholds:
+    raise SystemExit("Model quality thresholds must remain explicit and fail closed")
+
 workflow_templates = {
     resource["metadata"]["name"]
     for resource in resources
