@@ -256,6 +256,10 @@ for template_name in (
 train = training_templates["gpu-trainer"]["container"]
 if training_templates["gpu-trainer"].get("nodeSelector") != {"accelerator": "nvidia-v100"}:
     raise SystemExit("Training must use the verified live GPU selector")
+if training_templates["gpu-trainer"].get("podSpecPatch") != (
+    '{"runtimeClassName":"nvidia"}\n'
+):
+    raise SystemExit("GPU stages must select the verified NVIDIA RuntimeClass")
 if train.get("resources", {}).get("limits", {}).get("nvidia.com/gpu") != "1":
     raise SystemExit("Training must request exactly one Kubernetes GPU")
 

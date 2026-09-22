@@ -24,3 +24,7 @@ held-out test video, exports and runtime-validates ONNX, creates candidate
 provenance, and uploads immutable run-specific objects to the model and
 provenance buckets. Workflow completion creates a `CANDIDATE`; it does not grant
 commercial release approval.
+
+GPU stages request one `nvidia.com/gpu`, select `accelerator=nvidia-v100`, and
+use the cluster's `nvidia` RuntimeClass. Failed-workflow pods are retained for
+diagnosis; pods are garbage-collected only after a successful workflow.

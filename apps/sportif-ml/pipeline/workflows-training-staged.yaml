@@ -14,7 +14,7 @@ spec:
     mutex:
       name: sportif-ball-training
   podGC:
-    strategy: OnWorkflowCompletion
+    strategy: OnWorkflowSuccess
   ttlStrategy:
     secondsAfterCompletion: 604800
   podSpecPatch: |
@@ -245,6 +245,8 @@ spec:
           - name: argument
       nodeSelector:
         accelerator: nvidia-v100
+      podSpecPatch: |
+        {"runtimeClassName":"nvidia"}
       container:
         image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:b654401e52df961dc5344c6602213794259705e3f20faf5e36f41e2fc5e2d2d3
         imagePullPolicy: IfNotPresent
