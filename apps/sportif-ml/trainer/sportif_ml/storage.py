@@ -102,7 +102,7 @@ def materialize(dataset_id):
         raise SystemExit(f"approved dataset is missing required files: {sorted(missing)}")
 
     checksums = _parse_checksums(temporary / "SHA256SUMS")
-    expected_paths = set(checksums) | REQUIRED_DATASET_FILES
+    expected_paths = set(checksums) | {Path(name) for name in REQUIRED_DATASET_FILES}
     actual_paths = {path.relative_to(temporary) for path in temporary.rglob("*") if path.is_file()}
     if actual_paths != expected_paths:
         raise SystemExit(
