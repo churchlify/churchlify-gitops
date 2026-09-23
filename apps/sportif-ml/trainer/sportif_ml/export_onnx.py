@@ -9,7 +9,7 @@ import onnxruntime
 import torch
 
 from .dataset import dataset_root
-from .model import build_model
+from .model import build_model, image_resize_policy
 
 
 class DetectionExport(torch.nn.Module):
@@ -27,12 +27,12 @@ def export(dataset_id):
     checkpoint = root / "artifacts" / "model.pt"
     if not checkpoint.exists():
         raise SystemExit("model checkpoint is missing")
-    image_size = int(os.environ.get("TRAINING_IMAGE_SIZE", "1024"))
+    image_height, image_width = image_resize_policy()
     model = build_model()
     model.load_state_dict(torch.load(checkpoint, map_location="cpu", weights_only=True))
     wrapper = DetectionExport(model.eval())
     output_path = root / "artifacts" / "model.onnx"
-    example = torch.zeros(1, 3, image_size, image_size)
+    example = torch.zeros(1, 3, image_height, image_width)
     torch.onnx.export(
         wrapper,
         example,
@@ -51,7 +51,7 @@ def export(dataset_id):
     onnx_model = onnx.load(output_path)
     onnx.checker.check_model(onnx_model)
     session = onnxruntime.InferenceSession(str(output_path), providers=["CPUExecutionProvider"])
-    outputs = session.run(None, {"images": np.zeros((1, 3, image_size, image_size), dtype=np.float32)})
+    outputs = session.run(None, {"images": np.zeros((1, 3, image_height, image_width), dtype=np.float32)})
     if len(outputs) != 3 or outputs[0].ndim != 2 or outputs[0].shape[-1] != 4:
         raise SystemExit("ONNX Runtime returned an invalid detection output signature")
     digest = hashlib.sha256(output_path.read_bytes()).hexdigest()
@@ -59,7 +59,7 @@ def export(dataset_id):
         "onnxValid": True,
         "runtimeValidation": "PASS",
         "opset": 17,
-        "inputSize": f"{image_size}x{image_size}",
+        "inputSize": f"{image_height}x{image_width}",
         "outputNames": [output.name for output in session.get_outputs()],
         "modelBytes": output_path.stat().st_size,
         "sha256": digest,

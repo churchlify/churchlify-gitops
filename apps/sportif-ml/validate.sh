@@ -529,6 +529,8 @@ if {
 } != quality_thresholds:
     raise SystemExit("Model quality thresholds must remain explicit and fail closed")
 training_controls = {
+    "TRAINING_MIN_IMAGE_SIZE": "720",
+    "TRAINING_MAX_IMAGE_SIZE": "1280",
     "TRAINING_LEARNING_RATE": "0.0002",
     "TRAINING_WARMUP_EPOCHS": "5",
     "TRAINING_LR_REDUCTION_FACTOR": "0.5",
@@ -543,9 +545,11 @@ training_controls = {
     "TRAINING_AUGMENT_CONTRAST": "0.15",
     "TRAINING_AUGMENT_SATURATION": "0.10",
     "TRAINING_AUGMENT_CANVAS_VALUE": "114",
+    "TRAINING_AUGMENT_MIN_OBJECT_SIDE": "8.0",
     "TRAINING_VALIDATION_INTERVAL": "5",
     "TRAINING_EARLY_STOPPING_PATIENCE": "5",
     "TRAINING_MIN_VALIDATION_IMPROVEMENT": "0.001",
+    "TRAINING_CHECKPOINT_MIN_TINY_RECALL": "0.20",
     "TRAINING_THRESHOLD_MIN": "0.05",
     "TRAINING_THRESHOLD_MAX": "0.95",
     "TRAINING_THRESHOLD_STEP": "0.05",
@@ -561,6 +565,8 @@ if {
     for name in training_controls
 } != training_controls:
     raise SystemExit("Small-object training and trainability controls changed unexpectedly")
+if "TRAINING_IMAGE_SIZE" in ml_config.get("data", {}):
+    raise SystemExit("Legacy square training image size must not override aspect-preserving resize bounds")
 if "EVALUATION_SCORE_THRESHOLD" in ml_config.get("data", {}):
     raise SystemExit("Test evaluation must use only the validation-selected operating threshold")
 

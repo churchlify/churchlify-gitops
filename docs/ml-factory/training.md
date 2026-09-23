@@ -1,7 +1,10 @@
 # Training
 
-The maximum configuration is 150 epochs, batch size 2, image size 1024, seed
-42, and one GPU. The trainer verifies dataset validation, sets deterministic
+The maximum configuration is 150 epochs, batch size 2, aspect-preserving image
+resize bounds of 720 pixels on the shorter side and 1280 pixels on the longer
+side, seed 42, and one GPU. This keeps the approved 1280x720 train and validation
+frames at native resolution instead of shrinking them to 1024x576. The trainer
+verifies dataset validation, sets deterministic
 seeds, requires CUDA, and constructs the model with both `weights=None` and
 `weights_backbone=None`.
 
@@ -19,20 +22,30 @@ Training-only augmentation is deterministic for the configured seed, epoch, and
 image index. It applies horizontal reflection, bounded brightness/contrast/color
 variation, and whole-frame zoom-out from `1.00` to `0.60` on a neutral canvas.
 Zoom-out translates every box without cropping and is intended to cover the
-approved validation video's smaller ball distribution. Validation and test
-images are never augmented.
+approved validation video's smaller ball distribution. On positive frames its
+scale is clamped so no annotated box side is reduced below 8 source pixels;
+negative frames retain the full configured zoom-out range. Requested and applied
+scale minima and the number of clamped samples are recorded in training metadata.
+Validation and test images are never augmented.
 
 Positive and negative sampling is source-aware. When an approved training split
 contains multiple source videos, each class pool is round-robin ordered across
 sources before batches are assembled. The current `sportif-ball-v001` training
 split contains only `VID-20260922-001`, so metadata must report source balancing
 as inactive; augmentation does not substitute for real source diversity.
+The live object inventory currently contains only the three videos already
+assigned to train, validation, and test, so a multi-source training revision
+requires ingesting and human-reviewing additional Sportif-owned footage.
 
 Before full training, a GPU smoke stage must overfit four deterministic positive
 frames within 150 steps, reaching at least IoU `0.75` and confidence `0.90` on
 each frame. Full training evaluates only the validation split every five epochs,
-selects the best checkpoint by mAP50 then mAP50-95, and stops after five
-validation checks without sufficient improvement. The held-out test split is
+selects the best checkpoint primarily by mAP50, requires tiny-object recall of
+at least `0.20`, uses tiny recall and then mAP50-95 as near-equal-mAP tie-breakers,
+and stops after five validation checks without sufficient improvement after the
+first eligible checkpoint exists. Validation checks below the tiny-recall floor
+do not prematurely consume early-stopping patience; if no eligible checkpoint is
+ever produced, the run fails closed without a model. The held-out test split is
 not read until the separate final evaluation stage.
 
 At each validation checkpoint, one inference pass is evaluated over score
@@ -43,6 +56,10 @@ the final test evaluator; the test split is never used for threshold tuning.
 Each validation checkpoint also records metrics by source-video directory and
 recall for objects whose maximum box side is under 12 pixels, 12–23 pixels, or
 at least 24 pixels. These diagnostics do not alter the release thresholds.
+
+ONNX export uses a representative `720x1280` tensor and retains dynamic height
+and width axes. Training, validation, test evaluation, and export all construct
+the same configured aspect-preserving model transform.
 
 The model source and license are recorded in `model-manifest.json`. Dependency
 and license inventory must be completed before release; code license and model

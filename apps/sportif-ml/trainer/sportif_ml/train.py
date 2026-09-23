@@ -30,6 +30,7 @@ class YoloDetectionDataset(Dataset):
         self.seed = seed
         self.epoch = 0
         self.augmentation = augmentation or {}
+        self.augmentation_scale_records = []
 
     def set_epoch(self, epoch):
         self.epoch = epoch
@@ -61,12 +62,14 @@ class YoloDetectionDataset(Dataset):
             labels.append(int(class_id) + 1)
         box_tensor = torch.tensor(boxes, dtype=torch.float32).reshape(-1, 4)
         if self.augment:
-            image, box_tensor = augment_detection(
+            image, box_tensor, scale_record = augment_detection(
                 image,
                 box_tensor,
                 random.Random(self.seed + self.epoch * max(len(self), 1) + index),
                 self.augmentation,
+                return_metadata=True,
             )
+            self.augmentation_scale_records.append(scale_record)
         tensor = torch.from_numpy(np.array(image, copy=True)).permute(2, 0, 1).float() / 255
         target = {
             "boxes": box_tensor,
@@ -76,12 +79,18 @@ class YoloDetectionDataset(Dataset):
         return tensor, target
 
 
-def augment_detection(image, boxes, randomizer, config):
+def augment_detection(image, boxes, randomizer, config, return_metadata=False):
     width, height = image.size
-    scale = randomizer.uniform(
+    requested_scale = randomizer.uniform(
         float(config.get("scaleMin", 1.0)),
         float(config.get("scaleMax", 1.0)),
     )
+    scale = requested_scale
+    minimum_object_side = float(config.get("minimumObjectSide", 0.0))
+    if len(boxes) and minimum_object_side > 0:
+        box_sizes = boxes[:, 2:] - boxes[:, :2]
+        smallest_side = float(box_sizes.min())
+        scale = min(1.0, max(scale, minimum_object_side / max(smallest_side, 1e-12)))
     if scale < 1.0:
         resized_width = max(1, round(width * scale))
         resized_height = max(1, round(height * scale))
@@ -114,7 +123,13 @@ def augment_detection(image, boxes, randomizer, config):
         image = ImageEnhance.Contrast(image).enhance(randomizer.uniform(1 - contrast, 1 + contrast))
     if saturation:
         image = ImageEnhance.Color(image).enhance(randomizer.uniform(1 - saturation, 1 + saturation))
-    return image, boxes
+    metadata = {
+        "requestedScale": requested_scale,
+        "appliedScale": scale,
+        "minimumObjectSide": minimum_object_side,
+        "scaleClamped": scale > requested_scale + 1e-12,
+    }
+    return (image, boxes, metadata) if return_metadata else (image, boxes)
 
 
 class BalancedBatchSampler(Sampler):
@@ -187,15 +202,51 @@ def collate(batch):
     return tuple(zip(*batch))
 
 
-def is_better_checkpoint(metrics, best_metrics, minimum_improvement):
+def is_better_checkpoint(metrics, best_metrics, minimum_improvement, minimum_tiny_recall=0.0):
+    tiny_recall = metrics.get("objectSizeRecall", {}).get("tiny", {}).get("recall", 0.0)
+    if tiny_recall < minimum_tiny_recall:
+        return False
     if best_metrics is None:
         return True
     if metrics["mAP50"] > best_metrics["mAP50"] + minimum_improvement:
         return True
     return (
         abs(metrics["mAP50"] - best_metrics["mAP50"]) <= minimum_improvement
-        and metrics["mAP50-95"] > best_metrics["mAP50-95"] + minimum_improvement
+        and (
+            tiny_recall
+            > best_metrics.get("objectSizeRecall", {}).get("tiny", {}).get("recall", 0.0)
+            + minimum_improvement
+            or (
+                abs(
+                    tiny_recall
+                    - best_metrics.get("objectSizeRecall", {}).get("tiny", {}).get("recall", 0.0)
+                )
+                <= minimum_improvement
+                and metrics["mAP50-95"]
+                > best_metrics["mAP50-95"] + minimum_improvement
+            )
+        )
     )
+
+
+def summarize_augmentation_scales(records):
+    if not records:
+        return {
+            "samples": 0,
+            "clampedSamples": 0,
+            "minimumRequestedScale": None,
+            "minimumAppliedScale": None,
+        }
+    return {
+        "samples": len(records),
+        "clampedSamples": sum(record["scaleClamped"] for record in records),
+        "minimumRequestedScale": min(record["requestedScale"] for record in records),
+        "minimumAppliedScale": min(record["appliedScale"] for record in records),
+    }
+
+
+def consume_early_stopping_patience(best_metrics):
+    return best_metrics is not None
 
 
 def threshold_grid(start, stop, step):
@@ -241,6 +292,7 @@ def train(dataset_id):
         "contrast": float(os.environ.get("TRAINING_AUGMENT_CONTRAST", "0.15")),
         "saturation": float(os.environ.get("TRAINING_AUGMENT_SATURATION", "0.10")),
         "canvasValue": int(os.environ.get("TRAINING_AUGMENT_CANVAS_VALUE", "114")),
+        "minimumObjectSide": float(os.environ.get("TRAINING_AUGMENT_MIN_OBJECT_SIDE", "8.0")),
     }
     training_dataset = YoloDetectionDataset(
         root,
@@ -283,6 +335,7 @@ def train(dataset_id):
     validation_interval = int(os.environ.get("TRAINING_VALIDATION_INTERVAL", "5"))
     early_stopping_patience = int(os.environ.get("TRAINING_EARLY_STOPPING_PATIENCE", "5"))
     minimum_improvement = float(os.environ.get("TRAINING_MIN_VALIDATION_IMPROVEMENT", "0.001"))
+    minimum_tiny_recall = float(os.environ.get("TRAINING_CHECKPOINT_MIN_TINY_RECALL", "0.20"))
     calibration_thresholds = threshold_grid(
         float(os.environ.get("TRAINING_THRESHOLD_MIN", "0.05")),
         float(os.environ.get("TRAINING_THRESHOLD_MAX", "0.95")),
@@ -388,12 +441,17 @@ def train(dataset_id):
             }
             validation_history.append(validation_record)
             progress["validation"] = validation_record
-            if is_better_checkpoint(validation_metrics, best_metrics, minimum_improvement):
+            if is_better_checkpoint(
+                validation_metrics,
+                best_metrics,
+                minimum_improvement,
+                minimum_tiny_recall,
+            ):
                 best_metrics = validation_metrics.copy()
                 best_epoch = epoch + 1
                 evaluations_without_improvement = 0
                 torch.save(model.state_dict(), best_checkpoint)
-            else:
+            elif consume_early_stopping_patience(best_metrics):
                 evaluations_without_improvement += 1
                 if evaluations_without_improvement >= early_stopping_patience:
                     stopped_early = True
@@ -415,6 +473,9 @@ def train(dataset_id):
         "trainingSources": sampler.sources,
         "trainingSourceCount": len(sampler.sources),
         "augmentation": augmentation,
+        "augmentationScaleSummary": summarize_augmentation_scales(
+            training_dataset.augmentation_scale_records
+        ),
         "trainingPositiveImages": len(positive_indices),
         "trainingNegativeImages": len(negative_indices),
         "baseLearningRate": base_learning_rate,
@@ -442,6 +503,7 @@ def train(dataset_id):
         "selectedOperatingThreshold": best_metrics["scoreThreshold"],
         "earlyStoppingPatience": early_stopping_patience,
         "minimumValidationImprovement": minimum_improvement,
+        "minimumCheckpointTinyRecall": minimum_tiny_recall,
         "stoppedEarly": stopped_early,
         "publishedCheckpoint": "best-validation",
         "validation": validation_result,

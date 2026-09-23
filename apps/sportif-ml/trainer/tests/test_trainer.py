@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import torch
 from PIL import Image
@@ -11,7 +12,7 @@ from sportif_ml.evaluate import (
     evaluate_quality_gate,
     persist_evaluation_result,
 )
-from sportif_ml.model import SMALL_OBJECT_ANCHOR_SIZES, build_model
+from sportif_ml.model import SMALL_OBJECT_ANCHOR_SIZES, build_model, image_resize_policy
 from sportif_ml.metrics import (
     calibrate_score_threshold,
     object_size_recall,
@@ -23,8 +24,10 @@ from sportif_ml.train import (
     BalancedBatchSampler,
     YoloDetectionDataset,
     augment_detection,
+    consume_early_stopping_patience,
     is_better_checkpoint,
     require_stable_loss,
+    summarize_augmentation_scales,
     threshold_grid,
 )
 
@@ -234,6 +237,55 @@ class TrainerTests(unittest.TestCase):
 
         self.assertEqual(tuple(boxes.shape), (0, 4))
 
+    def test_zoom_out_is_clamped_to_minimum_object_side(self):
+        image = Image.new("RGB", (100, 80), "white")
+        boxes = torch.tensor([[10.0, 20.0, 20.0, 30.0]])
+        randomizer = self.FixedRandom([0.5], [10, 5], [1.0])
+
+        _, transformed_boxes, metadata = augment_detection(
+            image,
+            boxes,
+            randomizer,
+            {
+                "scaleMin": 0.5,
+                "scaleMax": 0.5,
+                "horizontalFlipProbability": 0.0,
+                "minimumObjectSide": 8.0,
+            },
+            return_metadata=True,
+        )
+
+        self.assertAlmostEqual(metadata["requestedScale"], 0.5)
+        self.assertAlmostEqual(metadata["appliedScale"], 0.8)
+        self.assertTrue(metadata["scaleClamped"])
+        self.assertAlmostEqual(float((transformed_boxes[:, 2:] - transformed_boxes[:, :2]).min()), 8.0)
+
+    def test_negative_frame_keeps_full_zoom_out_range(self):
+        image = Image.new("RGB", (100, 80), "white")
+        randomizer = self.FixedRandom([0.5], [10, 5], [1.0])
+
+        _, _, metadata = augment_detection(
+            image,
+            torch.empty((0, 4)),
+            randomizer,
+            {"scaleMin": 0.5, "scaleMax": 0.5, "minimumObjectSide": 8.0},
+            return_metadata=True,
+        )
+
+        self.assertEqual(metadata["appliedScale"], 0.5)
+        self.assertFalse(metadata["scaleClamped"])
+
+    def test_augmentation_scale_summary_reports_clamping(self):
+        summary = summarize_augmentation_scales([
+            {"requestedScale": 0.5, "appliedScale": 0.8, "scaleClamped": True},
+            {"requestedScale": 0.7, "appliedScale": 0.7, "scaleClamped": False},
+        ])
+
+        self.assertEqual(summary["samples"], 2)
+        self.assertEqual(summary["clampedSamples"], 1)
+        self.assertEqual(summary["minimumRequestedScale"], 0.5)
+        self.assertEqual(summary["minimumAppliedScale"], 0.7)
+
     def test_dataset_augmentation_is_deterministic_per_epoch(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -297,17 +349,52 @@ class TrainerTests(unittest.TestCase):
         self.assertEqual(metrics["larger"]["recall"], 1.0)
 
     def test_best_checkpoint_prefers_map50_then_map50_95(self):
-        baseline = {"mAP50": 0.40, "mAP50-95": 0.20}
+        baseline = {
+            "mAP50": 0.40,
+            "mAP50-95": 0.20,
+            "objectSizeRecall": {"tiny": {"recall": 0.30}},
+        }
 
-        self.assertTrue(is_better_checkpoint({"mAP50": 0.41, "mAP50-95": 0.10}, baseline, 0.001))
-        self.assertTrue(is_better_checkpoint({"mAP50": 0.40, "mAP50-95": 0.21}, baseline, 0.001))
-        self.assertFalse(is_better_checkpoint({"mAP50": 0.40, "mAP50-95": 0.20}, baseline, 0.001))
+        improved_map = {"mAP50": 0.41, "mAP50-95": 0.10, "objectSizeRecall": {"tiny": {"recall": 0.20}}}
+        improved_tiny = {"mAP50": 0.40, "mAP50-95": 0.10, "objectSizeRecall": {"tiny": {"recall": 0.40}}}
+        unchanged = {"mAP50": 0.40, "mAP50-95": 0.20, "objectSizeRecall": {"tiny": {"recall": 0.30}}}
+
+        self.assertTrue(is_better_checkpoint(improved_map, baseline, 0.001, 0.20))
+        self.assertTrue(is_better_checkpoint(improved_tiny, baseline, 0.001, 0.20))
+        self.assertFalse(is_better_checkpoint(unchanged, baseline, 0.001, 0.20))
+
+    def test_checkpoint_rejects_tiny_recall_below_floor(self):
+        metrics = {
+            "mAP50": 0.50,
+            "mAP50-95": 0.25,
+            "objectSizeRecall": {"tiny": {"recall": 0.19}},
+        }
+
+        self.assertFalse(is_better_checkpoint(metrics, None, 0.001, 0.20))
+
+    def test_early_stopping_patience_starts_after_first_eligible_checkpoint(self):
+        self.assertFalse(consume_early_stopping_patience(None))
+        self.assertTrue(consume_early_stopping_patience({"mAP50": 0.40}))
 
     def test_model_uses_small_object_anchors(self):
-        model = build_model()
+        with patch.dict("os.environ", {
+            "TRAINING_MIN_IMAGE_SIZE": "720",
+            "TRAINING_MAX_IMAGE_SIZE": "1280",
+        }):
+            model = build_model()
 
         self.assertEqual(model.rpn.anchor_generator.sizes, SMALL_OBJECT_ANCHOR_SIZES)
         self.assertEqual(model.rpn.anchor_generator.num_anchors_per_location(), [9] * 5)
+        self.assertEqual(model.transform.min_size, (720,))
+        self.assertEqual(model.transform.max_size, 1280)
+
+    def test_image_resize_policy_validates_bounds(self):
+        self.assertEqual(
+            image_resize_policy({"TRAINING_MIN_IMAGE_SIZE": "720", "TRAINING_MAX_IMAGE_SIZE": "1280"}),
+            (720, 1280),
+        )
+        with self.assertRaisesRegex(ValueError, "resize bounds"):
+            image_resize_policy({"TRAINING_MIN_IMAGE_SIZE": "1280", "TRAINING_MAX_IMAGE_SIZE": "720"})
 
     def test_threshold_grid_includes_both_boundaries(self):
         self.assertEqual(

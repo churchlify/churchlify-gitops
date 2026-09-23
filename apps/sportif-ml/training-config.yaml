@@ -18,7 +18,10 @@ data:
     training:
       epochs: 150
       batchSize: 2
-      imageSize: 1024
+      imageResize:
+        minimumSide: 720
+        maximumSide: 1280
+        preserveAspectRatio: true
       seed: 42
       learningRate: 0.0002
       warmupEpochs: 5
@@ -39,10 +42,14 @@ data:
         contrast: 0.15
         saturation: 0.10
         canvasValue: 114
+        minimumPositiveObjectSidePixels: 8.0
       validationInterval: 5
       earlyStoppingPatience: 5
       minimumValidationImprovement: 0.001
-      checkpointSelection: best-validation-map
+      checkpointSelection:
+        primary: best-validation-map50
+        minimumTinyObjectRecall: 0.20
+        tieBreakers: [tiny-object-recall, mAP50-95]
       operatingThresholdSelection:
         sourceSplit: validation
         minimum: 0.05
@@ -70,3 +77,5 @@ data:
       gpuCount: 1
     export:
       onnx: true
+      representativeInput: 720x1280
+      dynamicSpatialAxes: true
