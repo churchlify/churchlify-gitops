@@ -46,10 +46,23 @@ class YoloDetectionDataset(Dataset):
     def has_annotations(self, index):
         return bool(self.label_path(index).read_text().strip())
 
+    def has_tiny_annotations(self, index, maximum_side=12.0):
+        image_path = self.images[index]
+        with Image.open(image_path) as image:
+            width, height = image.size
+        for line in self.label_path(index).read_text().splitlines():
+            _, _, _, box_width, box_height = map(float, line.split())
+            if max(box_width * width, box_height * height) < maximum_side:
+                return True
+        return False
+
     def __len__(self):
         return len(self.images)
 
     def __getitem__(self, index):
+        replay_slot = 0
+        if isinstance(index, tuple):
+            index, replay_slot = index
         image_path = self.images[index]
         image = Image.open(image_path).convert("RGB")
         width, height = image.size
@@ -65,7 +78,12 @@ class YoloDetectionDataset(Dataset):
             image, box_tensor, scale_record = augment_detection(
                 image,
                 box_tensor,
-                random.Random(self.seed + self.epoch * max(len(self), 1) + index),
+                random.Random(
+                    self.seed
+                    + self.epoch * max(len(self), 1)
+                    + index
+                    + replay_slot * max(len(self), 1) * 1000003
+                ),
                 self.augmentation,
                 return_metadata=True,
             )
@@ -133,20 +151,42 @@ def augment_detection(image, boxes, randomizer, config, return_metadata=False):
 
 
 class BalancedBatchSampler(Sampler):
-    def __init__(self, positive_indices, negative_indices, batch_size, seed, source_by_index=None):
+    def __init__(
+        self,
+        positive_indices,
+        negative_indices,
+        batch_size,
+        seed,
+        source_by_index=None,
+        replay_positive_indices=None,
+        replay_factor=1,
+    ):
         if not positive_indices or not negative_indices:
             raise ValueError("balanced training requires positive and negative frames")
         if batch_size < 2:
             raise ValueError("balanced training requires a batch size of at least two")
+        if replay_factor < 1:
+            raise ValueError("positive replay factor must be at least one")
+        replay_positive_indices = set(replay_positive_indices or [])
+        if not replay_positive_indices.issubset(positive_indices):
+            raise ValueError("replayed indices must be positive frames")
         self.positive_indices = list(positive_indices)
+        for replay_slot in range(1, replay_factor):
+            self.positive_indices.extend(
+                (index, replay_slot)
+                for index in positive_indices
+                if index in replay_positive_indices
+            )
         self.negative_indices = list(negative_indices)
+        self.replay_positive_indices = sorted(replay_positive_indices)
+        self.replay_factor = replay_factor
         self.positive_per_batch = max(1, batch_size // 2)
         self.negative_per_batch = batch_size - self.positive_per_batch
         self.seed = seed
         self.epoch = 0
         self.source_by_index = source_by_index or {}
         self.sources = sorted({
-            self.source_by_index.get(index, "unknown")
+            self._source(index)
             for index in self.positive_indices + self.negative_indices
         })
         self.source_balancing_active = len(self.sources) > 1
@@ -184,7 +224,7 @@ class BalancedBatchSampler(Sampler):
             return result
         by_source = {source: [] for source in self.sources}
         for index in indices:
-            by_source[self.source_by_index.get(index, "unknown")].append(index)
+            by_source[self._source(index)].append(index)
         available = [source for source in self.sources if by_source[source]]
         for source in available:
             randomizer.shuffle(by_source[source])
@@ -196,6 +236,10 @@ class BalancedBatchSampler(Sampler):
                     result.append(by_source[source][positions[source]])
                     positions[source] += 1
         return result
+
+    def _source(self, index):
+        base_index = index[0] if isinstance(index, tuple) else index
+        return self.source_by_index.get(base_index, "unknown")
 
 
 def collate(batch):
@@ -304,6 +348,13 @@ def train(dataset_id):
     validation_dataset = YoloDetectionDataset(root, "validation")
     positive_indices = [index for index in range(len(training_dataset)) if training_dataset.has_annotations(index)]
     negative_indices = [index for index in range(len(training_dataset)) if not training_dataset.has_annotations(index)]
+    tiny_positive_indices = [
+        index for index in positive_indices
+        if training_dataset.has_tiny_annotations(index)
+    ]
+    tiny_positive_replay_factor = int(
+        os.environ.get("TRAINING_TINY_POSITIVE_REPLAY_FACTOR", "4")
+    )
     batch_size = int(os.environ.get("TRAINING_BATCH_SIZE", "2"))
     source_by_index = {
         index: training_dataset.source_id(index)
@@ -315,6 +366,8 @@ def train(dataset_id):
         batch_size,
         seed,
         source_by_index,
+        replay_positive_indices=tiny_positive_indices,
+        replay_factor=tiny_positive_replay_factor,
     )
     loader = DataLoader(training_dataset, batch_sampler=sampler, collate_fn=collate)
     base_learning_rate = float(os.environ.get("TRAINING_LEARNING_RATE", "0.0002"))
@@ -478,6 +531,9 @@ def train(dataset_id):
         ),
         "trainingPositiveImages": len(positive_indices),
         "trainingNegativeImages": len(negative_indices),
+        "trainingTinyPositiveImages": len(tiny_positive_indices),
+        "tinyPositiveReplayFactor": tiny_positive_replay_factor,
+        "effectivePositiveSamplesPerEpoch": len(sampler.positive_indices),
         "baseLearningRate": base_learning_rate,
         "finalLearningRate": optimizer.param_groups[0]["lr"],
         "warmupEpochs": warmup_epochs,

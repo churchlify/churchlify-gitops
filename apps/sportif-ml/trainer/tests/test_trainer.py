@@ -206,6 +206,82 @@ class TrainerTests(unittest.TestCase):
         self.assertFalse(sampler.source_balancing_active)
         self.assertEqual(sampler.sources, ["only"])
 
+    def test_tiny_positive_replay_preserves_negative_exposure(self):
+        sampler = BalancedBatchSampler(
+            [0, 2, 4],
+            [1, 3, 5, 7],
+            batch_size=2,
+            seed=42,
+            replay_positive_indices=[0],
+            replay_factor=4,
+        )
+
+        batches = list(sampler)
+        positive_draws = [
+            item
+            for batch in batches
+            for item in batch
+            if item not in {1, 3, 5, 7}
+        ]
+
+        self.assertEqual(len(sampler.positive_indices), 6)
+        replay_draws = sum(
+            item == 0 or isinstance(item, tuple) and item[0] == 0
+            for item in positive_draws
+        )
+        self.assertEqual(replay_draws, 4)
+        self.assertTrue(all(len(set(batch) & {1, 3, 5, 7}) == 1 for batch in batches))
+
+    def test_tiny_positive_replay_uses_distinct_deterministic_augmentation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_dir = root / "train" / "images" / "video-1"
+            label_dir = root / "train" / "labels" / "video-1"
+            image_dir.mkdir(parents=True)
+            label_dir.mkdir(parents=True)
+            Image.new("RGB", (100, 80), "white").save(image_dir / "frame.jpg")
+            (label_dir / "frame.txt").write_text("0 0.5 0.5 0.1 0.1\n")
+            dataset = YoloDetectionDataset(
+                root,
+                "train",
+                augment=True,
+                seed=42,
+                augmentation={"scaleMin": 0.6, "scaleMax": 0.9},
+            )
+
+            base_image, base_target = dataset[0]
+            replay_image, replay_target = dataset[(0, 1)]
+            repeated_replay_image, repeated_replay_target = dataset[(0, 1)]
+
+            self.assertFalse(
+                torch.equal(base_image, replay_image)
+                and torch.equal(base_target["boxes"], replay_target["boxes"])
+            )
+            torch.testing.assert_close(replay_image, repeated_replay_image)
+            torch.testing.assert_close(replay_target["boxes"], repeated_replay_target["boxes"])
+
+    def test_dataset_identifies_tiny_annotations_by_maximum_side(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_dir = root / "train" / "images" / "video-1"
+            label_dir = root / "train" / "labels" / "video-1"
+            image_dir.mkdir(parents=True)
+            label_dir.mkdir(parents=True)
+            Image.new("RGB", (100, 80), "white").save(image_dir / "tiny.jpg")
+            Image.new("RGB", (100, 80), "white").save(image_dir / "small.jpg")
+            (label_dir / "tiny.txt").write_text("0 0.5 0.5 0.1 0.1\n")
+            (label_dir / "small.txt").write_text("0 0.5 0.5 0.2 0.1\n")
+            dataset = YoloDetectionDataset(root, "train")
+
+            self.assertFalse(dataset.has_tiny_annotations(0))
+            self.assertTrue(dataset.has_tiny_annotations(1))
+
+    def test_tiny_positive_replay_rejects_invalid_configuration(self):
+        with self.assertRaisesRegex(ValueError, "at least one"):
+            BalancedBatchSampler([0], [1], 2, 42, replay_factor=0)
+        with self.assertRaisesRegex(ValueError, "positive frames"):
+            BalancedBatchSampler([0], [1], 2, 42, replay_positive_indices=[2], replay_factor=2)
+
     def test_zoom_out_and_horizontal_flip_transform_boxes(self):
         image = Image.new("RGB", (100, 80), "white")
         boxes = torch.tensor([[10.0, 20.0, 30.0, 40.0]])

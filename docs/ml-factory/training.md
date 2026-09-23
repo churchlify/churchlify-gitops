@@ -11,7 +11,12 @@ seeds, requires CUDA, and constructs the model with both `weights=None` and
 The detector uses FPN anchor sizes `[4, 8, 16]`, `[8, 16, 32]`,
 `[16, 32, 64]`, `[32, 64, 128]`, and `[64, 128, 256]` to cover the approved
 dataset's small ball annotations. Training batches deterministically contain
-positive and negative frames. Each epoch records classifier, box-regression,
+positive and negative frames. Positive frames containing an annotation whose
+maximum side is under 12 pixels receive four deterministic draws per epoch,
+each with a distinct augmentation seed. This raises exposure to the six scarce
+tiny-positive training frames while every batch continues to contain a negative
+frame. Metadata records the unique tiny-positive count, replay factor, and
+effective positive sample count. Each epoch records classifier, box-regression,
 RPN-objectness, and RPN-box-regression losses separately. The optimizer uses a
 base learning rate of `0.0002`, a five-epoch linear warm-up, validation-plateau
 learning-rate reduction, and gradient clipping at norm `5.0`. Non-finite loss or

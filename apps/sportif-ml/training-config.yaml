@@ -34,6 +34,7 @@ data:
       repeatedLossExplosionThreshold: 50.0
       balancedBatches: true
       sourceAwareSampling: true
+      tinyPositiveReplayFactor: 4
       augmentation:
         trainingOnly: true
         zoomOutScale: [0.60, 1.00]
