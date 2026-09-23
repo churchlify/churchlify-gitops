@@ -221,6 +221,7 @@ tasks = training_templates["pipeline"]["dag"]["tasks"]
 expected_tasks = [
     "materialize-dataset",
     "validate-dataset",
+    "verify-trainability",
     "train",
     "evaluate",
     "export-onnx",
@@ -527,6 +528,22 @@ if {
     for name in quality_thresholds
 } != quality_thresholds:
     raise SystemExit("Model quality thresholds must remain explicit and fail closed")
+training_controls = {
+    "TRAINING_VALIDATION_INTERVAL": "5",
+    "TRAINING_VALIDATION_SCORE_THRESHOLD": "0.05",
+    "TRAINING_EARLY_STOPPING_PATIENCE": "5",
+    "TRAINING_MIN_VALIDATION_IMPROVEMENT": "0.001",
+    "TRAINABILITY_IMAGE_COUNT": "4",
+    "TRAINABILITY_STEPS": "150",
+    "TRAINABILITY_LEARNING_RATE": "0.0005",
+    "TRAINABILITY_MIN_IOU": "0.75",
+    "TRAINABILITY_MIN_SCORE": "0.90",
+}
+if {
+    name: ml_config.get("data", {}).get(name)
+    for name in training_controls
+} != training_controls:
+    raise SystemExit("Small-object training and trainability controls changed unexpectedly")
 
 workflow_templates = {
     resource["metadata"]["name"]

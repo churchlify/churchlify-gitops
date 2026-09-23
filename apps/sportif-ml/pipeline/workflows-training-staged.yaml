@@ -55,8 +55,17 @@ spec:
                   value: validate
                 - name: argument-two
                   value: "{{workflow.parameters.dataset-id}}"
-          - name: train
+          - name: verify-trainability
             dependencies: [validate-dataset]
+            template: gpu-trainer
+            arguments:
+              parameters:
+                - name: module
+                  value: sportif_ml.trainability
+                - name: argument
+                  value: "{{workflow.parameters.dataset-id}}"
+          - name: train
+            dependencies: [verify-trainability]
             template: gpu-trainer
             arguments:
               parameters:
@@ -118,7 +127,7 @@ spec:
         limit: "1"
         retryPolicy: OnError
       container:
-        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:d082db5741c26a8af68897dc247c5beebcad5da8c302cf68bd630630003eb491
+        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:ace4b771cae821bb0df6e12c978ac67f9bafc88936555152691d17d9f604af45
         imagePullPolicy: IfNotPresent
         command: [python, -m, "{{inputs.parameters.module}}"]
         args: ["{{inputs.parameters.argument}}"]
@@ -160,7 +169,7 @@ spec:
         limit: "1"
         retryPolicy: OnError
       container:
-        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:d082db5741c26a8af68897dc247c5beebcad5da8c302cf68bd630630003eb491
+        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:ace4b771cae821bb0df6e12c978ac67f9bafc88936555152691d17d9f604af45
         imagePullPolicy: IfNotPresent
         command: [python, -m, "{{inputs.parameters.module}}"]
         args:
@@ -205,7 +214,7 @@ spec:
         limit: "1"
         retryPolicy: OnError
       container:
-        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:d082db5741c26a8af68897dc247c5beebcad5da8c302cf68bd630630003eb491
+        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:ace4b771cae821bb0df6e12c978ac67f9bafc88936555152691d17d9f604af45
         imagePullPolicy: IfNotPresent
         command: [python, -m, "{{inputs.parameters.module}}"]
         args:
@@ -248,7 +257,7 @@ spec:
       podSpecPatch: |
         {"runtimeClassName":"nvidia"}
       container:
-        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:d082db5741c26a8af68897dc247c5beebcad5da8c302cf68bd630630003eb491
+        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:ace4b771cae821bb0df6e12c978ac67f9bafc88936555152691d17d9f604af45
         imagePullPolicy: IfNotPresent
         command: [python, -m, "{{inputs.parameters.module}}"]
         args: ["{{inputs.parameters.argument}}"]

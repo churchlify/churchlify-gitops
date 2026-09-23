@@ -11,9 +11,10 @@ from sportif_ml.evaluate import (
     evaluate_quality_gate,
     persist_evaluation_result,
 )
+from sportif_ml.model import SMALL_OBJECT_ANCHOR_SIZES, build_model
 from sportif_ml.provenance import require_passing_evaluation
 from sportif_ml.storage import REQUIRED_DATASET_FILES, _parse_checksums
-from sportif_ml.train import YoloDetectionDataset
+from sportif_ml.train import BalancedBatchSampler, YoloDetectionDataset, is_better_checkpoint
 
 
 class TrainerTests(unittest.TestCase):
@@ -127,6 +128,40 @@ class TrainerTests(unittest.TestCase):
                 persist_evaluation_result(path, result)
 
             self.assertEqual(__import__("json").loads(path.read_text()), result)
+
+    def test_balanced_sampler_contains_positive_and_negative_frames(self):
+        sampler = BalancedBatchSampler([0, 2, 4], [1, 3, 5, 7], batch_size=2, seed=42)
+
+        batches = list(sampler)
+
+        self.assertTrue(batches)
+        for batch in batches:
+            self.assertEqual(len(batch), 2)
+            self.assertEqual(len(set(batch) & {0, 2, 4}), 1)
+            self.assertEqual(len(set(batch) & {1, 3, 5, 7}), 1)
+
+    def test_balanced_sampler_is_deterministic_per_epoch(self):
+        sampler = BalancedBatchSampler([0, 2, 4], [1, 3, 5], batch_size=2, seed=42)
+        first = list(sampler)
+        second = list(sampler)
+        sampler.set_epoch(1)
+        third = list(sampler)
+
+        self.assertEqual(first, second)
+        self.assertNotEqual(first, third)
+
+    def test_best_checkpoint_prefers_map50_then_map50_95(self):
+        baseline = {"mAP50": 0.40, "mAP50-95": 0.20}
+
+        self.assertTrue(is_better_checkpoint({"mAP50": 0.41, "mAP50-95": 0.10}, baseline, 0.001))
+        self.assertTrue(is_better_checkpoint({"mAP50": 0.40, "mAP50-95": 0.21}, baseline, 0.001))
+        self.assertFalse(is_better_checkpoint({"mAP50": 0.40, "mAP50-95": 0.20}, baseline, 0.001))
+
+    def test_model_uses_small_object_anchors(self):
+        model = build_model()
+
+        self.assertEqual(model.rpn.anchor_generator.sizes, SMALL_OBJECT_ANCHOR_SIZES)
+        self.assertEqual(model.rpn.anchor_generator.num_anchors_per_location(), [9] * 5)
 
 
 if __name__ == "__main__":
