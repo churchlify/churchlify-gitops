@@ -6,10 +6,13 @@ false negatives. The document separates evaluator execution from model-quality
 acceptance with `executionStatus` and `qualityGateStatus`.
 
 The runtime evaluator loads the trained checkpoint, performs inference over the
-held-out test video, filters ball detections by the configured score threshold,
-and performs one-to-one score-ranked IoU matching. It reports AP at IoU 0.50 and
+held-out test video, filters ball detections by the operating threshold selected
+only from the validation split during training, and performs one-to-one
+score-ranked IoU matching. It reports AP at IoU 0.50 and
 the mean AP across thresholds 0.50 through 0.95 in 0.05 increments, plus the
 precision, recall, false-positive, and false-negative counts at IoU 0.50.
+`metrics.json` records `scoreThresholdSelection: validation` so threshold
+provenance is explicit and test-set tuning cannot be mistaken for evaluation.
 
 The release-producing workflow fails closed unless all configured minimums pass:
 

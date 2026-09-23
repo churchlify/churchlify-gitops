@@ -50,18 +50,36 @@ def average_precision(predictions, ground_truth, iou_threshold):
     return float(ap), true_positive_count, len(ranked) - true_positive_count, total_ground_truth - true_positive_count
 
 
-def evaluate_dataset(model, dataset, device, score_threshold):
-    predictions = []
+def collect_detections(model, dataset, device):
+    outputs = []
     ground_truth = []
     model.eval()
     with torch.inference_mode():
         for image_index in range(len(dataset)):
             image, target = dataset[image_index]
             output = model([image.to(device)])[0]
-            selected = (output["labels"] == 1) & (output["scores"] >= score_threshold)
-            for score, box in zip(output["scores"][selected].cpu(), output["boxes"][selected].cpu()):
-                predictions.append((float(score), image_index, box))
+            selected = output["labels"] == 1
+            outputs.append({
+                "scores": output["scores"][selected].cpu(),
+                "boxes": output["boxes"][selected].cpu(),
+            })
             ground_truth.append(target["boxes"])
+    return outputs, ground_truth
+
+
+def evaluate_detections(outputs, ground_truth, score_threshold):
+    predictions = []
+    detections_on_positive_frames = 0
+    detections_on_negative_frames = 0
+    for image_index, (output, truth) in enumerate(zip(outputs, ground_truth)):
+        selected = output["scores"] >= score_threshold
+        detection_count = int(selected.sum())
+        if len(truth):
+            detections_on_positive_frames += detection_count
+        else:
+            detections_on_negative_frames += detection_count
+        for score, box in zip(output["scores"][selected], output["boxes"][selected]):
+            predictions.append((float(score), image_index, box))
 
     thresholds = [value / 100 for value in range(50, 100, 5)]
     evaluations = {
@@ -71,14 +89,44 @@ def evaluate_dataset(model, dataset, device, score_threshold):
     ap50, true_positives, false_positives, false_negatives = evaluations[0.5]
     precision = true_positives / max(true_positives + false_positives, 1)
     recall = true_positives / max(true_positives + false_negatives, 1)
+    f1 = 2 * precision * recall / max(precision + recall, 1e-12)
     return {
-        "images": len(dataset),
+        "images": len(ground_truth),
         "annotations": sum(len(boxes) for boxes in ground_truth),
         "scoreThreshold": score_threshold,
         "precision": precision,
         "recall": recall,
+        "f1": f1,
         "mAP50": ap50,
         "mAP50-95": float(np.mean([value[0] for value in evaluations.values()])),
         "falsePositives": false_positives,
         "falseNegatives": false_negatives,
+        "detectionsOnPositiveFrames": detections_on_positive_frames,
+        "detectionsOnNegativeFrames": detections_on_negative_frames,
     }
+
+
+def evaluate_dataset(model, dataset, device, score_threshold):
+    outputs, ground_truth = collect_detections(model, dataset, device)
+    return evaluate_detections(outputs, ground_truth, score_threshold)
+
+
+def calibrate_score_threshold(outputs, ground_truth, thresholds, minimum_recall):
+    sweep = [
+        evaluate_detections(outputs, ground_truth, threshold)
+        for threshold in thresholds
+    ]
+    eligible = [metrics for metrics in sweep if metrics["recall"] >= minimum_recall]
+    candidates = eligible or sweep
+    selected = max(
+        candidates,
+        key=lambda metrics: (
+            metrics["f1"],
+            metrics["precision"],
+            metrics["recall"],
+            metrics["scoreThreshold"],
+        ),
+    )
+    selected["minimumRecallSatisfied"] = bool(eligible)
+    selected["calibrationMinimumRecall"] = minimum_recall
+    return selected.copy(), sweep

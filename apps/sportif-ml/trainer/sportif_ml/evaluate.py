@@ -61,11 +61,16 @@ def evaluate(dataset_id):
     model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
     model.to(device).eval()
     dataset = YoloDetectionDataset(root, "test")
-    score_threshold = float(os.environ.get("EVALUATION_SCORE_THRESHOLD", "0.05"))
+    metadata_path = root / "artifacts" / "training-metadata.json"
+    if not metadata_path.exists():
+        raise SystemExit("training metadata is missing")
+    training_metadata = json.loads(metadata_path.read_text())
+    score_threshold = float(training_metadata["selectedOperatingThreshold"])
     result = {
         "datasetId": dataset_id,
         "split": "test",
         "unseenSourceVideos": True,
+        "scoreThresholdSelection": "validation",
         **evaluate_dataset(model, dataset, device, score_threshold),
         "executionStatus": "PASS",
     }

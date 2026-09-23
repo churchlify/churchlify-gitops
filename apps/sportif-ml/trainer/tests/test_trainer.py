@@ -12,9 +12,16 @@ from sportif_ml.evaluate import (
     persist_evaluation_result,
 )
 from sportif_ml.model import SMALL_OBJECT_ANCHOR_SIZES, build_model
+from sportif_ml.metrics import calibrate_score_threshold
 from sportif_ml.provenance import require_passing_evaluation
 from sportif_ml.storage import REQUIRED_DATASET_FILES, _parse_checksums
-from sportif_ml.train import BalancedBatchSampler, YoloDetectionDataset, is_better_checkpoint
+from sportif_ml.train import (
+    BalancedBatchSampler,
+    YoloDetectionDataset,
+    is_better_checkpoint,
+    require_stable_loss,
+    threshold_grid,
+)
 
 
 class TrainerTests(unittest.TestCase):
@@ -162,6 +169,54 @@ class TrainerTests(unittest.TestCase):
 
         self.assertEqual(model.rpn.anchor_generator.sizes, SMALL_OBJECT_ANCHOR_SIZES)
         self.assertEqual(model.rpn.anchor_generator.num_anchors_per_location(), [9] * 5)
+
+    def test_threshold_grid_includes_both_boundaries(self):
+        self.assertEqual(
+            threshold_grid(0.05, 0.20, 0.05),
+            [0.05, 0.10, 0.15, 0.20],
+        )
+
+    def test_threshold_calibration_reduces_false_positives_with_recall_floor(self):
+        truth = [torch.tensor([[0.0, 0.0, 10.0, 10.0]]), torch.empty((0, 4))]
+        outputs = [
+            {
+                "scores": torch.tensor([0.90, 0.20]),
+                "boxes": torch.tensor([[0.0, 0.0, 10.0, 10.0], [20.0, 20.0, 30.0, 30.0]]),
+            },
+            {
+                "scores": torch.tensor([0.30]),
+                "boxes": torch.tensor([[0.0, 0.0, 5.0, 5.0]]),
+            },
+        ]
+
+        selected, sweep = calibrate_score_threshold(outputs, truth, [0.05, 0.50, 0.95], 0.50)
+
+        self.assertEqual(selected["scoreThreshold"], 0.50)
+        self.assertEqual(selected["precision"], 1.0)
+        self.assertEqual(selected["recall"], 1.0)
+        self.assertTrue(selected["minimumRecallSatisfied"])
+        self.assertEqual(len(sweep), 3)
+
+    def test_threshold_calibration_marks_unsatisfied_recall_floor(self):
+        truth = [torch.tensor([[0.0, 0.0, 10.0, 10.0]])]
+        outputs = [{"scores": torch.tensor([]), "boxes": torch.empty((0, 4))}]
+
+        selected, _ = calibrate_score_threshold(outputs, truth, [0.05, 0.50], 0.50)
+
+        self.assertFalse(selected["minimumRecallSatisfied"])
+        self.assertEqual(selected["recall"], 0.0)
+
+    def test_stable_loss_rejects_repeated_explosions(self):
+        value, count = require_stable_loss(torch.tensor(51.0), 50.0, 0)
+        self.assertEqual(value, 51.0)
+        self.assertEqual(count, 1)
+
+        with self.assertRaisesRegex(SystemExit, "repeated explosive losses"):
+            require_stable_loss(torch.tensor(52.0), 50.0, count)
+
+    def test_stable_loss_rejects_non_finite_values(self):
+        with self.assertRaisesRegex(SystemExit, "non-finite loss"):
+            require_stable_loss(torch.tensor(float("nan")), 50.0, 0)
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ from PIL import Image
 from torch.utils.data import DataLoader, Dataset, Sampler
 
 from .dataset import dataset_root, validate
-from .metrics import evaluate_dataset
+from .metrics import calibrate_score_threshold, collect_detections
 from .model import build_model, initialization_metadata
 
 
@@ -109,6 +109,26 @@ def is_better_checkpoint(metrics, best_metrics, minimum_improvement):
     )
 
 
+def threshold_grid(start, stop, step):
+    count = int(round((stop - start) / step))
+    return [round(start + index * step, 10) for index in range(count + 1)]
+
+
+def require_stable_loss(loss, explosion_threshold, consecutive_explosions):
+    value = float(loss.detach())
+    if not torch.isfinite(loss):
+        raise SystemExit("training produced a non-finite loss")
+    if value > explosion_threshold:
+        consecutive_explosions += 1
+        if consecutive_explosions >= 2:
+            raise SystemExit(
+                f"training produced repeated explosive losses above {explosion_threshold}"
+            )
+    else:
+        consecutive_explosions = 0
+    return value, consecutive_explosions
+
+
 def train(dataset_id):
     seed = int(os.environ.get("DATASET_SEED", "42"))
     random.seed(seed)
@@ -131,35 +151,75 @@ def train(dataset_id):
     batch_size = int(os.environ.get("TRAINING_BATCH_SIZE", "2"))
     sampler = BalancedBatchSampler(positive_indices, negative_indices, batch_size, seed)
     loader = DataLoader(training_dataset, batch_sampler=sampler, collate_fn=collate)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=float(os.environ.get("TRAINING_LEARNING_RATE", "0.001")))
+    base_learning_rate = float(os.environ.get("TRAINING_LEARNING_RATE", "0.0002"))
+    warmup_epochs = int(os.environ.get("TRAINING_WARMUP_EPOCHS", "5"))
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=base_learning_rate / max(warmup_epochs, 1),
+    )
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode="max",
+        factor=float(os.environ.get("TRAINING_LR_REDUCTION_FACTOR", "0.5")),
+        patience=int(os.environ.get("TRAINING_LR_PATIENCE", "2")),
+        threshold=float(os.environ.get("TRAINING_MIN_VALIDATION_IMPROVEMENT", "0.001")),
+        min_lr=float(os.environ.get("TRAINING_MIN_LEARNING_RATE", "0.000001")),
+    )
     epochs = int(os.environ.get("TRAINING_EPOCHS", "150"))
     validation_interval = int(os.environ.get("TRAINING_VALIDATION_INTERVAL", "5"))
     early_stopping_patience = int(os.environ.get("TRAINING_EARLY_STOPPING_PATIENCE", "5"))
     minimum_improvement = float(os.environ.get("TRAINING_MIN_VALIDATION_IMPROVEMENT", "0.001"))
-    validation_score_threshold = float(os.environ.get("TRAINING_VALIDATION_SCORE_THRESHOLD", "0.05"))
+    calibration_thresholds = threshold_grid(
+        float(os.environ.get("TRAINING_THRESHOLD_MIN", "0.05")),
+        float(os.environ.get("TRAINING_THRESHOLD_MAX", "0.95")),
+        float(os.environ.get("TRAINING_THRESHOLD_STEP", "0.05")),
+    )
+    calibration_minimum_recall = float(os.environ.get("TRAINING_THRESHOLD_MIN_RECALL", "0.20"))
+    gradient_clip_norm = float(os.environ.get("TRAINING_GRADIENT_CLIP_NORM", "5.0"))
+    explosion_threshold = float(os.environ.get("TRAINING_LOSS_EXPLOSION_THRESHOLD", "50.0"))
     output = root / "artifacts"
     output.mkdir(parents=True, exist_ok=True)
     best_checkpoint = output / "best-model.pt"
     epoch_losses = []
     component_loss_history = []
     validation_history = []
+    learning_rate_history = []
+    gradient_norm_history = []
+    maximum_batch_loss_history = []
     best_metrics = None
     best_epoch = None
     evaluations_without_improvement = 0
     stopped_early = False
+    consecutive_explosions = 0
     for epoch in range(epochs):
+        if epoch < warmup_epochs:
+            warmup_learning_rate = base_learning_rate * (epoch + 1) / max(warmup_epochs, 1)
+            for group in optimizer.param_groups:
+                group["lr"] = warmup_learning_rate
         sampler.set_epoch(epoch)
         model.train()
         running_loss = 0.0
         running_components = {}
+        running_gradient_norm = 0.0
+        maximum_batch_loss = 0.0
         batches = 0
         for images, targets in loader:
             losses = model([image.to(device) for image in images], [{key: value.to(device) for key, value in target.items()} for target in targets])
             loss = sum(losses.values())
+            loss_value, consecutive_explosions = require_stable_loss(
+                loss,
+                explosion_threshold,
+                consecutive_explosions,
+            )
             optimizer.zero_grad()
             loss.backward()
+            gradient_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clip_norm)
+            if not torch.isfinite(gradient_norm):
+                raise SystemExit("training produced a non-finite gradient norm")
             optimizer.step()
-            running_loss += loss.detach().item()
+            running_loss += loss_value
+            running_gradient_norm += float(gradient_norm)
+            maximum_batch_loss = max(maximum_batch_loss, loss_value)
             for name, value in losses.items():
                 running_components[name] = running_components.get(name, 0.0) + value.detach().item()
             batches += 1
@@ -170,18 +230,38 @@ def train(dataset_id):
             for name, value in sorted(running_components.items())
         }
         component_loss_history.append(component_losses)
-        progress = {"epoch": epoch + 1, "epochs": epochs, "loss": epoch_loss, "componentLosses": component_losses}
+        average_gradient_norm = running_gradient_norm / max(batches, 1)
+        current_learning_rate = optimizer.param_groups[0]["lr"]
+        gradient_norm_history.append(average_gradient_norm)
+        maximum_batch_loss_history.append(maximum_batch_loss)
+        learning_rate_history.append(current_learning_rate)
+        progress = {
+            "epoch": epoch + 1,
+            "epochs": epochs,
+            "loss": epoch_loss,
+            "maximumBatchLoss": maximum_batch_loss,
+            "averageGradientNorm": average_gradient_norm,
+            "learningRate": current_learning_rate,
+            "componentLosses": component_losses,
+        }
         should_validate = (epoch + 1) % validation_interval == 0 or epoch + 1 == epochs
         if should_validate:
-            validation_metrics = evaluate_dataset(
-                model,
-                validation_dataset,
-                device,
-                validation_score_threshold,
+            validation_outputs, validation_truth = collect_detections(
+                model, validation_dataset, device
+            )
+            validation_metrics, threshold_sweep = calibrate_score_threshold(
+                validation_outputs,
+                validation_truth,
+                calibration_thresholds,
+                calibration_minimum_recall,
             )
             validation_metrics["epoch"] = epoch + 1
-            validation_history.append(validation_metrics)
-            progress["validation"] = validation_metrics
+            validation_record = {
+                **validation_metrics,
+                "thresholdSweep": threshold_sweep,
+            }
+            validation_history.append(validation_record)
+            progress["validation"] = validation_record
             if is_better_checkpoint(validation_metrics, best_metrics, minimum_improvement):
                 best_metrics = validation_metrics.copy()
                 best_epoch = epoch + 1
@@ -191,6 +271,8 @@ def train(dataset_id):
                 evaluations_without_improvement += 1
                 if evaluations_without_improvement >= early_stopping_patience:
                     stopped_early = True
+            if epoch + 1 > warmup_epochs:
+                scheduler.step(validation_metrics["mAP50"])
         print(json.dumps(progress), flush=True)
         if stopped_early:
             break
@@ -205,17 +287,29 @@ def train(dataset_id):
         "balancedBatches": True,
         "trainingPositiveImages": len(positive_indices),
         "trainingNegativeImages": len(negative_indices),
-        "learningRate": optimizer.param_groups[0]["lr"],
+        "baseLearningRate": base_learning_rate,
+        "finalLearningRate": optimizer.param_groups[0]["lr"],
+        "warmupEpochs": warmup_epochs,
+        "learningRateHistory": learning_rate_history,
+        "gradientClipNorm": gradient_clip_norm,
+        "averageGradientNormHistory": gradient_norm_history,
+        "lossExplosionThreshold": explosion_threshold,
+        "maximumBatchLossHistory": maximum_batch_loss_history,
         "seed": seed,
         "epochLosses": epoch_losses,
         "componentLossHistory": component_loss_history,
         "finalLoss": epoch_losses[-1],
         "epochsCompleted": len(epoch_losses),
         "validationInterval": validation_interval,
-        "validationScoreThreshold": validation_score_threshold,
+        "thresholdCalibration": {
+            "sourceSplit": "validation",
+            "minimumRecall": calibration_minimum_recall,
+            "thresholds": calibration_thresholds,
+        },
         "validationHistory": validation_history,
         "bestValidationEpoch": best_epoch,
         "bestValidationMetrics": best_metrics,
+        "selectedOperatingThreshold": best_metrics["scoreThreshold"],
         "earlyStoppingPatience": early_stopping_patience,
         "minimumValidationImprovement": minimum_improvement,
         "stoppedEarly": stopped_early,

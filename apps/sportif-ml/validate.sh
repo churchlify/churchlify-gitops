@@ -529,10 +529,20 @@ if {
 } != quality_thresholds:
     raise SystemExit("Model quality thresholds must remain explicit and fail closed")
 training_controls = {
+    "TRAINING_LEARNING_RATE": "0.0002",
+    "TRAINING_WARMUP_EPOCHS": "5",
+    "TRAINING_LR_REDUCTION_FACTOR": "0.5",
+    "TRAINING_LR_PATIENCE": "2",
+    "TRAINING_MIN_LEARNING_RATE": "0.000001",
+    "TRAINING_GRADIENT_CLIP_NORM": "5.0",
+    "TRAINING_LOSS_EXPLOSION_THRESHOLD": "50.0",
     "TRAINING_VALIDATION_INTERVAL": "5",
-    "TRAINING_VALIDATION_SCORE_THRESHOLD": "0.05",
     "TRAINING_EARLY_STOPPING_PATIENCE": "5",
     "TRAINING_MIN_VALIDATION_IMPROVEMENT": "0.001",
+    "TRAINING_THRESHOLD_MIN": "0.05",
+    "TRAINING_THRESHOLD_MAX": "0.95",
+    "TRAINING_THRESHOLD_STEP": "0.05",
+    "TRAINING_THRESHOLD_MIN_RECALL": "0.20",
     "TRAINABILITY_IMAGE_COUNT": "4",
     "TRAINABILITY_STEPS": "150",
     "TRAINABILITY_LEARNING_RATE": "0.0005",
@@ -544,6 +554,8 @@ if {
     for name in training_controls
 } != training_controls:
     raise SystemExit("Small-object training and trainability controls changed unexpectedly")
+if "EVALUATION_SCORE_THRESHOLD" in ml_config.get("data", {}):
+    raise SystemExit("Test evaluation must use only the validation-selected operating threshold")
 
 workflow_templates = {
     resource["metadata"]["name"]

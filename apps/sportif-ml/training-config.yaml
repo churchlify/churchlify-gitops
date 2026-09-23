@@ -20,12 +20,27 @@ data:
       batchSize: 2
       imageSize: 1024
       seed: 42
-      learningRate: 0.001
+      learningRate: 0.0002
+      warmupEpochs: 5
+      learningRateScheduler:
+        type: reduce-on-validation-plateau
+        factor: 0.5
+        patience: 2
+        minimumLearningRate: 0.000001
+      gradientClipNorm: 5.0
+      repeatedLossExplosionThreshold: 50.0
       balancedBatches: true
       validationInterval: 5
       earlyStoppingPatience: 5
       minimumValidationImprovement: 0.001
       checkpointSelection: best-validation-map
+      operatingThresholdSelection:
+        sourceSplit: validation
+        minimum: 0.05
+        maximum: 0.95
+        step: 0.05
+        minimumRecall: 0.20
+        objective: maximum-f1
     trainabilitySmoke:
       images: 4
       steps: 150
