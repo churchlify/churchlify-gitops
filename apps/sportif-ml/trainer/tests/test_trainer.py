@@ -12,12 +12,17 @@ from sportif_ml.evaluate import (
     persist_evaluation_result,
 )
 from sportif_ml.model import SMALL_OBJECT_ANCHOR_SIZES, build_model
-from sportif_ml.metrics import calibrate_score_threshold
+from sportif_ml.metrics import (
+    calibrate_score_threshold,
+    object_size_recall,
+    per_source_metrics,
+)
 from sportif_ml.provenance import require_passing_evaluation
 from sportif_ml.storage import REQUIRED_DATASET_FILES, _parse_checksums
 from sportif_ml.train import (
     BalancedBatchSampler,
     YoloDetectionDataset,
+    augment_detection,
     is_better_checkpoint,
     require_stable_loss,
     threshold_grid,
@@ -25,6 +30,21 @@ from sportif_ml.train import (
 
 
 class TrainerTests(unittest.TestCase):
+    class FixedRandom:
+        def __init__(self, uniform_values, randint_values, random_values):
+            self.uniform_values = iter(uniform_values)
+            self.randint_values = iter(randint_values)
+            self.random_values = iter(random_values)
+
+        def uniform(self, _minimum, _maximum):
+            return next(self.uniform_values)
+
+        def randint(self, _minimum, _maximum):
+            return next(self.randint_values)
+
+        def random(self):
+            return next(self.random_values)
+
     def test_negative_frame_has_empty_n_by_four_boxes(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -156,6 +176,125 @@ class TrainerTests(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertNotEqual(first, third)
+
+    def test_source_aware_sampler_round_robins_sources(self):
+        sampler = BalancedBatchSampler(
+            [0, 2, 4, 6],
+            [1, 3, 5, 7],
+            batch_size=2,
+            seed=42,
+            source_by_index={0: "a", 1: "a", 2: "a", 3: "a", 4: "b", 5: "b", 6: "b", 7: "b"},
+        )
+
+        positive_order = sampler._ordered_indices([0, 2, 4, 6], __import__("random").Random(42))
+
+        self.assertTrue(sampler.source_balancing_active)
+        self.assertEqual(
+            [sampler.source_by_index[index] for index in positive_order],
+            ["a", "b", "a", "b"],
+        )
+
+    def test_source_balancing_is_inactive_for_one_source(self):
+        sampler = BalancedBatchSampler(
+            [0, 2], [1, 3], batch_size=2, seed=42,
+            source_by_index={0: "only", 1: "only", 2: "only", 3: "only"},
+        )
+
+        self.assertFalse(sampler.source_balancing_active)
+        self.assertEqual(sampler.sources, ["only"])
+
+    def test_zoom_out_and_horizontal_flip_transform_boxes(self):
+        image = Image.new("RGB", (100, 80), "white")
+        boxes = torch.tensor([[10.0, 20.0, 30.0, 40.0]])
+        randomizer = self.FixedRandom([0.5], [10, 5], [0.0])
+
+        transformed_image, transformed_boxes = augment_detection(
+            image,
+            boxes,
+            randomizer,
+            {"scaleMin": 0.5, "scaleMax": 0.5, "horizontalFlipProbability": 1.0},
+        )
+
+        self.assertEqual(transformed_image.size, image.size)
+        torch.testing.assert_close(
+            transformed_boxes,
+            torch.tensor([[75.0, 15.0, 85.0, 25.0]]),
+        )
+
+    def test_augmentation_preserves_empty_negative_boxes(self):
+        image = Image.new("RGB", (100, 80), "white")
+        randomizer = self.FixedRandom([0.5], [10, 5], [0.0])
+
+        _, boxes = augment_detection(
+            image,
+            torch.empty((0, 4)),
+            randomizer,
+            {"scaleMin": 0.5, "scaleMax": 0.5, "horizontalFlipProbability": 1.0},
+        )
+
+        self.assertEqual(tuple(boxes.shape), (0, 4))
+
+    def test_dataset_augmentation_is_deterministic_per_epoch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_dir = root / "train" / "images" / "video-1"
+            label_dir = root / "train" / "labels" / "video-1"
+            image_dir.mkdir(parents=True)
+            label_dir.mkdir(parents=True)
+            Image.new("RGB", (32, 24), "white").save(image_dir / "frame.jpg")
+            (label_dir / "frame.txt").write_text("0 0.5 0.5 0.25 0.25\n")
+            dataset = YoloDetectionDataset(
+                root,
+                "train",
+                augment=True,
+                seed=42,
+                augmentation={"scaleMin": 0.6, "scaleMax": 0.9, "horizontalFlipProbability": 0.5},
+            )
+
+            first_image, first_target = dataset[0]
+            second_image, second_target = dataset[0]
+            dataset.set_epoch(1)
+            third_image, third_target = dataset[0]
+
+            torch.testing.assert_close(first_image, second_image)
+            torch.testing.assert_close(first_target["boxes"], second_target["boxes"])
+            self.assertFalse(
+                torch.equal(first_image, third_image)
+                and torch.equal(first_target["boxes"], third_target["boxes"])
+            )
+
+    def test_per_source_metrics_partition_outputs(self):
+        class Dataset:
+            def source_id(self, index):
+                return ["source-a", "source-b"][index]
+
+        truth = [torch.tensor([[0.0, 0.0, 10.0, 10.0]]), torch.empty((0, 4))]
+        outputs = [
+            {"scores": torch.tensor([0.9]), "boxes": torch.tensor([[0.0, 0.0, 10.0, 10.0]])},
+            {"scores": torch.tensor([0.8]), "boxes": torch.tensor([[0.0, 0.0, 5.0, 5.0]])},
+        ]
+
+        metrics = per_source_metrics(outputs, truth, Dataset(), 0.5)
+
+        self.assertEqual(metrics["source-a"]["recall"], 1.0)
+        self.assertEqual(metrics["source-b"]["falsePositives"], 1)
+
+    def test_object_size_recall_reports_bands(self):
+        truth = [torch.tensor([
+            [0.0, 0.0, 8.0, 8.0],
+            [20.0, 20.0, 36.0, 36.0],
+            [50.0, 50.0, 80.0, 80.0],
+        ])]
+        outputs = [{
+            "scores": torch.tensor([0.9, 0.9]),
+            "boxes": torch.tensor([[0.0, 0.0, 8.0, 8.0], [50.0, 50.0, 80.0, 80.0]]),
+        }]
+
+        metrics = object_size_recall(outputs, truth, 0.5)
+
+        self.assertEqual(metrics["tiny"]["recall"], 1.0)
+        self.assertEqual(metrics["small"]["recall"], 0.0)
+        self.assertEqual(metrics["larger"]["recall"], 1.0)
 
     def test_best_checkpoint_prefers_map50_then_map50_95(self):
         baseline = {"mAP50": 0.40, "mAP50-95": 0.20}

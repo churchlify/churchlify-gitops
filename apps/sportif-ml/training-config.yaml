@@ -30,6 +30,15 @@ data:
       gradientClipNorm: 5.0
       repeatedLossExplosionThreshold: 50.0
       balancedBatches: true
+      sourceAwareSampling: true
+      augmentation:
+        trainingOnly: true
+        zoomOutScale: [0.60, 1.00]
+        horizontalFlipProbability: 0.50
+        brightness: 0.15
+        contrast: 0.15
+        saturation: 0.10
+        canvasValue: 114
       validationInterval: 5
       earlyStoppingPatience: 5
       minimumValidationImprovement: 0.001
@@ -41,6 +50,9 @@ data:
         step: 0.05
         minimumRecall: 0.20
         objective: maximum-f1
+      validationReporting:
+        perSource: true
+        objectSizeRecallBandsPixels: [12, 24]
     trainabilitySmoke:
       images: 4
       steps: 150

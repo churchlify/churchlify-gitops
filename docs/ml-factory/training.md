@@ -15,6 +15,19 @@ learning-rate reduction, and gradient clipping at norm `5.0`. Non-finite loss or
 two consecutive batch losses above `50.0` fail the run instead of allowing an
 unstable checkpoint to continue training.
 
+Training-only augmentation is deterministic for the configured seed, epoch, and
+image index. It applies horizontal reflection, bounded brightness/contrast/color
+variation, and whole-frame zoom-out from `1.00` to `0.60` on a neutral canvas.
+Zoom-out translates every box without cropping and is intended to cover the
+approved validation video's smaller ball distribution. Validation and test
+images are never augmented.
+
+Positive and negative sampling is source-aware. When an approved training split
+contains multiple source videos, each class pool is round-robin ordered across
+sources before batches are assembled. The current `sportif-ball-v001` training
+split contains only `VID-20260922-001`, so metadata must report source balancing
+as inactive; augmentation does not substitute for real source diversity.
+
 Before full training, a GPU smoke stage must overfit four deterministic positive
 frames within 150 steps, reaching at least IoU `0.75` and confidence `0.90` on
 each frame. Full training evaluates only the validation split every five epochs,
@@ -27,6 +40,9 @@ thresholds `0.05` through `0.95`. The trainer selects the threshold with maximum
 F1 among thresholds retaining at least `0.20` validation recall. That threshold
 is stored with the best checkpoint and is the only operating threshold used by
 the final test evaluator; the test split is never used for threshold tuning.
+Each validation checkpoint also records metrics by source-video directory and
+recall for objects whose maximum box side is under 12 pixels, 12–23 pixels, or
+at least 24 pixels. These diagnostics do not alter the release thresholds.
 
 The model source and license are recorded in `model-manifest.json`. Dependency
 and license inventory must be completed before release; code license and model

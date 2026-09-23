@@ -111,6 +111,49 @@ def evaluate_dataset(model, dataset, device, score_threshold):
     return evaluate_detections(outputs, ground_truth, score_threshold)
 
 
+def per_source_metrics(outputs, ground_truth, dataset, score_threshold):
+    grouped = {}
+    for index in range(len(ground_truth)):
+        grouped.setdefault(dataset.source_id(index), []).append(index)
+    return {
+        source: evaluate_detections(
+            [outputs[index] for index in indices],
+            [ground_truth[index] for index in indices],
+            score_threshold,
+        )
+        for source, indices in sorted(grouped.items())
+    }
+
+
+def object_size_recall(outputs, ground_truth, score_threshold, iou_threshold=0.5):
+    bands = {
+        "tiny": {"annotations": 0, "truePositives": 0},
+        "small": {"annotations": 0, "truePositives": 0},
+        "larger": {"annotations": 0, "truePositives": 0},
+    }
+    for output, truth in zip(outputs, ground_truth):
+        selected_boxes = output["boxes"][output["scores"] >= score_threshold]
+        matched_predictions = set()
+        if len(truth):
+            areas = (truth[:, 2] - truth[:, 0]) * (truth[:, 3] - truth[:, 1])
+            for truth_index in torch.argsort(areas).tolist():
+                box = truth[truth_index]
+                maximum_side = float(torch.max(box[2:] - box[:2]))
+                band = "tiny" if maximum_side < 12 else "small" if maximum_side < 24 else "larger"
+                bands[band]["annotations"] += 1
+                if len(selected_boxes):
+                    overlaps = box_iou(box.unsqueeze(0), selected_boxes).squeeze(0)
+                    for prediction_index in torch.argsort(overlaps, descending=True).tolist():
+                        if prediction_index not in matched_predictions and float(overlaps[prediction_index]) >= iou_threshold:
+                            matched_predictions.add(prediction_index)
+                            bands[band]["truePositives"] += 1
+                            break
+    for values in bands.values():
+        values["falseNegatives"] = values["annotations"] - values["truePositives"]
+        values["recall"] = values["truePositives"] / max(values["annotations"], 1)
+    return bands
+
+
 def calibrate_score_threshold(outputs, ground_truth, thresholds, minimum_recall):
     sweep = [
         evaluate_detections(outputs, ground_truth, threshold)
