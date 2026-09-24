@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -19,6 +20,13 @@ from sportif_ml.metrics import (
     per_source_metrics,
 )
 from sportif_ml.provenance import require_passing_evaluation
+from sportif_ml.release import (
+    approval_template,
+    build_release_package,
+    python_dependency_inventory,
+    validate_approval,
+    verify_candidate,
+)
 from sportif_ml.storage import REQUIRED_DATASET_FILES, _parse_checksums
 from sportif_ml.train import (
     BalancedBatchSampler,
@@ -142,6 +150,278 @@ class TrainerTests(unittest.TestCase):
                 "qualityGateFailures": [],
             }
         )
+
+    def release_candidate(self, root, provenance):
+        artifacts = {
+            "model.pt": b"checkpoint",
+            "model.onnx": b"onnx",
+            "metrics.json": json.dumps({
+                "executionStatus": "PASS",
+                "qualityGateStatus": "PASS",
+                "qualityGateFailures": [],
+                "mAP50": 0.7,
+                "mAP50-95": 0.3,
+                "precision": 0.8,
+                "recall": 0.65,
+                "scoreThreshold": 0.25,
+            }).encode(),
+            "onnx-validation.json": json.dumps({
+                "onnxValid": True,
+                "runtimeValidation": "PASS",
+            }).encode(),
+            "training-metadata.json": json.dumps({
+                "datasetId": "sportif-ball-v002",
+                "seed": 42,
+                "epochs": 150,
+                "epochsCompleted": 30,
+                "batchSize": 2,
+                "baseLearningRate": 0.0002,
+                "selectedOperatingThreshold": 0.25,
+                "bestValidationEpoch": 25,
+                "bestValidationMetrics": {"mAP50": 0.7},
+                "initialization": "random",
+                "pretrainedWeightsUsed": False,
+            }).encode(),
+        }
+        manifest = {
+            "schemaVersion": 1,
+            "modelId": "sportif-ball-detector-v001",
+            "status": "CANDIDATE",
+            "architecture": {"name": "Faster R-CNN", "license": "BSD-3-Clause"},
+            "training": {
+                "initialization": "random",
+                "pretrainedWeightsUsed": False,
+                "datasetId": "sportif-ball-v002",
+                "seed": 42,
+            },
+            "datasetContentSha256": "a" * 64,
+            "evaluation": json.loads(artifacts["metrics.json"]),
+            "artifacts": {
+                name: {
+                    "sha256": __import__("hashlib").sha256(content).hexdigest(),
+                    "bytes": len(content),
+                }
+                for name, content in artifacts.items()
+            },
+            "commercialGate": {
+                "datasetRightsVerified": True,
+                "datasetApprovalGranted": True,
+                "trainingCodeLicenseVerified": True,
+                "dependencyLicensesVerified": False,
+                "pretrainedWeightsUsed": False,
+                "provenanceComplete": True,
+                "releaseApproved": False,
+            },
+        }
+        artifacts["model-manifest.json"] = json.dumps(manifest).encode()
+        for name, content in artifacts.items():
+            (root / name).write_bytes(content)
+        checksums = [
+            f"{__import__('hashlib').sha256((root / name).read_bytes()).hexdigest()}  {name}"
+            for name in sorted(artifacts)
+        ]
+        (root / "SHA256SUMS").write_text("\n".join(checksums) + "\n")
+        dataset_manifest = {
+            "datasetId": "sportif-ball-v002",
+            "contentSha256": "a" * 64,
+        }
+        dataset_validation = {
+            "datasetId": "sportif-ball-v002",
+            "contentSha256": "a" * 64,
+            "status": "PASS",
+            "errors": [],
+        }
+        dataset_approval = {
+            "datasetId": "sportif-ball-v002",
+            "datasetContentSha256": "a" * 64,
+            "datasetApprovalGranted": True,
+            "rightsVerified": True,
+            "aiTrainingPermissionVerified": True,
+        }
+        materialization = {
+            "datasetId": "sportif-ball-v002",
+            "datasetContentSha256": "a" * 64,
+        }
+        documents = {
+            "dataset-manifest.json": dataset_manifest,
+            "dataset-validation.json": dataset_validation,
+            "dataset-approval.json": dataset_approval,
+            "materialization.json": materialization,
+        }
+        for name, document in documents.items():
+            (provenance / name).write_text(json.dumps(document))
+        for name in ("training-metadata.json", "metrics.json", "onnx-validation.json", "model-manifest.json", "SHA256SUMS"):
+            (provenance / name).write_bytes((root / name).read_bytes())
+        return verify_candidate(
+            root, provenance, "sportif-ball-detector-v001", "training-run-1"
+        )
+
+    def release_inventory(self):
+        return {
+            "pythonPackages": [{
+                "name": "torch",
+                "version": "2.5.1+cu124",
+                "declaredLicense": "BSD License",
+                "source": "https://pytorch.org/",
+            }],
+            "systemPackages": [{"name": "libc6", "version": "2.35"}],
+            "pythonInventorySha256": "b" * 64,
+            "systemInventorySha256": "c" * 64,
+        }
+
+    def release_approval(self, candidate):
+        return {
+            "schemaVersion": 1,
+            "modelId": "sportif-ball-detector-v001",
+            "candidateRunId": "training-run-1",
+            "candidateManifestSha256": candidate["manifestSha256"],
+            "candidateChecksumSetSha256": candidate["checksumSetSha256"],
+            "pythonInventorySha256": "b" * 64,
+            "systemInventorySha256": "c" * 64,
+            "status": "APPROVED",
+            "decision": "APPROVE",
+            "dependencyLicensesVerified": True,
+            "organizationalCommercialApprovalGranted": True,
+            "productionPromotionAuthorized": True,
+            "approvedBy": "Release Reviewer",
+            "approverRole": "Commercial Release Approver",
+            "approvedAtUtc": "2026-09-24T12:00:00+00:00",
+        }
+
+    def test_release_approval_is_bound_to_exact_candidate_hashes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            candidate_root = root / "candidate"
+            provenance = root / "provenance"
+            candidate_root.mkdir()
+            provenance.mkdir()
+            candidate = self.release_candidate(candidate_root, provenance)
+            approval = self.release_approval(candidate)
+            approval["candidateManifestSha256"] = "0" * 64
+
+            with self.assertRaisesRegex(SystemExit, "commercial release approval gate failed"):
+                validate_approval(
+                    approval, "sportif-ball-detector-v001", candidate, self.release_inventory()
+                )
+
+    def test_release_approval_template_never_grants_approval(self):
+        candidate = {
+            "candidateRunId": "training-run-1",
+            "manifestSha256": "a" * 64,
+            "checksumSetSha256": "b" * 64,
+        }
+        inventory = self.release_inventory()
+
+        template = approval_template("sportif-ball-detector-v001", candidate, inventory)
+
+        self.assertEqual(template["status"], "PENDING")
+        self.assertEqual(template["decision"], "PENDING")
+        self.assertFalse(template["dependencyLicensesVerified"])
+        self.assertFalse(template["organizationalCommercialApprovalGranted"])
+        self.assertFalse(template["productionPromotionAuthorized"])
+        self.assertEqual(template["approvedBy"], "")
+
+    @patch("sportif_ml.release.importlib.metadata.distributions")
+    def test_dependency_inventory_accepts_empty_license_metadata(self, distributions):
+        distribution = unittest.mock.MagicMock()
+        distribution.version = "1.0"
+        distribution.metadata.get.side_effect = lambda key, default=None: {
+            "Name": "package-without-license",
+            "License": "",
+            "License-Expression": None,
+            "Home-page": "https://example.invalid/source",
+        }.get(key, default)
+        distribution.metadata.get_all.side_effect = lambda key, default=None: default or []
+        distributions.return_value = [distribution]
+
+        self.assertEqual(
+            python_dependency_inventory(),
+            [{
+                "name": "package-without-license",
+                "version": "1.0",
+                "declaredLicense": None,
+                "source": "https://example.invalid/source",
+            }],
+        )
+
+    def test_release_approval_requires_all_human_gates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            candidate_root = root / "candidate"
+            provenance = root / "provenance"
+            candidate_root.mkdir()
+            provenance.mkdir()
+            candidate = self.release_candidate(candidate_root, provenance)
+            approval = self.release_approval(candidate)
+            approval["productionPromotionAuthorized"] = False
+
+            with self.assertRaisesRegex(SystemExit, "commercial release approval gate failed"):
+                validate_approval(
+                    approval, "sportif-ball-detector-v001", candidate, self.release_inventory()
+                )
+
+    def test_candidate_manifest_artifact_hashes_must_match(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            candidate_root = root / "candidate"
+            provenance = root / "provenance"
+            candidate_root.mkdir()
+            provenance.mkdir()
+            self.release_candidate(candidate_root, provenance)
+            manifest = json.loads((candidate_root / "model-manifest.json").read_text())
+            manifest["artifacts"]["model.pt"]["sha256"] = "0" * 64
+            (candidate_root / "model-manifest.json").write_text(json.dumps(manifest))
+            checksum_lines = []
+            for name in sorted(path.name for path in candidate_root.iterdir() if path.name != "SHA256SUMS"):
+                checksum_lines.append(
+                    f"{__import__('hashlib').sha256((candidate_root / name).read_bytes()).hexdigest()}  {name}"
+                )
+            (candidate_root / "SHA256SUMS").write_text("\n".join(checksum_lines) + "\n")
+            for name in ("model-manifest.json", "SHA256SUMS"):
+                (provenance / name).write_bytes((candidate_root / name).read_bytes())
+
+            with self.assertRaisesRegex(SystemExit, "artifact metadata does not match"):
+                verify_candidate(
+                    candidate_root,
+                    provenance,
+                    "sportif-ball-detector-v001",
+                    "training-run-1",
+                )
+
+    def test_release_package_is_released_and_checksum_complete(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            candidate_root = root / "candidate"
+            provenance = root / "provenance"
+            candidate_root.mkdir()
+            provenance.mkdir()
+            candidate = self.release_candidate(candidate_root, provenance)
+            inventory = self.release_inventory()
+            approval = self.release_approval(candidate)
+            validate_approval(approval, "sportif-ball-detector-v001", candidate, inventory)
+            output = root / "release"
+
+            manifest = build_release_package(
+                candidate_root, provenance, output, candidate, approval, "release-1", inventory
+            )
+
+            self.assertEqual(manifest["status"], "RELEASED")
+            self.assertTrue(manifest["commercialGate"]["dependencyLicensesVerified"])
+            self.assertTrue(manifest["commercialGate"]["releaseApproved"])
+            self.assertTrue((output / "training-config.yaml").is_file())
+            self.assertTrue((output / "licenses" / "dependency-licenses.json").is_file())
+            self.assertTrue((output / "notices" / "README.md").is_file())
+            self.assertTrue((output / "dataset-manifest.json").is_file())
+            checksum_paths = {
+                line.split("  ", 1)[1]
+                for line in (output / "SHA256SUMS").read_text().splitlines()
+            }
+            expected_paths = {
+                path.relative_to(output).as_posix()
+                for path in output.rglob("*")
+                if path.is_file() and path.name != "SHA256SUMS"
+            }
+            self.assertEqual(checksum_paths, expected_paths)
 
     def test_failed_quality_result_is_persisted_before_exit(self):
         result = {
