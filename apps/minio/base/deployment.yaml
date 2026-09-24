@@ -15,9 +15,11 @@ spec:
       labels:
         app: minio
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: k8s-worker-01
       containers:
         - name: minio
-          image: docker.io/bitnami/minio:2024.1.18
+          image: minio/minio:RELEASE.2024-01-18T22-51-28Z
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
