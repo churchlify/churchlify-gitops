@@ -88,3 +88,28 @@ pending or false until a named organizational reviewer changes it after review.
 Creating a release package does not by itself deploy a runtime consumer. A
 production deployment must reference the exact immutable release ID and retain a
 documented rollback target.
+
+## Verified release-tool image
+
+The release-tool image built from Git revision
+`011c5f91dd9db127fd5ad67cc0f547300b1c7a09` was published and independently
+pulled on September 24, 2026 as:
+
+```text
+ghcr.io/bjelugbo/sportif-ball-trainer@sha256:e56c201cfc81f76b54ff5dff18011aeb803afb13e0c92003e99ef5f129b27838
+```
+
+The pulled digest passed all 42 trainer tests. Its complete environment inventory
+contains 171 Python distributions and 300 Debian packages, bound to these hashes:
+
+```text
+pythonInventorySha256: 685122946bcecd694f0e74bc33a0e5ad14c06c3c4daad602ba5824dd1736f18b
+systemInventorySha256: 425d21136d335f5801359927fb12a5098d59e999d346e7bd5b4bc48a77f2ca30
+```
+
+Installed Python metadata does not declare a license for
+`conda-package-handling`, `conda_index`, `libmambapy`, or `mamba`; `archspec`
+reports an `Other/Proprietary License` classifier. These are review findings, not
+legal conclusions. Keep `dependencyLicensesVerified` false until a named
+organizational reviewer resolves those findings and reviews the complete Python
+and Debian inventories from the exact image digest above.
