@@ -171,7 +171,7 @@ spec:
   arguments:
     parameters:
       - name: dataset-id
-        value: sportif-ball-v001
+        value: sportif-ball-v002
 EOF
 ```
 

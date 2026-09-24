@@ -14,7 +14,7 @@ data:
       type: random
       pretrainedWeights: false
     dataset:
-      id: sportif-ball-v001
+      id: sportif-ball-v002
     training:
       epochs: 150
       batchSize: 2
