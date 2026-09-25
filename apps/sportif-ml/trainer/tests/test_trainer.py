@@ -16,6 +16,7 @@ from sportif_ml.evaluate import (
 from sportif_ml.model import SMALL_OBJECT_ANCHOR_SIZES, build_model, image_resize_policy
 from sportif_ml.metrics import (
     calibrate_score_threshold,
+    evaluate_detections,
     object_size_recall,
     per_source_metrics,
 )
@@ -83,6 +84,28 @@ class TrainerTests(unittest.TestCase):
         prediction = torch.tensor([0.0, 0.0, 4.0, 4.0])
         result = average_precision([(0.8, 0, prediction)], [torch.empty((0, 4))], 0.5)
         self.assertEqual(result, (0.0, 0, 1, 0))
+
+    def test_evaluation_reports_negative_frame_detection_rate(self):
+        outputs = [
+            {
+                "scores": torch.tensor([0.9]),
+                "boxes": torch.tensor([[0.0, 0.0, 4.0, 4.0]]),
+            },
+            {
+                "scores": torch.tensor([0.8, 0.7]),
+                "boxes": torch.tensor(
+                    [[0.0, 0.0, 4.0, 4.0], [5.0, 5.0, 9.0, 9.0]]
+                ),
+            },
+        ]
+        truth = [torch.tensor([[0.0, 0.0, 4.0, 4.0]]), torch.empty((0, 4))]
+
+        metrics = evaluate_detections(outputs, truth, 0.5)
+
+        self.assertEqual(metrics["positiveFrames"], 1)
+        self.assertEqual(metrics["negativeFrames"], 1)
+        self.assertEqual(metrics["detectionsOnNegativeFrames"], 2)
+        self.assertEqual(metrics["detectionsPerNegativeFrame"], 2.0)
 
     def test_dataset_inventory_uses_path_objects_for_required_files(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -708,25 +731,47 @@ class TrainerTests(unittest.TestCase):
         baseline = {
             "mAP50": 0.40,
             "mAP50-95": 0.20,
-            "objectSizeRecall": {"tiny": {"recall": 0.30}},
+            "operatingPointConstraintsSatisfied": True,
+            "objectSizeRecall": {"tiny": {"annotations": 10, "recall": 0.30}},
         }
 
-        improved_map = {"mAP50": 0.41, "mAP50-95": 0.10, "objectSizeRecall": {"tiny": {"recall": 0.20}}}
-        improved_tiny = {"mAP50": 0.40, "mAP50-95": 0.10, "objectSizeRecall": {"tiny": {"recall": 0.40}}}
-        unchanged = {"mAP50": 0.40, "mAP50-95": 0.20, "objectSizeRecall": {"tiny": {"recall": 0.30}}}
+        improved_map = {"mAP50": 0.41, "mAP50-95": 0.10, "operatingPointConstraintsSatisfied": True, "objectSizeRecall": {"tiny": {"annotations": 10, "recall": 0.20}}}
+        improved_tiny = {"mAP50": 0.40, "mAP50-95": 0.10, "operatingPointConstraintsSatisfied": True, "objectSizeRecall": {"tiny": {"annotations": 10, "recall": 0.40}}}
+        unchanged = {"mAP50": 0.40, "mAP50-95": 0.20, "operatingPointConstraintsSatisfied": True, "objectSizeRecall": {"tiny": {"annotations": 10, "recall": 0.30}}}
 
-        self.assertTrue(is_better_checkpoint(improved_map, baseline, 0.001, 0.20))
-        self.assertTrue(is_better_checkpoint(improved_tiny, baseline, 0.001, 0.20))
-        self.assertFalse(is_better_checkpoint(unchanged, baseline, 0.001, 0.20))
+        self.assertTrue(is_better_checkpoint(improved_map, baseline, 0.001, 0.20, 10))
+        self.assertTrue(is_better_checkpoint(improved_tiny, baseline, 0.001, 0.20, 10))
+        self.assertFalse(is_better_checkpoint(unchanged, baseline, 0.001, 0.20, 10))
 
     def test_checkpoint_rejects_tiny_recall_below_floor(self):
         metrics = {
             "mAP50": 0.50,
             "mAP50-95": 0.25,
-            "objectSizeRecall": {"tiny": {"recall": 0.19}},
+            "operatingPointConstraintsSatisfied": True,
+            "objectSizeRecall": {"tiny": {"annotations": 10, "recall": 0.19}},
         }
 
-        self.assertFalse(is_better_checkpoint(metrics, None, 0.001, 0.20))
+        self.assertFalse(is_better_checkpoint(metrics, None, 0.001, 0.20, 10))
+
+    def test_checkpoint_rejects_ineligible_operating_point(self):
+        metrics = {
+            "mAP50": 0.50,
+            "mAP50-95": 0.25,
+            "operatingPointConstraintsSatisfied": False,
+            "objectSizeRecall": {"tiny": {"annotations": 10, "recall": 1.0}},
+        }
+
+        self.assertFalse(is_better_checkpoint(metrics, None, 0.001, 0.20, 10))
+
+    def test_checkpoint_rejects_single_tiny_annotation(self):
+        metrics = {
+            "mAP50": 0.50,
+            "mAP50-95": 0.25,
+            "operatingPointConstraintsSatisfied": True,
+            "objectSizeRecall": {"tiny": {"annotations": 1, "recall": 1.0}},
+        }
+
+        self.assertFalse(is_better_checkpoint(metrics, None, 0.001, 0.20, 10))
 
     def test_early_stopping_patience_starts_after_first_eligible_checkpoint(self):
         self.assertFalse(consume_early_stopping_patience(None))
@@ -771,12 +816,22 @@ class TrainerTests(unittest.TestCase):
             },
         ]
 
-        selected, sweep = calibrate_score_threshold(outputs, truth, [0.05, 0.50, 0.95], 0.50)
+        selected, sweep = calibrate_score_threshold(
+            outputs,
+            truth,
+            [0.05, 0.50, 0.95],
+            0.50,
+            0.60,
+            0.10,
+        )
 
         self.assertEqual(selected["scoreThreshold"], 0.50)
         self.assertEqual(selected["precision"], 1.0)
         self.assertEqual(selected["recall"], 1.0)
         self.assertTrue(selected["minimumRecallSatisfied"])
+        self.assertTrue(selected["minimumPrecisionSatisfied"])
+        self.assertTrue(selected["maximumNegativeFrameDetectionRateSatisfied"])
+        self.assertTrue(selected["operatingPointConstraintsSatisfied"])
         self.assertEqual(len(sweep), 3)
 
     def test_threshold_calibration_marks_unsatisfied_recall_floor(self):
@@ -786,7 +841,35 @@ class TrainerTests(unittest.TestCase):
         selected, _ = calibrate_score_threshold(outputs, truth, [0.05, 0.50], 0.50)
 
         self.assertFalse(selected["minimumRecallSatisfied"])
+        self.assertFalse(selected["operatingPointConstraintsSatisfied"])
         self.assertEqual(selected["recall"], 0.0)
+
+    def test_threshold_calibration_rejects_negative_frame_detection_rate(self):
+        truth = [torch.tensor([[0.0, 0.0, 10.0, 10.0]]), torch.empty((0, 4))]
+        outputs = [
+            {
+                "scores": torch.tensor([0.90]),
+                "boxes": torch.tensor([[0.0, 0.0, 10.0, 10.0]]),
+            },
+            {
+                "scores": torch.tensor([0.80]),
+                "boxes": torch.tensor([[20.0, 20.0, 30.0, 30.0]]),
+            },
+        ]
+
+        selected, _ = calibrate_score_threshold(
+            outputs,
+            truth,
+            [0.50],
+            minimum_recall=0.60,
+            minimum_precision=0.40,
+            maximum_detections_per_negative_frame=0.10,
+        )
+
+        self.assertTrue(selected["minimumRecallSatisfied"])
+        self.assertTrue(selected["minimumPrecisionSatisfied"])
+        self.assertFalse(selected["maximumNegativeFrameDetectionRateSatisfied"])
+        self.assertFalse(selected["operatingPointConstraintsSatisfied"])
 
     def test_stable_loss_rejects_repeated_explosions(self):
         value, count = require_stable_loss(torch.tensor(51.0), 50.0, 0)

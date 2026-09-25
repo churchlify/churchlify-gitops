@@ -122,5 +122,11 @@
   from the repository.
 - Dataset validation fails: inspect `dataset-validation.json`; fix missing
   labels, malformed YOLO rows, rights metadata, duplicate frames, or leakage.
+- Training reports no validation-selected checkpoint: inspect every validation
+  threshold sweep. Confirm whether precision, recall, negative-frame detection
+  rate, and minimum tiny-annotation support were simultaneously satisfied. A
+  diagnostic fallback threshold is not checkpoint-eligible. Do not lower release
+  gates or tune against the held-out test split; collect and human-review a new,
+  source-level dataset version when validation coverage is insufficient.
 - ONNX export fails: inspect the trainer image's torch/torchvision/onnx versions
   and rerun export against the saved checkpoint.

@@ -246,8 +246,19 @@ def collate(batch):
     return tuple(zip(*batch))
 
 
-def is_better_checkpoint(metrics, best_metrics, minimum_improvement, minimum_tiny_recall=0.0):
-    tiny_recall = metrics.get("objectSizeRecall", {}).get("tiny", {}).get("recall", 0.0)
+def is_better_checkpoint(
+    metrics,
+    best_metrics,
+    minimum_improvement,
+    minimum_tiny_recall=0.0,
+    minimum_tiny_annotations=0,
+):
+    if metrics.get("operatingPointConstraintsSatisfied") is not True:
+        return False
+    tiny_metrics = metrics.get("objectSizeRecall", {}).get("tiny", {})
+    tiny_recall = tiny_metrics.get("recall", 0.0)
+    if tiny_metrics.get("annotations", 0) < minimum_tiny_annotations:
+        return False
     if tiny_recall < minimum_tiny_recall:
         return False
     if best_metrics is None:
@@ -389,12 +400,21 @@ def train(dataset_id):
     early_stopping_patience = int(os.environ.get("TRAINING_EARLY_STOPPING_PATIENCE", "5"))
     minimum_improvement = float(os.environ.get("TRAINING_MIN_VALIDATION_IMPROVEMENT", "0.001"))
     minimum_tiny_recall = float(os.environ.get("TRAINING_CHECKPOINT_MIN_TINY_RECALL", "0.20"))
+    minimum_tiny_annotations = int(
+        os.environ.get("TRAINING_CHECKPOINT_MIN_TINY_ANNOTATIONS", "10")
+    )
     calibration_thresholds = threshold_grid(
         float(os.environ.get("TRAINING_THRESHOLD_MIN", "0.05")),
         float(os.environ.get("TRAINING_THRESHOLD_MAX", "0.95")),
         float(os.environ.get("TRAINING_THRESHOLD_STEP", "0.05")),
     )
-    calibration_minimum_recall = float(os.environ.get("TRAINING_THRESHOLD_MIN_RECALL", "0.20"))
+    calibration_minimum_recall = float(os.environ.get("TRAINING_THRESHOLD_MIN_RECALL", "0.60"))
+    calibration_minimum_precision = float(
+        os.environ.get("TRAINING_THRESHOLD_MIN_PRECISION", "0.60")
+    )
+    calibration_maximum_negative_detection_rate = float(
+        os.environ.get("TRAINING_THRESHOLD_MAX_DETECTIONS_PER_NEGATIVE_FRAME", "0.10")
+    )
     gradient_clip_norm = float(os.environ.get("TRAINING_GRADIENT_CLIP_NORM", "5.0"))
     explosion_threshold = float(os.environ.get("TRAINING_LOSS_EXPLOSION_THRESHOLD", "50.0"))
     output = root / "artifacts"
@@ -475,6 +495,8 @@ def train(dataset_id):
                 validation_truth,
                 calibration_thresholds,
                 calibration_minimum_recall,
+                calibration_minimum_precision,
+                calibration_maximum_negative_detection_rate,
             )
             validation_metrics["epoch"] = epoch + 1
             validation_metrics["perSource"] = per_source_metrics(
@@ -499,6 +521,7 @@ def train(dataset_id):
                 best_metrics,
                 minimum_improvement,
                 minimum_tiny_recall,
+                minimum_tiny_annotations,
             ):
                 best_metrics = validation_metrics.copy()
                 best_epoch = epoch + 1
@@ -551,6 +574,8 @@ def train(dataset_id):
         "thresholdCalibration": {
             "sourceSplit": "validation",
             "minimumRecall": calibration_minimum_recall,
+            "minimumPrecision": calibration_minimum_precision,
+            "maximumDetectionsPerNegativeFrame": calibration_maximum_negative_detection_rate,
             "thresholds": calibration_thresholds,
         },
         "validationHistory": validation_history,
@@ -560,6 +585,7 @@ def train(dataset_id):
         "earlyStoppingPatience": early_stopping_patience,
         "minimumValidationImprovement": minimum_improvement,
         "minimumCheckpointTinyRecall": minimum_tiny_recall,
+        "minimumCheckpointTinyAnnotations": minimum_tiny_annotations,
         "stoppedEarly": stopped_early,
         "publishedCheckpoint": "best-validation",
         "validation": validation_result,

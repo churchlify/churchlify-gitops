@@ -14,7 +14,7 @@ data:
       type: random
       pretrainedWeights: false
     dataset:
-      id: sportif-ball-v002
+      id: sportif-ball-v003
     training:
       epochs: 150
       batchSize: 2
@@ -50,13 +50,17 @@ data:
       checkpointSelection:
         primary: best-validation-map50
         minimumTinyObjectRecall: 0.20
+        minimumTinyObjectAnnotations: 10
+        requireEligibleOperatingPoint: true
         tieBreakers: [tiny-object-recall, mAP50-95]
       operatingThresholdSelection:
         sourceSplit: validation
         minimum: 0.05
         maximum: 0.95
         step: 0.05
-        minimumRecall: 0.20
+        minimumRecall: 0.60
+        minimumPrecision: 0.60
+        maximumDetectionsPerNegativeFrame: 0.10
         objective: maximum-f1
       validationReporting:
         perSource: true

@@ -517,6 +517,23 @@ objects = {
 ml_config = objects.get(("ConfigMap", "sportif-ml-config"))
 if not ml_config:
     raise SystemExit("Sportif ML runtime ConfigMap is missing")
+training_config = objects.get(("ConfigMap", "sportif-ball-training-config"))
+if not training_config:
+    raise SystemExit("Sportif ball training ConfigMap is missing")
+training_config_document = yaml.safe_load(
+    training_config.get("data", {}).get("training-config.yaml", "")
+)
+configured_dataset_id = ml_config.get("data", {}).get("DATASET_ID")
+training_dataset_id = (
+    training_config_document.get("dataset", {}).get("id")
+    if isinstance(training_config_document, dict)
+    else None
+)
+if configured_dataset_id != training_dataset_id:
+    raise SystemExit(
+        "Runtime and training ConfigMap dataset IDs must match: "
+        f"{configured_dataset_id!r} != {training_dataset_id!r}"
+    )
 quality_thresholds = {
     "EVALUATION_MIN_MAP50": "0.50",
     "EVALUATION_MIN_MAP50_95": "0.20",
@@ -551,10 +568,13 @@ training_controls = {
     "TRAINING_EARLY_STOPPING_PATIENCE": "5",
     "TRAINING_MIN_VALIDATION_IMPROVEMENT": "0.001",
     "TRAINING_CHECKPOINT_MIN_TINY_RECALL": "0.20",
+    "TRAINING_CHECKPOINT_MIN_TINY_ANNOTATIONS": "10",
     "TRAINING_THRESHOLD_MIN": "0.05",
     "TRAINING_THRESHOLD_MAX": "0.95",
     "TRAINING_THRESHOLD_STEP": "0.05",
-    "TRAINING_THRESHOLD_MIN_RECALL": "0.20",
+    "TRAINING_THRESHOLD_MIN_RECALL": "0.60",
+    "TRAINING_THRESHOLD_MIN_PRECISION": "0.60",
+    "TRAINING_THRESHOLD_MAX_DETECTIONS_PER_NEGATIVE_FRAME": "0.10",
     "TRAINABILITY_IMAGE_COUNT": "4",
     "TRAINABILITY_STEPS": "150",
     "TRAINABILITY_LEARNING_RATE": "0.0005",
@@ -585,6 +605,17 @@ if workflow_templates != expected_workflow_templates:
     raise SystemExit(
         "active WorkflowTemplates must be exactly "
         f"{sorted(expected_workflow_templates)}; got {sorted(workflow_templates)}"
+    )
+
+training_workflow = objects[("WorkflowTemplate", "sportif-ball-training")]
+training_parameters = {
+    item["name"]: item.get("value")
+    for item in training_workflow["spec"]["arguments"]["parameters"]
+}
+if training_parameters.get("dataset-id") != configured_dataset_id:
+    raise SystemExit(
+        "Training WorkflowTemplate and runtime ConfigMap dataset IDs must match: "
+        f"{training_parameters.get('dataset-id')!r} != {configured_dataset_id!r}"
     )
 
 work = objects.get(("PersistentVolumeClaim", "sportif-ml-work"))

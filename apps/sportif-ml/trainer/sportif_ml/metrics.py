@@ -71,12 +71,16 @@ def evaluate_detections(outputs, ground_truth, score_threshold):
     predictions = []
     detections_on_positive_frames = 0
     detections_on_negative_frames = 0
+    positive_frames = 0
+    negative_frames = 0
     for image_index, (output, truth) in enumerate(zip(outputs, ground_truth)):
         selected = output["scores"] >= score_threshold
         detection_count = int(selected.sum())
         if len(truth):
+            positive_frames += 1
             detections_on_positive_frames += detection_count
         else:
+            negative_frames += 1
             detections_on_negative_frames += detection_count
         for score, box in zip(output["scores"][selected], output["boxes"][selected]):
             predictions.append((float(score), image_index, box))
@@ -101,8 +105,12 @@ def evaluate_detections(outputs, ground_truth, score_threshold):
         "mAP50-95": float(np.mean([value[0] for value in evaluations.values()])),
         "falsePositives": false_positives,
         "falseNegatives": false_negatives,
+        "positiveFrames": positive_frames,
+        "negativeFrames": negative_frames,
         "detectionsOnPositiveFrames": detections_on_positive_frames,
         "detectionsOnNegativeFrames": detections_on_negative_frames,
+        "detectionsPerNegativeFrame": detections_on_negative_frames
+        / max(negative_frames, 1),
     }
 
 
@@ -154,12 +162,26 @@ def object_size_recall(outputs, ground_truth, score_threshold, iou_threshold=0.5
     return bands
 
 
-def calibrate_score_threshold(outputs, ground_truth, thresholds, minimum_recall):
+def calibrate_score_threshold(
+    outputs,
+    ground_truth,
+    thresholds,
+    minimum_recall,
+    minimum_precision=0.0,
+    maximum_detections_per_negative_frame=float("inf"),
+):
     sweep = [
         evaluate_detections(outputs, ground_truth, threshold)
         for threshold in thresholds
     ]
-    eligible = [metrics for metrics in sweep if metrics["recall"] >= minimum_recall]
+    eligible = [
+        metrics
+        for metrics in sweep
+        if metrics["recall"] >= minimum_recall
+        and metrics["precision"] >= minimum_precision
+        and metrics["detectionsPerNegativeFrame"]
+        <= maximum_detections_per_negative_frame
+    ]
     candidates = eligible or sweep
     selected = max(
         candidates,
@@ -170,6 +192,18 @@ def calibrate_score_threshold(outputs, ground_truth, thresholds, minimum_recall)
             metrics["scoreThreshold"],
         ),
     )
-    selected["minimumRecallSatisfied"] = bool(eligible)
+    selected["minimumRecallSatisfied"] = selected["recall"] >= minimum_recall
+    selected["minimumPrecisionSatisfied"] = (
+        selected["precision"] >= minimum_precision
+    )
+    selected["maximumNegativeFrameDetectionRateSatisfied"] = (
+        selected["detectionsPerNegativeFrame"]
+        <= maximum_detections_per_negative_frame
+    )
+    selected["operatingPointConstraintsSatisfied"] = bool(eligible)
     selected["calibrationMinimumRecall"] = minimum_recall
+    selected["calibrationMinimumPrecision"] = minimum_precision
+    selected["calibrationMaximumDetectionsPerNegativeFrame"] = (
+        maximum_detections_per_negative_frame
+    )
     return selected.copy(), sweep

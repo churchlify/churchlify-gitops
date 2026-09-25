@@ -171,7 +171,7 @@ spec:
   arguments:
     parameters:
       - name: dataset-id
-        value: sportif-ball-v002
+        value: sportif-ball-v003
 EOF
 ```
 
@@ -187,6 +187,14 @@ least `0.50`, mAP50-95 is at least `0.20`, precision is at least `0.60`, and
 recall is at least `0.60`. A failed evaluator still writes `metrics.json` to the
 run workspace with `executionStatus: PASS`, `qualityGateStatus: FAIL`, and the
 exact threshold failures for diagnosis.
+
+Training checkpoint selection is separately fail closed. Validation calibration
+requires precision and recall of at least `0.60`, no more than `0.10` detections
+per negative frame, and at least 10 tiny-object validation annotations before the
+configured tiny-recall floor can establish checkpoint eligibility. If no epoch
+meets those constraints, training must not create a validation-selected
+`model.pt`; investigate or create a newly approved dataset version instead of
+lowering the constraints.
 
 The first live acceptance Workflow, `sportif-video-ingest-h46bk`, completed on
 September 20, 2026 with both tasks successful. It produced and verified 4,724

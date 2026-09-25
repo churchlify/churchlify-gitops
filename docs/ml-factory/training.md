@@ -35,9 +35,10 @@ Validation and test images are never augmented.
 
 Positive and negative sampling is source-aware. When an approved training split
 contains multiple source videos, each class pool is round-robin ordered across
-sources before batches are assembled. The current `sportif-ball-v002` training
-split contains `VID-20260922-002` and `VID-20260922-001`, so metadata must report
-source balancing as active. Augmentation supplements, but does not substitute
+sources before batches are assembled. The approved `sportif-ball-v003` training
+split contains `VID-20260922-001`,
+`VID-20260922-002`, and `sportif-video-20260924-0ef8a04c07cf`, so metadata must
+report source balancing as active. Augmentation supplements, but does not substitute
 for, this real source diversity.
 
 Before full training, a GPU smoke stage must overfit four deterministic positive
