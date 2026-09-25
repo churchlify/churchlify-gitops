@@ -2,4 +2,5 @@ __pycache__/
 *.py[cod]
 .DS_Store
 apps/sportif-ml/k8s.conf
+apps/sportif-ml/k9s-dev.conf
 /.tmp-*
