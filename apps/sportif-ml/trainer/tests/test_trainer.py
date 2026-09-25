@@ -7,13 +7,19 @@ from unittest.mock import patch
 import torch
 from PIL import Image
 
+from sportif_ml.archive_run import ARCHIVE_STATUS, archive_run
 from sportif_ml.evaluate import (
     average_precision,
     box_iou,
     evaluate_quality_gate,
     persist_evaluation_result,
 )
-from sportif_ml.model import SMALL_OBJECT_ANCHOR_SIZES, build_model, image_resize_policy
+from sportif_ml.model import (
+    SMALL_OBJECT_ANCHOR_SIZES,
+    build_model,
+    image_resize_policy,
+    initialization_configuration,
+)
 from sportif_ml.metrics import (
     calibrate_score_threshold,
     evaluate_detections,
@@ -36,9 +42,11 @@ from sportif_ml.train import (
     consume_early_stopping_patience,
     is_better_checkpoint,
     require_stable_loss,
+    retain_diagnostic_checkpoint,
     summarize_augmentation_scales,
     threshold_grid,
 )
+from sportif_ml.trainability import select_mixed_source_indices
 
 
 class TrainerTests(unittest.TestCase):
@@ -173,6 +181,24 @@ class TrainerTests(unittest.TestCase):
                 "qualityGateFailures": [],
             }
         )
+
+    def test_failed_quality_gate_archive_is_immutable_and_checksummed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            evidence = root / "evidence-input"
+            output = root / "archive"
+            evidence.mkdir()
+            (evidence / "workflow.json").write_text('{"phase":"Failed"}\n')
+            (evidence / "trainer.log").write_text("validation gate failed\n")
+
+            manifest = archive_run("sportif-ball-training-v003-test", evidence, output)
+
+            self.assertEqual(manifest["status"], ARCHIVE_STATUS)
+            self.assertFalse(manifest["publishable"])
+            self.assertEqual(len(manifest["evidenceFiles"]), 2)
+            self.assertTrue((output / "SHA256SUMS").is_file())
+            with self.assertRaisesRegex(SystemExit, "refusing to overwrite"):
+                archive_run("sportif-ball-training-v003-test", evidence, output)
 
     def release_candidate(self, root, provenance):
         artifacts = {
@@ -788,6 +814,83 @@ class TrainerTests(unittest.TestCase):
         self.assertEqual(model.rpn.anchor_generator.num_anchors_per_location(), [9] * 5)
         self.assertEqual(model.transform.min_size, (720,))
         self.assertEqual(model.transform.max_size, 1280)
+
+    def test_pretrained_initialization_requires_approval(self):
+        with self.assertRaisesRegex(SystemExit, "explicit weight approval"):
+            initialization_configuration({"TRAINING_INITIALIZATION": "pretrained-backbone"})
+
+    def test_pretrained_initialization_verifies_local_checksum_and_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "weights.pt"
+            path.write_bytes(b"approved-weights")
+            import hashlib
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            configuration = initialization_configuration({
+                "TRAINING_INITIALIZATION": "pretrained-detector",
+                "TRAINING_PRETRAINED_WEIGHTS_APPROVED": "true",
+                "TRAINING_PRETRAINED_WEIGHTS_PATH": str(path),
+                "TRAINING_PRETRAINED_WEIGHTS_SHA256": digest,
+                "TRAINING_PRETRAINED_WEIGHTS_SOURCE": "torchvision",
+                "TRAINING_PRETRAINED_WEIGHTS_LICENSE": "documented-separately",
+                "TRAINING_PRETRAINED_WEIGHTS_IDENTIFIER": "approved-test-fixture",
+            })
+
+        self.assertEqual(configuration["mode"], "pretrained-detector")
+        self.assertEqual(configuration["weightsSha256"], digest)
+        self.assertTrue(configuration["offlineReproducible"])
+
+    def test_pretrained_initialization_rejects_checksum_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "weights.pt"
+            path.write_bytes(b"weights")
+            with self.assertRaisesRegex(SystemExit, "does not match"):
+                initialization_configuration({
+                    "TRAINING_INITIALIZATION": "pretrained-backbone",
+                    "TRAINING_PRETRAINED_WEIGHTS_APPROVED": "true",
+                    "TRAINING_PRETRAINED_WEIGHTS_PATH": str(path),
+                    "TRAINING_PRETRAINED_WEIGHTS_SHA256": "0" * 64,
+                    "TRAINING_PRETRAINED_WEIGHTS_SOURCE": "source",
+                    "TRAINING_PRETRAINED_WEIGHTS_LICENSE": "license",
+                    "TRAINING_PRETRAINED_WEIGHTS_IDENTIFIER": "identifier",
+                })
+
+    def test_diagnostic_checkpoint_retention_is_bounded_and_non_publishable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            model = torch.nn.Linear(2, 1)
+            for epoch in range(1, 4):
+                retain_diagnostic_checkpoint(model, root, epoch, {"mAP50": epoch / 10}, 2)
+
+            self.assertEqual([path.name for path in sorted(root.glob("*.pt"))], [
+                "epoch-0002.pt", "epoch-0003.pt",
+            ])
+            marker = json.loads((root / "NON_PUBLISHABLE.json").read_text())
+            self.assertFalse(marker["publishable"])
+            self.assertFalse(marker["exportEligible"])
+
+    def test_mixed_source_suite_is_deterministic_and_contains_both_label_states(self):
+        class Dataset:
+            entries = [
+                ("a", True), ("a", False), ("a", True), ("a", False),
+                ("b", True), ("b", False), ("b", True), ("b", False),
+            ]
+
+            def __len__(self):
+                return len(self.entries)
+
+            def source_id(self, index):
+                return self.entries[index][0]
+
+            def has_annotations(self, index):
+                return self.entries[index][1]
+
+        dataset = Dataset()
+        first = select_mixed_source_indices(dataset, 8, 42)
+        second = select_mixed_source_indices(dataset, 8, 42)
+
+        self.assertEqual(first, second)
+        self.assertEqual({dataset.source_id(index) for index in first}, {"a", "b"})
+        self.assertEqual({dataset.has_annotations(index) for index in first}, {True, False})
 
     def test_image_resize_policy_validates_bounds(self):
         self.assertEqual(

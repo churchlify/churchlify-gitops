@@ -50,8 +50,14 @@ def release(dataset_id):
     if dataset_validation.get("status") != "PASS" or dataset_approval.get("datasetApprovalGranted") is not True:
         raise SystemExit("dataset validation and human approval are required")
     metrics = json.loads((artifacts / "metrics.json").read_text())
+    training_metadata = json.loads((artifacts / "training-metadata.json").read_text())
     onnx_validation = json.loads((artifacts / "onnx-validation.json").read_text())
     require_passing_evaluation(metrics)
+    if (
+        training_metadata.get("initialization") != "random"
+        or training_metadata.get("pretrainedWeightsUsed") is not False
+    ):
+        raise SystemExit("pretrained experiments are diagnostic-only and cannot become candidates")
     if onnx_validation.get("runtimeValidation") != "PASS":
         raise SystemExit("ONNX runtime validation must pass")
     manifest = {
@@ -59,7 +65,12 @@ def release(dataset_id):
         "modelId": os.environ.get("MODEL_ID", "sportif-ball-detector-v001"),
         "status": "CANDIDATE",
         "architecture": {"name": "Faster R-CNN ResNet-50 FPN", "sourceRepository": "https://github.com/pytorch/vision", "sourceRevision": "v0.20.1", "license": "BSD-3-Clause"},
-        "training": {"initialization": "random", "pretrainedWeightsUsed": False, "datasetId": dataset_id, "seed": int(os.environ.get("DATASET_SEED", "42"))},
+        "training": {
+            "initialization": training_metadata["initialization"],
+            "pretrainedWeightsUsed": training_metadata["pretrainedWeightsUsed"],
+            "datasetId": dataset_id,
+            "seed": int(os.environ.get("DATASET_SEED", "42")),
+        },
         "datasetContentSha256": dataset_manifest["contentSha256"],
         "evaluation": metrics,
         "artifacts": {

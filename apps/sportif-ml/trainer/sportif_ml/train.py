@@ -324,6 +324,33 @@ def require_stable_loss(loss, explosion_threshold, consecutive_explosions):
     return value, consecutive_explosions
 
 
+def retain_diagnostic_checkpoint(model, directory, epoch, metrics, maximum_checkpoints):
+    if maximum_checkpoints < 1:
+        raise ValueError("diagnostic checkpoint retention must be at least one")
+    directory.mkdir(parents=True, exist_ok=True)
+    stem = f"epoch-{epoch:04d}"
+    torch.save(model.state_dict(), directory / f"{stem}.pt")
+    record = {
+        "epoch": epoch,
+        "publishable": False,
+        "promotionEligible": False,
+        "exportEligible": False,
+        "purpose": "training-diagnostics-only",
+        "metrics": metrics,
+    }
+    (directory / f"{stem}.json").write_text(json.dumps(record, indent=2) + "\n")
+    checkpoints = sorted(directory.glob("epoch-*.pt"))
+    for checkpoint in checkpoints[:-maximum_checkpoints]:
+        checkpoint.unlink()
+        checkpoint.with_suffix(".json").unlink(missing_ok=True)
+    (directory / "NON_PUBLISHABLE.json").write_text(json.dumps({
+        "publishable": False,
+        "promotionEligible": False,
+        "exportEligible": False,
+        "reason": "diagnostic checkpoints are not validation-selected candidate artifacts",
+    }, indent=2) + "\n")
+
+
 def train(dataset_id):
     seed = int(os.environ.get("DATASET_SEED", "42"))
     random.seed(seed)
@@ -420,6 +447,9 @@ def train(dataset_id):
     output = root / "artifacts"
     output.mkdir(parents=True, exist_ok=True)
     best_checkpoint = output / "best-model.pt"
+    diagnostic_directory = output / "diagnostic-checkpoints"
+    retain_diagnostics = os.environ.get("TRAINING_RETAIN_DIAGNOSTIC_CHECKPOINTS", "true").lower() == "true"
+    maximum_diagnostic_checkpoints = int(os.environ.get("TRAINING_MAX_DIAGNOSTIC_CHECKPOINTS", "5"))
     epoch_losses = []
     component_loss_history = []
     validation_history = []
@@ -516,6 +546,14 @@ def train(dataset_id):
             }
             validation_history.append(validation_record)
             progress["validation"] = validation_record
+            if retain_diagnostics:
+                retain_diagnostic_checkpoint(
+                    model,
+                    diagnostic_directory,
+                    epoch + 1,
+                    validation_record,
+                    maximum_diagnostic_checkpoints,
+                )
             if is_better_checkpoint(
                 validation_metrics,
                 best_metrics,
@@ -589,7 +627,13 @@ def train(dataset_id):
         "stoppedEarly": stopped_early,
         "publishedCheckpoint": "best-validation",
         "validation": validation_result,
-        **initialization_metadata(),
+        "diagnosticCheckpointRetention": {
+            "enabled": retain_diagnostics,
+            "maximumCheckpoints": maximum_diagnostic_checkpoints,
+            "publishable": False,
+            "exportEligible": False,
+        },
+        **initialization_metadata(model),
     }
     (output / "training-metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
 

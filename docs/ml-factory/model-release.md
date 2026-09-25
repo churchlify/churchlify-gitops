@@ -6,7 +6,9 @@ notices, and `SHA256SUMS`. The engineering gate requires verified dataset
 rights, verified training-code and dependency licenses, no pretrained weights,
 and complete provenance before a model can be marked `RELEASED`.
 
-Successful pipeline execution is not legal or commercial clearance.
+Successful pipeline execution is not legal or commercial clearance. Pretrained
+initialization modes are diagnostic-only under the current clean-room policy;
+candidate creation and release verification require random initialization.
 
 ## Promotion boundary
 

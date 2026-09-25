@@ -13,6 +13,10 @@ data:
     initialization:
       type: random
       pretrainedWeights: false
+      offlineOnly: true
+      checksumRequiredForPretrainedModes: true
+      approvedPretrainedModes: [pretrained-backbone, pretrained-detector]
+      candidateEligibility: random-only
     dataset:
       id: sportif-ball-v003
     training:
@@ -35,6 +39,11 @@ data:
       balancedBatches: true
       sourceAwareSampling: true
       tinyPositiveReplayFactor: 4
+      diagnosticCheckpoints:
+        enabled: true
+        maximumRetained: 5
+        publishable: false
+        exportEligible: false
       augmentation:
         trainingOnly: true
         zoomOutScale: [0.60, 1.00]
@@ -66,10 +75,17 @@ data:
         perSource: true
         objectSizeRecallBandsPixels: [12, 24]
     trainabilitySmoke:
-      images: 4
-      steps: 150
+      suite: deterministic-mixed-source
+      images: 40
+      steps: 600
+      batchSize: 2
+      requirePositiveAndNegativeFrames: true
+      minimumSources: 2
       minimumIoU: 0.75
       minimumScore: 0.90
+      minimumPositivePassRate: 0.90
+      maximumNegativeDetectionRate: 0.10
+      evaluationScoreThreshold: 0.50
     anchors:
       sizes:
         - [4, 8, 16]

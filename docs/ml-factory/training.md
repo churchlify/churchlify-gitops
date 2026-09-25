@@ -4,9 +4,12 @@ The maximum configuration is 150 epochs, batch size 2, aspect-preserving image
 resize bounds of 720 pixels on the shorter side and 1280 pixels on the longer
 side, seed 42, and one GPU. This keeps the approved 1280x720 train and validation
 frames at native resolution instead of shrinking them to 1024x576. The trainer
-verifies dataset validation, sets deterministic
-seeds, requires CUDA, and constructs the model with both `weights=None` and
-`weights_backbone=None`.
+verifies dataset validation, sets deterministic seeds, and requires CUDA. Random
+initialization remains the only candidate-eligible mode. Controlled diagnostic
+experiments may use `pretrained-backbone` or `pretrained-detector`, but only from
+an existing local file with explicit approval, source, weight-license identifier,
+immutable identifier, and matching SHA-256. The trainer never downloads weights.
+Pretrained runs remain blocked from candidate creation and production promotion.
 
 The detector uses FPN anchor sizes `[4, 8, 16]`, `[8, 16, 32]`,
 `[16, 32, 64]`, `[32, 64, 128]`, and `[64, 128, 256]` to cover the approved
@@ -41,9 +44,11 @@ split contains `VID-20260922-001`,
 report source balancing as active. Augmentation supplements, but does not substitute
 for, this real source diversity.
 
-Before full training, a GPU smoke stage must overfit four deterministic positive
-frames within 150 steps, reaching at least IoU `0.75` and confidence `0.90` on
-each frame. Full training evaluates only the validation split every five epochs,
+Before full training, a GPU gate must overfit a deterministic 40-frame suite
+spanning at least two training videos and containing both positive and negative
+frames. It runs for 600 mini-batch steps, requires at least 90% of positive frames
+to reach IoU `0.75` and confidence `0.90`, and permits detections above `0.50` on
+at most 10% of negative frames. Full training evaluates only the validation split every five epochs,
 selects the best checkpoint primarily by mAP50, requires tiny-object recall of
 at least `0.20`, uses tiny recall and then mAP50-95 as near-equal-mAP tie-breakers,
 and stops after five validation checks without sufficient improvement after the
@@ -51,6 +56,12 @@ first eligible checkpoint exists. Validation checks below the tiny-recall floor
 do not prematurely consume early-stopping patience; if no eligible checkpoint is
 ever produced, the run fails closed without a model. The held-out test split is
 not read until the separate final evaluation stage.
+
+Every validation pass may retain a bounded diagnostic checkpoint under
+`artifacts/diagnostic-checkpoints/`. Each checkpoint is accompanied by metrics and
+an explicit `publishable: false`, `exportEligible: false`, and
+`promotionEligible: false` marker. Diagnostic files are excluded from the fixed
+candidate inventory; only a validation-selected checkpoint may become `model.pt`.
 
 At each validation checkpoint, one inference pass is evaluated over score
 thresholds `0.05` through `0.95`. The trainer selects the threshold with maximum
@@ -87,3 +98,10 @@ commercial release approval.
 GPU stages request one `nvidia.com/gpu`, select `accelerator=nvidia-v100`, and
 use the cluster's `nvidia` RuntimeClass. Failed-workflow pods are retained for
 diagnosis; pods are garbage-collected only after a successful workflow.
+
+Failed experiments are archived with `python -m sportif_ml.archive_run RUN_ID
+EVIDENCE_DIRECTORY OUTPUT_DIRECTORY`. The command refuses to overwrite an
+existing archive, copies the supplied workflow/log/metrics/configuration evidence,
+writes per-file SHA-256 metadata and `SHA256SUMS`, and marks the run
+`FAILED_QUALITY_GATES`, non-publishable, and ineligible for promotion. Operators
+must export the final Argo workflow and pod logs before terminating an active run.
