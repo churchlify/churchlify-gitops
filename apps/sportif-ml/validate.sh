@@ -63,7 +63,10 @@ python3 - \
   "$repo_root/apps/sportif-ml/pipeline/workflows.yaml" \
   "$repo_root/apps/sportif-ml/pipeline/workflows-training-staged.yaml" \
   "$repo_root/apps/sportif-ml/pipeline/workflows-trainability-diagnostic.yaml" \
-  "$repo_root/apps/sportif-ml/pipeline/workflows-cvat-handoff.yaml" <<'PY'
+  "$repo_root/apps/sportif-ml/pipeline/workflows-cvat-handoff.yaml" \
+  "$repo_root/apps/sportif-ml/approvals/torchvision-fasterrcnn-resnet50-fpn-coco-v1.json" \
+  "$repo_root/apps/sportif-ml/pretrained-weight-approval.yaml" <<'PY'
+import json
 from pathlib import Path
 import sys
 import yaml
@@ -75,6 +78,15 @@ workflow = yaml.safe_load(Path(sys.argv[4]).read_text())
 training_workflow = yaml.safe_load(Path(sys.argv[5]).read_text())
 diagnostic_workflow = yaml.safe_load(Path(sys.argv[6]).read_text())
 handoff_workflow = yaml.safe_load(Path(sys.argv[7]).read_text())
+canonical_weight_approval = json.loads(Path(sys.argv[8]).read_text())
+weight_approval_config_map = yaml.safe_load(Path(sys.argv[9]).read_text())
+if weight_approval_config_map.get("immutable") is not True:
+    raise SystemExit("Pretrained-weight approval ConfigMap must be immutable")
+mounted_weight_approval = json.loads(weight_approval_config_map["data"]["approval.json"])
+if mounted_weight_approval != canonical_weight_approval:
+    raise SystemExit("Mounted pretrained-weight approval differs from the canonical record")
+if canonical_weight_approval.get("approvedAtUtc") != "2026-09-25T03:27:31Z":
+    raise SystemExit("Pretrained-weight approval timestamp changed unexpectedly")
 
 if values.get("singleNamespace") is not True:
     raise SystemExit("Argo Workflows controller must remain namespace-scoped")
@@ -277,14 +289,10 @@ diagnostic_parameters = {
     item["name"]: item.get("value")
     for item in diagnostic_spec.get("arguments", {}).get("parameters", [])
 }
-if set(diagnostic_parameters) != {
-    "dataset-id", "weights-sha256", "weights-source", "weights-license", "weights-identifier"
-}:
-    raise SystemExit("Diagnostic workflow weight provenance parameters are incomplete")
+if set(diagnostic_parameters) != {"dataset-id"}:
+    raise SystemExit("Diagnostic workflow may accept only the approved dataset ID")
 if diagnostic_parameters.get("dataset-id") != "sportif-ball-v003":
     raise SystemExit("Diagnostic workflow must use the approved immutable dataset")
-if any(diagnostic_parameters[name] != "REQUIRED" for name in diagnostic_parameters if name != "dataset-id"):
-    raise SystemExit("Diagnostic workflow must fail closed without explicit weight metadata")
 if diagnostic_spec.get("volumes", [])[0].get("persistentVolumeClaim", {}).get("claimName") != "sportif-ml-work":
     raise SystemExit("Diagnostic workflow must use the shared work PVC")
 diagnostic_templates = {item["name"]: item for item in diagnostic_spec.get("templates", [])}
@@ -320,18 +328,24 @@ required_diagnostic_environment = {
     "TRAINING_INITIALIZATION": "pretrained-detector",
     "TRAINING_PRETRAINED_WEIGHTS_APPROVED": "true",
     "TRAINING_PRETRAINED_WEIGHTS_PATH": "/work/pretrained/fasterrcnn-resnet50-fpn-coco.pth",
+    "TRAINING_PRETRAINED_WEIGHTS_SHA256": "258fb6c638b15964ddcdd1ae0748c5eef1be9e732750120cc857feed3faac384",
+    "TRAINING_PRETRAINED_WEIGHTS_SOURCE": "https://download.pytorch.org/models/fasterrcnn_resnet50_fpn_coco-258fb6c6.pth",
+    "TRAINING_PRETRAINED_WEIGHTS_LICENSE": "restricted-internal-diagnostic-only;standalone-license-not-explicitly-specified",
+    "TRAINING_PRETRAINED_WEIGHTS_IDENTIFIER": "torchvision-0.20.1:FasterRCNN_ResNet50_FPN_Weights.COCO_V1",
+    "TRAINING_PRETRAINED_WEIGHTS_APPROVAL_PATH": "/approvals/approval.json",
     "TRAINABILITY_DIAGNOSTIC_ONLY": "true",
 }
 if any(diagnostic_environment.get(name) != value for name, value in required_diagnostic_environment.items()):
     raise SystemExit("Diagnostic pretrained initialization controls changed unexpectedly")
-for name in (
-    "TRAINING_PRETRAINED_WEIGHTS_SHA256",
-    "TRAINING_PRETRAINED_WEIGHTS_SOURCE",
-    "TRAINING_PRETRAINED_WEIGHTS_LICENSE",
-    "TRAINING_PRETRAINED_WEIGHTS_IDENTIFIER",
-):
-    if not diagnostic_environment.get(name, "").startswith("{{workflow.parameters."):
-        raise SystemExit("Diagnostic weight metadata must come from explicit workflow parameters")
+diagnostic_volumes = {item["name"]: item for item in diagnostic_spec.get("volumes", [])}
+if diagnostic_volumes.get("pretrained-weight-approval", {}).get("configMap", {}).get("name") != "sportif-pretrained-weight-approval":
+    raise SystemExit("Diagnostic must mount the approved pretrained-weight record")
+diagnostic_mounts = {
+    item["name"]: item for item in diagnostic_container.get("volumeMounts", [])
+}
+approval_mount = diagnostic_mounts.get("pretrained-weight-approval", {})
+if approval_mount.get("mountPath") != "/approvals" or approval_mount.get("readOnly") is not True:
+    raise SystemExit("Pretrained-weight approval must be mounted read-only")
 
 if handoff_workflow["metadata"].get("name") != "sportif-cvat-handoff":
     raise SystemExit("Unexpected staged CVAT handoff WorkflowTemplate name")

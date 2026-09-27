@@ -24,14 +24,6 @@ spec:
     parameters:
       - name: dataset-id
         value: sportif-ball-v003
-      - name: weights-sha256
-        value: REQUIRED
-      - name: weights-source
-        value: REQUIRED
-      - name: weights-license
-        value: REQUIRED
-      - name: weights-identifier
-        value: REQUIRED
   volumes:
     - name: work
       persistentVolumeClaim:
@@ -39,6 +31,9 @@ spec:
     - name: tmp
       emptyDir:
         sizeLimit: 4Gi
+    - name: pretrained-weight-approval
+      configMap:
+        name: sportif-pretrained-weight-approval
   templates:
     - name: diagnostic
       dag:
@@ -85,7 +80,7 @@ spec:
       podSpecPatch: |
         {"runtimeClassName":"nvidia"}
       container:
-        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:18fc16f957580b61497807425e5280babab935a8f73f812ccb08a2e2b9dbf448
+        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:c5a1a8103271488d517570ed21fbc34825e88281afef61fd08ce51f64209d058
         imagePullPolicy: IfNotPresent
         command: [python, -m, sportif_ml.trainability]
         args: ["{{inputs.parameters.dataset-id}}"]
@@ -104,13 +99,15 @@ spec:
           - name: TRAINING_PRETRAINED_WEIGHTS_PATH
             value: /work/pretrained/fasterrcnn-resnet50-fpn-coco.pth
           - name: TRAINING_PRETRAINED_WEIGHTS_SHA256
-            value: "{{workflow.parameters.weights-sha256}}"
+            value: 258fb6c638b15964ddcdd1ae0748c5eef1be9e732750120cc857feed3faac384
           - name: TRAINING_PRETRAINED_WEIGHTS_SOURCE
-            value: "{{workflow.parameters.weights-source}}"
+            value: https://download.pytorch.org/models/fasterrcnn_resnet50_fpn_coco-258fb6c6.pth
           - name: TRAINING_PRETRAINED_WEIGHTS_LICENSE
-            value: "{{workflow.parameters.weights-license}}"
+            value: restricted-internal-diagnostic-only;standalone-license-not-explicitly-specified
           - name: TRAINING_PRETRAINED_WEIGHTS_IDENTIFIER
-            value: "{{workflow.parameters.weights-identifier}}"
+            value: torchvision-0.20.1:FasterRCNN_ResNet50_FPN_Weights.COCO_V1
+          - name: TRAINING_PRETRAINED_WEIGHTS_APPROVAL_PATH
+            value: /approvals/approval.json
           - name: TRAINABILITY_DIAGNOSTIC_ONLY
             value: "true"
         resources:
@@ -132,3 +129,6 @@ spec:
             mountPath: /work
           - name: tmp
             mountPath: /tmp
+          - name: pretrained-weight-approval
+            mountPath: /approvals
+            readOnly: true

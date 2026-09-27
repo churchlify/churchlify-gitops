@@ -17,6 +17,8 @@ data:
       checksumRequiredForPretrainedModes: true
       approvedPretrainedModes: [pretrained-backbone, pretrained-detector]
       candidateEligibility: random-only
+      diagnosticApprovalId: torchvision-fasterrcnn-resnet50-fpn-coco-v1-internal-diagnostic-20260925
+      diagnosticUseRestriction: internal-non-publishable-only
     dataset:
       id: sportif-ball-v003
     training:

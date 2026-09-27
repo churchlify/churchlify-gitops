@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "approvalId": "torchvision-fasterrcnn-resnet50-fpn-coco-v1-internal-diagnostic-20260925",
+  "status": "APPROVED_RESTRICTED",
+  "decision": "APPROVE_INTERNAL_DIAGNOSTIC_ONLY",
+  "artifact": {
+    "identifier": "torchvision-0.20.1:FasterRCNN_ResNet50_FPN_Weights.COCO_V1",
+    "filename": "fasterrcnn_resnet50_fpn_coco-258fb6c6.pth",
+    "sourceUrl": "https://download.pytorch.org/models/fasterrcnn_resnet50_fpn_coco-258fb6c6.pth",
+    "sha256": "258fb6c638b15964ddcdd1ae0748c5eef1be9e732750120cc857feed3faac384",
+    "bytes": 167502836
+  },
+  "provenance": {
+    "publisher": "PyTorch/Torchvision",
+    "sourceRepository": "https://github.com/pytorch/vision",
+    "sourceRevision": "v0.20.1",
+    "weightsEnum": "FasterRCNN_ResNet50_FPN_Weights.COCO_V1",
+    "trainingDataset": "COCO",
+    "recipe": "https://github.com/pytorch/vision/tree/main/references/detection#faster-r-cnn-resnet-50-fpn",
+    "upstreamDescription": "These weights were produced by following a similar training recipe as on the paper."
+  },
+  "licenseDisposition": {
+    "torchvisionSoftwareLicense": "BSD-3-Clause",
+    "checkpointStandaloneLicense": "NOT_EXPLICITLY_SPECIFIED_BY_UPSTREAM",
+    "trainingDatasetTermsMayApply": true,
+    "torchvisionPretrainedModelDisclaimerReviewed": true,
+    "cocoApiLicenseReviewed": true,
+    "cocoImageLicensesIndividuallyVary": true,
+    "legalConclusion": false,
+    "disposition": "Engineering risk acceptance for isolated internal diagnostic evaluation only; this is not a representation that the checkpoint is BSD-3-Clause or cleared for redistribution, production, or commercial release."
+  },
+  "authorizedUse": {
+    "internalTrainabilityDiagnostic": true,
+    "nonPublishable": true,
+    "redistribution": false,
+    "productionUse": false,
+    "candidateCreation": false,
+    "modelPromotion": false,
+    "commercialReleaseReliance": false
+  },
+  "controls": {
+    "offlineLocalFileRequired": true,
+    "sha256VerificationRequired": true,
+    "exactArtifactOnly": true,
+    "diagnosticWorkflowOnly": true,
+    "derivedArtifactsMustBeDestroyedOrRetainedAsNonPublishableEvidence": true
+  },
+  "reviewSources": [
+    "https://raw.githubusercontent.com/pytorch/vision/v0.20.1/LICENSE",
+    "https://raw.githubusercontent.com/pytorch/vision/v0.20.1/README.md",
+    "https://raw.githubusercontent.com/pytorch/vision/v0.20.1/torchvision/models/detection/faster_rcnn.py",
+    "https://raw.githubusercontent.com/cocodataset/cocoapi/master/license.txt",
+    "https://cocodataset.org/#termsofuse"
+  ],
+  "approvedBy": "Babatunde Jelugbo",
+  "approverRole": "Diagnostic experiment approver",
+  "approvedAtUtc": "2026-09-25T03:27:31Z"
+}

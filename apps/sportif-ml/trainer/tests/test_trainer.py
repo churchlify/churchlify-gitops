@@ -831,19 +831,47 @@ class TrainerTests(unittest.TestCase):
             path.write_bytes(b"approved-weights")
             import hashlib
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            approval_path = Path(directory) / "approval.json"
+            approval_path.write_text(json.dumps({
+                "approvalId": "test-approval",
+                "status": "APPROVED_RESTRICTED",
+                "decision": "APPROVE_INTERNAL_DIAGNOSTIC_ONLY",
+                "artifact": {
+                    "sha256": digest,
+                    "bytes": path.stat().st_size,
+                    "sourceUrl": "https://example.test/weights.pt",
+                    "identifier": "approved-test-fixture",
+                },
+                "licenseDisposition": {
+                    "checkpointStandaloneLicense": "NOT_EXPLICITLY_SPECIFIED_BY_UPSTREAM",
+                    "legalConclusion": False,
+                },
+                "authorizedUse": {
+                    "internalTrainabilityDiagnostic": True,
+                    "nonPublishable": True,
+                    "redistribution": False,
+                    "productionUse": False,
+                    "candidateCreation": False,
+                    "modelPromotion": False,
+                    "commercialReleaseReliance": False,
+                },
+            }))
             configuration = initialization_configuration({
                 "TRAINING_INITIALIZATION": "pretrained-detector",
                 "TRAINING_PRETRAINED_WEIGHTS_APPROVED": "true",
                 "TRAINING_PRETRAINED_WEIGHTS_PATH": str(path),
                 "TRAINING_PRETRAINED_WEIGHTS_SHA256": digest,
-                "TRAINING_PRETRAINED_WEIGHTS_SOURCE": "torchvision",
-                "TRAINING_PRETRAINED_WEIGHTS_LICENSE": "documented-separately",
+                "TRAINING_PRETRAINED_WEIGHTS_SOURCE": "https://example.test/weights.pt",
+                "TRAINING_PRETRAINED_WEIGHTS_LICENSE": "restricted-internal-diagnostic-only;standalone-license-not-explicitly-specified",
                 "TRAINING_PRETRAINED_WEIGHTS_IDENTIFIER": "approved-test-fixture",
+                "TRAINING_PRETRAINED_WEIGHTS_APPROVAL_PATH": str(approval_path),
+                "TRAINABILITY_DIAGNOSTIC_ONLY": "true",
             })
 
         self.assertEqual(configuration["mode"], "pretrained-detector")
         self.assertEqual(configuration["weightsSha256"], digest)
         self.assertTrue(configuration["offlineReproducible"])
+        self.assertEqual(configuration["weightsApprovalId"], "test-approval")
 
     def test_pretrained_initialization_rejects_checksum_mismatch(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -858,6 +886,94 @@ class TrainerTests(unittest.TestCase):
                     "TRAINING_PRETRAINED_WEIGHTS_SOURCE": "source",
                     "TRAINING_PRETRAINED_WEIGHTS_LICENSE": "license",
                     "TRAINING_PRETRAINED_WEIGHTS_IDENTIFIER": "identifier",
+                    "TRAINING_PRETRAINED_WEIGHTS_APPROVAL_PATH": str(path),
+                })
+
+    def test_pretrained_initialization_rejects_release_capable_approval(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "weights.pt"
+            path.write_bytes(b"weights")
+            import hashlib
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            approval_path = Path(directory) / "approval.json"
+            approval_path.write_text(json.dumps({
+                "approvalId": "unsafe",
+                "status": "APPROVED_RESTRICTED",
+                "decision": "APPROVE_INTERNAL_DIAGNOSTIC_ONLY",
+                "artifact": {
+                    "sha256": digest,
+                    "bytes": path.stat().st_size,
+                    "sourceUrl": "https://example.test/weights.pt",
+                    "identifier": "fixture",
+                },
+                "licenseDisposition": {
+                    "checkpointStandaloneLicense": "NOT_EXPLICITLY_SPECIFIED_BY_UPSTREAM",
+                    "legalConclusion": False,
+                },
+                "authorizedUse": {
+                    "internalTrainabilityDiagnostic": True,
+                    "nonPublishable": True,
+                    "redistribution": False,
+                    "productionUse": True,
+                    "candidateCreation": False,
+                    "modelPromotion": False,
+                    "commercialReleaseReliance": False,
+                },
+            }))
+            with self.assertRaisesRegex(SystemExit, "scope is not sufficiently restricted"):
+                initialization_configuration({
+                    "TRAINING_INITIALIZATION": "pretrained-detector",
+                    "TRAINING_PRETRAINED_WEIGHTS_APPROVED": "true",
+                    "TRAINING_PRETRAINED_WEIGHTS_PATH": str(path),
+                    "TRAINING_PRETRAINED_WEIGHTS_SHA256": digest,
+                    "TRAINING_PRETRAINED_WEIGHTS_SOURCE": "https://example.test/weights.pt",
+                    "TRAINING_PRETRAINED_WEIGHTS_LICENSE": "restricted-internal-diagnostic-only;standalone-license-not-explicitly-specified",
+                    "TRAINING_PRETRAINED_WEIGHTS_IDENTIFIER": "fixture",
+                    "TRAINING_PRETRAINED_WEIGHTS_APPROVAL_PATH": str(approval_path),
+                    "TRAINABILITY_DIAGNOSTIC_ONLY": "true",
+                })
+
+    def test_pretrained_initialization_rejects_non_diagnostic_execution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "weights.pt"
+            path.write_bytes(b"weights")
+            import hashlib
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            approval_path = Path(directory) / "approval.json"
+            approval_path.write_text(json.dumps({
+                "approvalId": "diagnostic-only",
+                "status": "APPROVED_RESTRICTED",
+                "decision": "APPROVE_INTERNAL_DIAGNOSTIC_ONLY",
+                "artifact": {
+                    "sha256": digest,
+                    "bytes": path.stat().st_size,
+                    "sourceUrl": "https://example.test/weights.pt",
+                    "identifier": "fixture",
+                },
+                "licenseDisposition": {
+                    "checkpointStandaloneLicense": "NOT_EXPLICITLY_SPECIFIED_BY_UPSTREAM",
+                    "legalConclusion": False,
+                },
+                "authorizedUse": {
+                    "internalTrainabilityDiagnostic": True,
+                    "nonPublishable": True,
+                    "redistribution": False,
+                    "productionUse": False,
+                    "candidateCreation": False,
+                    "modelPromotion": False,
+                    "commercialReleaseReliance": False,
+                },
+            }))
+            with self.assertRaisesRegex(SystemExit, "requires diagnostic-only execution"):
+                initialization_configuration({
+                    "TRAINING_INITIALIZATION": "pretrained-detector",
+                    "TRAINING_PRETRAINED_WEIGHTS_APPROVED": "true",
+                    "TRAINING_PRETRAINED_WEIGHTS_PATH": str(path),
+                    "TRAINING_PRETRAINED_WEIGHTS_SHA256": digest,
+                    "TRAINING_PRETRAINED_WEIGHTS_SOURCE": "https://example.test/weights.pt",
+                    "TRAINING_PRETRAINED_WEIGHTS_LICENSE": "restricted-internal-diagnostic-only;standalone-license-not-explicitly-specified",
+                    "TRAINING_PRETRAINED_WEIGHTS_IDENTIFIER": "fixture",
+                    "TRAINING_PRETRAINED_WEIGHTS_APPROVAL_PATH": str(approval_path),
                 })
 
     def test_diagnostic_checkpoint_retention_is_bounded_and_non_publishable(self):

@@ -9,6 +9,7 @@ resources:
   - namespace.yaml
   - namespace-scoped.yaml
   - training-config.yaml
+  - pretrained-weight-approval.yaml
   - storage.yaml
   - externalsecret.yaml
   - registry-externalsecret.yaml

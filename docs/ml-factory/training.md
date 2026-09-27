@@ -10,6 +10,11 @@ experiments may use `pretrained-backbone` or `pretrained-detector`, but only fro
 an existing local file with explicit approval, source, weight-license identifier,
 immutable identifier, and matching SHA-256. The trainer never downloads weights.
 Pretrained runs remain blocked from candidate creation and production promotion.
+The approved COCO V1 checkpoint has no standalone weight license explicitly stated
+by upstream. Its repository approval is therefore a restricted engineering risk
+acceptance for internal, non-publishable diagnosis only—not a legal conclusion or
+commercial-use clearance. Redistribution, production use, candidate creation,
+promotion, and commercial-release reliance are prohibited.
 
 The detector uses FPN anchor sizes `[4, 8, 16]`, `[8, 16, 32]`,
 `[16, 32, 64]`, `[32, 64, 128]`, and `[64, 128, 256]` to cover the approved
@@ -110,6 +115,10 @@ an operator-approved local checkpoint at
 source, weight license, and immutable identifier. The trainer never downloads the
 checkpoint. Pretrained mode also requires `TRAINABILITY_DIAGNOSTIC_ONLY=true` and
 writes `artifacts/NON_PUBLISHABLE.json`.
+The immutable approval record is
+`approvals/torchvision-fasterrcnn-resnet50-fpn-coco-v1.json`; the workload mounts
+the matching ConfigMap document read-only and verifies it against the local
+checkpoint before loading any parameters.
 
 GPU stages request one `nvidia.com/gpu`, select `accelerator=nvidia-v100`, and
 use the cluster's `nvidia` RuntimeClass. Failed-workflow pods are retained for

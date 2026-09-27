@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 from pathlib import Path
 
@@ -53,6 +54,7 @@ def initialization_configuration(environ=None):
         "source": "TRAINING_PRETRAINED_WEIGHTS_SOURCE",
         "license": "TRAINING_PRETRAINED_WEIGHTS_LICENSE",
         "identifier": "TRAINING_PRETRAINED_WEIGHTS_IDENTIFIER",
+        "approvalPath": "TRAINING_PRETRAINED_WEIGHTS_APPROVAL_PATH",
     }
     values = {key: environ.get(name, "").strip() for key, name in required.items()}
     missing = [required[key] for key, value in values.items() if not value]
@@ -67,6 +69,44 @@ def initialization_configuration(environ=None):
     actual = _sha256(path)
     if actual != expected:
         raise SystemExit("pretrained weights SHA-256 does not match the approved digest")
+    approval_path = Path(values["approvalPath"])
+    if not approval_path.is_absolute() or not approval_path.is_file():
+        raise SystemExit("pretrained weights approval must be an existing absolute local file")
+    try:
+        approval = json.loads(approval_path.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        raise SystemExit(f"pretrained weights approval is invalid: {error}") from error
+    artifact = approval.get("artifact", {})
+    authorized_use = approval.get("authorizedUse", {})
+    if approval.get("status") != "APPROVED_RESTRICTED" or approval.get("decision") != "APPROVE_INTERNAL_DIAGNOSTIC_ONLY":
+        raise SystemExit("pretrained weights approval does not authorize restricted diagnostic use")
+    if (
+        artifact.get("sha256") != actual
+        or artifact.get("sourceUrl") != values["source"]
+        or artifact.get("identifier") != values["identifier"]
+        or artifact.get("bytes") != path.stat().st_size
+    ):
+        raise SystemExit("pretrained weights approval does not match the local artifact")
+    expected_authorization = {
+        "internalTrainabilityDiagnostic": True,
+        "nonPublishable": True,
+        "redistribution": False,
+        "productionUse": False,
+        "candidateCreation": False,
+        "modelPromotion": False,
+        "commercialReleaseReliance": False,
+    }
+    if any(authorized_use.get(key) is not value for key, value in expected_authorization.items()):
+        raise SystemExit("pretrained weights approval scope is not sufficiently restricted")
+    if environ.get("TRAINABILITY_DIAGNOSTIC_ONLY", "").lower() != "true":
+        raise SystemExit("restricted pretrained weights approval requires diagnostic-only execution")
+    license_disposition = approval.get("licenseDisposition", {})
+    if (
+        license_disposition.get("checkpointStandaloneLicense") != "NOT_EXPLICITLY_SPECIFIED_BY_UPSTREAM"
+        or license_disposition.get("legalConclusion") is not False
+        or values["license"] != "restricted-internal-diagnostic-only;standalone-license-not-explicitly-specified"
+    ):
+        raise SystemExit("pretrained weights license disposition is inconsistent")
     return {
         "mode": mode,
         "pretrainedWeightsUsed": True,
@@ -75,6 +115,8 @@ def initialization_configuration(environ=None):
         "weightsSource": values["source"],
         "weightsLicense": values["license"],
         "weightsIdentifier": values["identifier"],
+        "weightsApprovalId": approval.get("approvalId"),
+        "weightsApprovalSha256": _sha256(approval_path),
         "weightsApproved": True,
         "offlineReproducible": True,
     }
