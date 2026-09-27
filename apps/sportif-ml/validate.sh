@@ -62,6 +62,7 @@ python3 - \
   "$repo_root/apps/sportif-ml/rbac.yaml" \
   "$repo_root/apps/sportif-ml/pipeline/workflows.yaml" \
   "$repo_root/apps/sportif-ml/pipeline/workflows-training-staged.yaml" \
+  "$repo_root/apps/sportif-ml/pipeline/workflows-trainability-diagnostic.yaml" \
   "$repo_root/apps/sportif-ml/pipeline/workflows-cvat-handoff.yaml" <<'PY'
 from pathlib import Path
 import sys
@@ -72,7 +73,8 @@ application = yaml.safe_load(Path(sys.argv[2]).read_text())
 rbac = [item for item in yaml.safe_load_all(Path(sys.argv[3]).read_text()) if item]
 workflow = yaml.safe_load(Path(sys.argv[4]).read_text())
 training_workflow = yaml.safe_load(Path(sys.argv[5]).read_text())
-handoff_workflow = yaml.safe_load(Path(sys.argv[6]).read_text())
+diagnostic_workflow = yaml.safe_load(Path(sys.argv[6]).read_text())
+handoff_workflow = yaml.safe_load(Path(sys.argv[7]).read_text())
 
 if values.get("singleNamespace") is not True:
     raise SystemExit("Argo Workflows controller must remain namespace-scoped")
@@ -263,6 +265,73 @@ if training_templates["gpu-trainer"].get("podSpecPatch") != (
     raise SystemExit("GPU stages must select the verified NVIDIA RuntimeClass")
 if train.get("resources", {}).get("limits", {}).get("nvidia.com/gpu") != "1":
     raise SystemExit("Training must request exactly one Kubernetes GPU")
+
+if diagnostic_workflow["metadata"].get("name") != "sportif-ball-trainability-diagnostic":
+    raise SystemExit("Unexpected pretrained trainability diagnostic WorkflowTemplate name")
+diagnostic_spec = diagnostic_workflow["spec"]
+if diagnostic_workflow["metadata"].get("labels", {}).get("sportif.ai/publishable") != "false":
+    raise SystemExit("Pretrained trainability diagnostic must be explicitly non-publishable")
+if diagnostic_spec.get("synchronization", {}).get("mutex", {}).get("name") != "sportif-ball-training":
+    raise SystemExit("Diagnostic and production training must share the RWO PVC mutex")
+diagnostic_parameters = {
+    item["name"]: item.get("value")
+    for item in diagnostic_spec.get("arguments", {}).get("parameters", [])
+}
+if set(diagnostic_parameters) != {
+    "dataset-id", "weights-sha256", "weights-source", "weights-license", "weights-identifier"
+}:
+    raise SystemExit("Diagnostic workflow weight provenance parameters are incomplete")
+if diagnostic_parameters.get("dataset-id") != "sportif-ball-v003":
+    raise SystemExit("Diagnostic workflow must use the approved immutable dataset")
+if any(diagnostic_parameters[name] != "REQUIRED" for name in diagnostic_parameters if name != "dataset-id"):
+    raise SystemExit("Diagnostic workflow must fail closed without explicit weight metadata")
+if diagnostic_spec.get("volumes", [])[0].get("persistentVolumeClaim", {}).get("claimName") != "sportif-ml-work":
+    raise SystemExit("Diagnostic workflow must use the shared work PVC")
+diagnostic_templates = {item["name"]: item for item in diagnostic_spec.get("templates", [])}
+if set(diagnostic_templates) != {"diagnostic", "diagnostic-gpu-trainer"}:
+    raise SystemExit("Diagnostic workflow may contain only orchestration and GPU diagnostic templates")
+diagnostic_tasks = diagnostic_templates["diagnostic"]["dag"]["tasks"]
+if [task["name"] for task in diagnostic_tasks] != [
+    "materialize-dataset", "validate-dataset", "verify-pretrained-trainability"
+]:
+    raise SystemExit("Diagnostic workflow must stop after pretrained trainability verification")
+forbidden_diagnostic_tasks = {
+    "train", "evaluate", "export-onnx", "create-provenance", "publish-candidate"
+}
+if forbidden_diagnostic_tasks & {task["name"] for task in diagnostic_tasks}:
+    raise SystemExit("Diagnostic workflow contains a publish-capable stage")
+diagnostic_gpu = diagnostic_templates["diagnostic-gpu-trainer"]
+if diagnostic_gpu.get("nodeSelector") != {"accelerator": "nvidia-v100"}:
+    raise SystemExit("Diagnostic must use the verified live GPU selector")
+if diagnostic_gpu.get("podSpecPatch") != '{"runtimeClassName":"nvidia"}\n':
+    raise SystemExit("Diagnostic must select the verified NVIDIA RuntimeClass")
+diagnostic_container = diagnostic_gpu["container"]
+if "@sha256:" not in diagnostic_container.get("image", ""):
+    raise SystemExit("Diagnostic trainer image must be pinned by digest")
+if diagnostic_container.get("resources", {}).get("limits", {}).get("nvidia.com/gpu") != "1":
+    raise SystemExit("Diagnostic must request exactly one Kubernetes GPU")
+diagnostic_security = diagnostic_container.get("securityContext", {})
+if diagnostic_security.get("readOnlyRootFilesystem") is not True or diagnostic_security.get("allowPrivilegeEscalation") is not False:
+    raise SystemExit("Diagnostic container requires hardened filesystem and privilege settings")
+diagnostic_environment = {
+    item["name"]: item.get("value") for item in diagnostic_container.get("env", [])
+}
+required_diagnostic_environment = {
+    "TRAINING_INITIALIZATION": "pretrained-detector",
+    "TRAINING_PRETRAINED_WEIGHTS_APPROVED": "true",
+    "TRAINING_PRETRAINED_WEIGHTS_PATH": "/work/pretrained/fasterrcnn-resnet50-fpn-coco.pth",
+    "TRAINABILITY_DIAGNOSTIC_ONLY": "true",
+}
+if any(diagnostic_environment.get(name) != value for name, value in required_diagnostic_environment.items()):
+    raise SystemExit("Diagnostic pretrained initialization controls changed unexpectedly")
+for name in (
+    "TRAINING_PRETRAINED_WEIGHTS_SHA256",
+    "TRAINING_PRETRAINED_WEIGHTS_SOURCE",
+    "TRAINING_PRETRAINED_WEIGHTS_LICENSE",
+    "TRAINING_PRETRAINED_WEIGHTS_IDENTIFIER",
+):
+    if not diagnostic_environment.get(name, "").startswith("{{workflow.parameters."):
+        raise SystemExit("Diagnostic weight metadata must come from explicit workflow parameters")
 
 if handoff_workflow["metadata"].get("name") != "sportif-cvat-handoff":
     raise SystemExit("Unexpected staged CVAT handoff WorkflowTemplate name")
@@ -588,6 +657,8 @@ training_controls = {
     "TRAINABILITY_MIN_POSITIVE_PASS_RATE": "0.90",
     "TRAINABILITY_MAX_NEGATIVE_DETECTION_RATE": "0.10",
     "TRAINABILITY_EVALUATION_SCORE_THRESHOLD": "0.50",
+    "TRAINABILITY_DIFFICULT_MIN_SIDE": "8.0",
+    "TRAINABILITY_CORE_MIN_SIDE": "12.0",
 }
 if {
     name: ml_config.get("data", {}).get(name)
@@ -608,6 +679,7 @@ expected_workflow_templates = {
     "sportif-video-ingest",
     "sportif-cvat-handoff",
     "sportif-ball-training",
+    "sportif-ball-trainability-diagnostic",
 }
 if workflow_templates != expected_workflow_templates:
     raise SystemExit(

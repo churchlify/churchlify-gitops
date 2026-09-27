@@ -1,0 +1,134 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/argoproj/argo-workflows/main/api/jsonschema/schema.json
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: sportif-ball-trainability-diagnostic
+  namespace: sportif-ml
+  labels:
+    app.kubernetes.io/component: ball-trainability-diagnostic
+    sportif.ai/publishable: "false"
+spec:
+  serviceAccountName: sportif-ml-pipeline
+  entrypoint: diagnostic
+  activeDeadlineSeconds: 86400
+  synchronization:
+    mutex:
+      name: sportif-ball-training
+  podGC:
+    strategy: OnWorkflowSuccess
+  ttlStrategy:
+    secondsAfterCompletion: 604800
+  podSpecPatch: |
+    {"securityContext":{"runAsNonRoot":true,"runAsUser":10001,"runAsGroup":10001,"fsGroup":10001,"fsGroupChangePolicy":"OnRootMismatch","seccompProfile":{"type":"RuntimeDefault"}}}
+  arguments:
+    parameters:
+      - name: dataset-id
+        value: sportif-ball-v003
+      - name: weights-sha256
+        value: REQUIRED
+      - name: weights-source
+        value: REQUIRED
+      - name: weights-license
+        value: REQUIRED
+      - name: weights-identifier
+        value: REQUIRED
+  volumes:
+    - name: work
+      persistentVolumeClaim:
+        claimName: sportif-ml-work
+    - name: tmp
+      emptyDir:
+        sizeLimit: 4Gi
+  templates:
+    - name: diagnostic
+      dag:
+        tasks:
+          - name: materialize-dataset
+            templateRef:
+              name: sportif-ball-training
+              template: trainer-two-args
+            arguments:
+              parameters:
+                - name: module
+                  value: sportif_ml.storage
+                - name: argument-one
+                  value: materialize
+                - name: argument-two
+                  value: "{{workflow.parameters.dataset-id}}"
+          - name: validate-dataset
+            dependencies: [materialize-dataset]
+            templateRef:
+              name: sportif-ball-training
+              template: trainer-two-args
+            arguments:
+              parameters:
+                - name: module
+                  value: sportif_ml.dataset
+                - name: argument-one
+                  value: validate
+                - name: argument-two
+                  value: "{{workflow.parameters.dataset-id}}"
+          - name: verify-pretrained-trainability
+            dependencies: [validate-dataset]
+            template: diagnostic-gpu-trainer
+            arguments:
+              parameters:
+                - name: dataset-id
+                  value: "{{workflow.parameters.dataset-id}}"
+
+    - name: diagnostic-gpu-trainer
+      inputs:
+        parameters:
+          - name: dataset-id
+      nodeSelector:
+        accelerator: nvidia-v100
+      podSpecPatch: |
+        {"runtimeClassName":"nvidia"}
+      container:
+        image: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:18fc16f957580b61497807425e5280babab935a8f73f812ccb08a2e2b9dbf448
+        imagePullPolicy: IfNotPresent
+        command: [python, -m, sportif_ml.trainability]
+        args: ["{{inputs.parameters.dataset-id}}"]
+        envFrom:
+          - configMapRef:
+              name: sportif-ml-config
+          - secretRef:
+              name: sportif-ml-storage
+        env:
+          - name: ML_WORK_DIR
+            value: /work/{{workflow.uid}}
+          - name: TRAINING_INITIALIZATION
+            value: pretrained-detector
+          - name: TRAINING_PRETRAINED_WEIGHTS_APPROVED
+            value: "true"
+          - name: TRAINING_PRETRAINED_WEIGHTS_PATH
+            value: /work/pretrained/fasterrcnn-resnet50-fpn-coco.pth
+          - name: TRAINING_PRETRAINED_WEIGHTS_SHA256
+            value: "{{workflow.parameters.weights-sha256}}"
+          - name: TRAINING_PRETRAINED_WEIGHTS_SOURCE
+            value: "{{workflow.parameters.weights-source}}"
+          - name: TRAINING_PRETRAINED_WEIGHTS_LICENSE
+            value: "{{workflow.parameters.weights-license}}"
+          - name: TRAINING_PRETRAINED_WEIGHTS_IDENTIFIER
+            value: "{{workflow.parameters.weights-identifier}}"
+          - name: TRAINABILITY_DIAGNOSTIC_ONLY
+            value: "true"
+        resources:
+          requests:
+            cpu: "2"
+            memory: 8Gi
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: "8"
+            memory: 24Gi
+            nvidia.com/gpu: "1"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+          readOnlyRootFilesystem: true
+        volumeMounts:
+          - name: work
+            mountPath: /work
+          - name: tmp
+            mountPath: /tmp

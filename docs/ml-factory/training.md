@@ -48,7 +48,13 @@ Before full training, a GPU gate must overfit a deterministic 40-frame suite
 spanning at least two training videos and containing both positive and negative
 frames. It runs for 600 mini-batch steps, requires at least 90% of positive frames
 to reach IoU `0.75` and confidence `0.90`, and permits detections above `0.50` on
-at most 10% of negative frames. Full training evaluates only the validation split every five epochs,
+at most 10% of negative frames. The overall gate continues to include every
+positive. Its diagnostic artifact additionally reports positives by raw minimum
+box side: `difficult` below 8 pixels, `tiny` from 8 pixels up to (but excluding)
+12 pixels, and `core` at 12 pixels or greater. Each frame records dimensions before
+and after the model transform, detections before and after the gate score threshold,
+and best RPN-proposal overlap. These bands diagnose resolution and proposal failures;
+they do not weaken the gate or convert difficult positives into negatives. Full training evaluates only the validation split every five epochs,
 selects the best checkpoint primarily by mAP50, requires tiny-object recall of
 at least `0.20`, uses tiny recall and then mAP50-95 as near-equal-mAP tie-breakers,
 and stops after five validation checks without sufficient improvement after the
@@ -94,6 +100,16 @@ the GPU, evaluates the held-out test video, exports and runtime-validates ONNX, 
 provenance, and uploads immutable run-specific objects to the model and
 provenance buckets. Workflow completion creates a `CANDIDATE`; it does not grant
 commercial release approval.
+
+The separate `sportif-ball-trainability-diagnostic` WorkflowTemplate is the only
+approved path for a pretrained initialization experiment. It materializes and
+validates the same immutable dataset, runs only the deterministic trainability
+suite, and has no training, export, provenance, or publishing stages. It requires
+an operator-approved local checkpoint at
+`/work/pretrained/fasterrcnn-resnet50-fpn-coco.pth`, together with its exact SHA-256,
+source, weight license, and immutable identifier. The trainer never downloads the
+checkpoint. Pretrained mode also requires `TRAINABILITY_DIAGNOSTIC_ONLY=true` and
+writes `artifacts/NON_PUBLISHABLE.json`.
 
 GPU stages request one `nvidia.com/gpu`, select `accelerator=nvidia-v100`, and
 use the cluster's `nvidia` RuntimeClass. Failed-workflow pods are retained for

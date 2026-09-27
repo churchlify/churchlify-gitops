@@ -46,7 +46,13 @@ from sportif_ml.train import (
     summarize_augmentation_scales,
     threshold_grid,
 )
-from sportif_ml.trainability import select_mixed_source_indices
+from sportif_ml.trainability import (
+    best_overlap,
+    object_size_diagnostics,
+    persist_diagnostic_result,
+    positive_band_summary,
+    select_mixed_source_indices,
+)
 
 
 class TrainerTests(unittest.TestCase):
@@ -891,6 +897,59 @@ class TrainerTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual({dataset.source_id(index) for index in first}, {"a", "b"})
         self.assertEqual({dataset.has_annotations(index) for index in first}, {True, False})
+
+    def test_trainability_object_size_diagnostics_use_minimum_box_side(self):
+        target = {"boxes": torch.tensor([[0.0, 0.0, 20.0, 7.0]])}
+        transformed = {"boxes": torch.tensor([[0.0, 0.0, 13.0, 4.5]])}
+
+        result = object_size_diagnostics(target, transformed)
+
+        self.assertEqual(result["objectSizeBand"], "difficult")
+        self.assertEqual(result["minimumBoxSidePixels"], 7.0)
+        self.assertEqual(result["maximumBoxSidePixels"], 20.0)
+        self.assertEqual(result["transformedMinimumBoxSidePixels"], 4.5)
+
+    def test_trainability_object_size_diagnostics_validate_band_order(self):
+        target = {"boxes": torch.tensor([[0.0, 0.0, 20.0, 7.0]])}
+        with self.assertRaisesRegex(ValueError, "object-size bands"):
+            object_size_diagnostics(target, target, difficult_side=12.0, core_side=8.0)
+
+    def test_trainability_best_overlap_retains_score_for_best_iou(self):
+        boxes = torch.tensor([[0.0, 0.0, 5.0, 5.0], [0.0, 0.0, 10.0, 10.0]])
+        scores = torch.tensor([0.99, 0.60])
+        target = torch.tensor([[0.0, 0.0, 10.0, 10.0]])
+
+        overlap, score = best_overlap(boxes, scores, target)
+
+        self.assertEqual(overlap, 1.0)
+        self.assertAlmostEqual(score, 0.60, places=6)
+
+    def test_trainability_reports_positive_pass_rates_by_size_band(self):
+        outcomes = [
+            {"labelStatus": "positive", "objectSizeBand": "core", "bestIoU": 0.8, "scoreAtBestIoU": 0.95},
+            {"labelStatus": "positive", "objectSizeBand": "core", "bestIoU": 0.7, "scoreAtBestIoU": 0.95},
+            {"labelStatus": "positive", "objectSizeBand": "tiny", "bestIoU": 0.8, "scoreAtBestIoU": 0.95},
+            {"labelStatus": "negative"},
+        ]
+
+        summary = positive_band_summary(outcomes, 0.75, 0.90)
+
+        self.assertEqual(summary["core"], {"frames": 2, "passes": 1, "passRate": 0.5})
+        self.assertEqual(summary["tiny"], {"frames": 1, "passes": 1, "passRate": 1.0})
+        self.assertIsNone(summary["difficult"]["passRate"])
+
+    def test_pretrained_trainability_result_is_marked_non_publishable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result = {"diagnosticOnly": True, "status": "FAIL"}
+
+            output = persist_diagnostic_result(root, result)
+
+            self.assertTrue(output.is_file())
+            marker = json.loads((root / "artifacts" / "NON_PUBLISHABLE.json").read_text())
+            self.assertFalse(marker["publishable"])
+            self.assertFalse(marker["exportEligible"])
+            self.assertFalse(marker["promotionEligible"])
 
     def test_image_resize_policy_validates_bounds(self):
         self.assertEqual(

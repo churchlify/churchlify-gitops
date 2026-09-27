@@ -2,13 +2,14 @@ import json
 import os
 import random
 import sys
+from collections import OrderedDict
 
 import numpy as np
 import torch
 
 from .dataset import dataset_root
 from .metrics import box_iou
-from .model import build_model
+from .model import build_model, initialization_metadata
 from .train import YoloDetectionDataset
 
 
@@ -55,6 +56,91 @@ def select_mixed_source_indices(dataset, image_count, seed):
     return selected
 
 
+def object_size_diagnostics(target, transformed_target, difficult_side=8.0, core_side=12.0):
+    if not 0 < difficult_side < core_side:
+        raise ValueError("object-size bands must satisfy 0 < difficult < core")
+    boxes = target["boxes"]
+    transformed_boxes = transformed_target["boxes"]
+    if not len(boxes):
+        return None
+    sizes = boxes[:, 2:] - boxes[:, :2]
+    transformed_sizes = transformed_boxes[:, 2:] - transformed_boxes[:, :2]
+    minimum_side = float(sizes.min())
+    maximum_side = float(sizes.max())
+    transformed_minimum_side = float(transformed_sizes.min())
+    transformed_maximum_side = float(transformed_sizes.max())
+    if minimum_side < difficult_side:
+        band = "difficult"
+    elif minimum_side < core_side:
+        band = "tiny"
+    else:
+        band = "core"
+    return {
+        "objectSizeBand": band,
+        "minimumBoxSidePixels": minimum_side,
+        "maximumBoxSidePixels": maximum_side,
+        "transformedMinimumBoxSidePixels": transformed_minimum_side,
+        "transformedMaximumBoxSidePixels": transformed_maximum_side,
+    }
+
+
+def best_overlap(boxes, scores, targets):
+    overlaps = box_iou(boxes, targets)
+    if not overlaps.numel():
+        return 0.0, 0.0
+    flat_index = int(overlaps.argmax())
+    prediction_index = flat_index // overlaps.shape[1]
+    return float(overlaps.flatten()[flat_index]), float(scores[prediction_index])
+
+
+def diagnostic_inference(model, image, target):
+    original_size = tuple(image.shape[-2:])
+    images, transformed_targets = model.transform([image], [target])
+    features = model.backbone(images.tensors)
+    if isinstance(features, torch.Tensor):
+        features = OrderedDict([("0", features)])
+    proposals, _ = model.rpn(images, features, None)
+    detections, _ = model.roi_heads(features, proposals, images.image_sizes, None)
+    detections = model.transform.postprocess(detections, images.image_sizes, [original_size])
+    return detections[0], proposals[0], transformed_targets[0], images.image_sizes[0]
+
+
+def positive_band_summary(outcomes, minimum_iou, minimum_score):
+    summary = {}
+    for band in ("difficult", "tiny", "core"):
+        selected = [
+            outcome for outcome in outcomes
+            if outcome.get("labelStatus") == "positive" and outcome.get("objectSizeBand") == band
+        ]
+        passes = sum(
+            outcome["bestIoU"] >= minimum_iou and outcome["scoreAtBestIoU"] >= minimum_score
+            for outcome in selected
+        )
+        summary[band] = {
+            "frames": len(selected),
+            "passes": passes,
+            "passRate": passes / len(selected) if selected else None,
+        }
+    return summary
+
+
+def persist_diagnostic_result(root, result):
+    output = root / "artifacts" / "trainability-diagnostic.json"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+    if result["diagnosticOnly"]:
+        marker = {
+            "publishable": False,
+            "exportEligible": False,
+            "promotionEligible": False,
+            "reason": "pretrained trainability initialization experiment",
+        }
+        (output.parent / "NON_PUBLISHABLE.json").write_text(
+            json.dumps(marker, indent=2, sort_keys=True) + "\n"
+        )
+    return output
+
+
 def verify(dataset_id):
     seed = int(os.environ.get("DATASET_SEED", "42"))
     random.seed(seed)
@@ -64,7 +150,8 @@ def verify(dataset_id):
     if not torch.cuda.is_available():
         raise SystemExit("CUDA is required for the trainability smoke test")
     device = torch.device("cuda")
-    dataset = YoloDetectionDataset(dataset_root(dataset_id), "train")
+    root = dataset_root(dataset_id)
+    dataset = YoloDetectionDataset(root, "train")
     image_count = int(os.environ.get("TRAINABILITY_IMAGE_COUNT", "40"))
     steps = int(os.environ.get("TRAINABILITY_STEPS", "600"))
     minimum_iou = float(os.environ.get("TRAINABILITY_MIN_IOU", "0.75"))
@@ -72,7 +159,12 @@ def verify(dataset_id):
     minimum_positive_pass_rate = float(os.environ.get("TRAINABILITY_MIN_POSITIVE_PASS_RATE", "0.90"))
     maximum_negative_detection_rate = float(os.environ.get("TRAINABILITY_MAX_NEGATIVE_DETECTION_RATE", "0.10"))
     evaluation_score_threshold = float(os.environ.get("TRAINABILITY_EVALUATION_SCORE_THRESHOLD", "0.50"))
+    difficult_side = float(os.environ.get("TRAINABILITY_DIFFICULT_MIN_SIDE", "8.0"))
+    core_side = float(os.environ.get("TRAINABILITY_CORE_MIN_SIDE", "12.0"))
     batch_size = int(os.environ.get("TRAINABILITY_BATCH_SIZE", "2"))
+    diagnostic_only = os.environ.get("TRAINABILITY_DIAGNOSTIC_ONLY", "false").lower() == "true"
+    if os.environ.get("TRAINING_INITIALIZATION", "random") != "random" and not diagnostic_only:
+        raise SystemExit("pretrained trainability runs must be explicitly diagnostic-only")
     selected = select_mixed_source_indices(dataset, image_count, seed)
     model = build_model().to(device).train()
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(os.environ.get("TRAINABILITY_LEARNING_RATE", "0.0005")))
@@ -99,34 +191,56 @@ def verify(dataset_id):
     outcomes = []
     with torch.inference_mode():
         for index, (image, target) in zip(selected, suite):
-            output = model([image.to(device)])[0]
+            device_image = image.to(device)
+            device_target = {key: value.to(device) for key, value in target.items()}
+            output, proposals, transformed_target, transformed_size = diagnostic_inference(
+                model, device_image, device_target
+            )
             selected_predictions = output["labels"] == 1
-            boxes = output["boxes"][selected_predictions].cpu()
-            scores = output["scores"][selected_predictions].cpu()
+            all_boxes = output["boxes"][selected_predictions].cpu()
+            all_scores = output["scores"][selected_predictions].cpu()
+            boxes = all_boxes
+            scores = all_scores
             confident = scores >= evaluation_score_threshold
             boxes = boxes[confident]
             scores = scores[confident]
+            relative_path = str(dataset.images[index].relative_to(dataset.image_dir))
+            common = {
+                "datasetIndex": index,
+                "imagePath": relative_path,
+                "source": dataset.source_id(index),
+                "originalImageSize": list(image.shape[-2:]),
+                "transformedImageSize": list(transformed_size),
+                "ballDetectionsBeforeGateThreshold": len(all_boxes),
+                "maximumBallScoreBeforeGateThreshold": float(all_scores.max()) if len(all_scores) else 0.0,
+                "ballDetectionsAtGateThreshold": len(boxes),
+                "rpnProposals": len(proposals),
+            }
             if not len(target["boxes"]):
                 outcomes.append({
-                    "source": dataset.source_id(index),
+                    **common,
                     "labelStatus": "negative",
                     "detections": len(boxes),
                 })
                 continue
-            overlaps = box_iou(boxes, target["boxes"])
-            if overlaps.numel():
-                flat_index = int(overlaps.argmax())
-                prediction_index = flat_index // overlaps.shape[1]
-                best_iou = float(overlaps.flatten()[flat_index])
-                score = float(scores[prediction_index])
-            else:
-                best_iou = 0.0
-                score = 0.0
+            best_iou, score = best_overlap(boxes, scores, target["boxes"])
+            pre_threshold_iou, pre_threshold_score = best_overlap(
+                all_boxes, all_scores, target["boxes"]
+            )
+            proposal_overlaps = box_iou(proposals.cpu(), transformed_target["boxes"].cpu())
+            best_proposal_iou = float(proposal_overlaps.max()) if proposal_overlaps.numel() else 0.0
             outcomes.append({
-                "source": dataset.source_id(index),
+                **common,
                 "labelStatus": "positive",
                 "bestIoU": best_iou,
                 "scoreAtBestIoU": score,
+                "bestIoUBeforeGateThreshold": pre_threshold_iou,
+                "scoreAtBestIoUBeforeGateThreshold": pre_threshold_score,
+                "bestRpnProposalIoU": best_proposal_iou,
+                **object_size_diagnostics(
+                    target, {key: value.cpu() for key, value in transformed_target.items()},
+                    difficult_side, core_side,
+                ),
             })
     positive_outcomes = [outcome for outcome in outcomes if outcome["labelStatus"] == "positive"]
     negative_outcomes = [outcome for outcome in outcomes if outcome["labelStatus"] == "negative"]
@@ -152,14 +266,26 @@ def verify(dataset_id):
         "minimumPositivePassRate": minimum_positive_pass_rate,
         "maximumNegativeDetectionRate": maximum_negative_detection_rate,
         "evaluationScoreThreshold": evaluation_score_threshold,
+        "diagnosticOnly": diagnostic_only,
+        "publishable": False if diagnostic_only else None,
+        "initialization": initialization_metadata(model),
+        "objectSizeBands": {
+            "difficult": f"minimum side < {difficult_side:g} raw pixels",
+            "tiny": f"{difficult_side:g} <= minimum side < {core_side:g} raw pixels",
+            "core": f"minimum side >= {core_side:g} raw pixels",
+        },
         "sources": sorted({dataset.source_id(index) for index in selected}),
         "positiveFrames": len(positive_outcomes),
         "negativeFrames": len(negative_outcomes),
         "positivePassRate": positive_pass_rate,
         "negativeDetectionRate": negative_detection_rate,
+        "positiveFramesByObjectSize": positive_band_summary(
+            outcomes, minimum_iou, minimum_score
+        ),
         "history": history,
         "outcomes": outcomes,
     }
+    persist_diagnostic_result(root, result)
     print(json.dumps(result), flush=True)
     if failures:
         raise SystemExit(f"mixed-source overfit gate failed: {failures}")
