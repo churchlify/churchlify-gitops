@@ -47,15 +47,26 @@ approved validation video's smaller ball distribution. On positive frames its
 scale is clamped so no annotated box side is reduced below 8 source pixels;
 negative frames retain the full configured zoom-out range. Requested and applied
 scale minima and the number of clamped samples are recorded in training metadata.
+Separately authorized diagnostics may configure a scale above `1.00`; this uses a
+random crop that is constrained to retain every annotation and reduces the
+requested scale when the complete annotation extent cannot fit. Mosaic and mixup
+are not implemented because merging images would require separately reviewed label,
+source-provenance, and negative-frame semantics.
 Validation and test images are never augmented.
 
 Positive and negative sampling is source-aware. When an approved training split
-contains multiple source videos, each class pool is round-robin ordered across
-sources before batches are assembled. The approved `sportif-ball-v003` training
+contains multiple source videos, each positive and negative class pool is
+deterministically oversampled to equal source exposure and round-robin ordered
+before batches are assembled. The approved `sportif-ball-v003` training
 split contains `VID-20260922-001`,
 `VID-20260922-002`, and `sportif-video-20260924-0ef8a04c07cf`, so metadata must
 report source balancing as active. Augmentation supplements, but does not substitute
 for, this real source diversity.
+Every run also writes `dataset-distribution-audit.json` before optimization. It
+reports per-split and per-source image, annotation, positive/negative frame,
+tiny-positive frame, and object-size-band counts, alongside the dataset validator's
+split-leakage result. This makes source-domain and label-distribution disparity
+available even when training later fails to produce an eligible checkpoint.
 
 Before full training, a GPU gate must overfit a deterministic 40-frame suite
 spanning at least two training videos and containing both positive and negative
@@ -83,6 +94,14 @@ first eligible checkpoint exists. Validation checks below the tiny-recall floor
 do not prematurely consume early-stopping patience; if no eligible checkpoint is
 ever produced, the run fails closed without a model. The held-out test split is
 not read until the separate final evaluation stage.
+
+The trainer also tracks the best broad-validation diagnostic checkpoint without
+requiring authorization eligibility. It remains under the diagnostic directory
+with explicit non-publishable markers. Optional diagnostic early stopping can stop
+after a configured number of broad-validation checks without improvement even
+when no eligible checkpoint exists; its default is disabled (`0`) and enabling it
+requires a separately authorized run. It cannot create `model.pt` or relax any
+candidate checkpoint threshold.
 
 Every validation pass may retain a bounded diagnostic checkpoint under
 `artifacts/diagnostic-checkpoints/`. Each checkpoint is accompanied by metrics and

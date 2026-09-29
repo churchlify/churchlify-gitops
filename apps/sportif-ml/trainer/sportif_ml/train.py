@@ -110,7 +110,7 @@ def augment_detection(image, boxes, randomizer, config, return_metadata=False):
     )
     scale = requested_scale
     minimum_object_side = float(config.get("minimumObjectSide", 0.0))
-    if len(boxes) and minimum_object_side > 0:
+    if len(boxes) and minimum_object_side > 0 and scale < 1.0:
         box_sizes = boxes[:, 2:] - boxes[:, :2]
         smallest_side = float(box_sizes.min())
         scale = min(1.0, max(scale, minimum_object_side / max(smallest_side, 1e-12)))
@@ -129,6 +129,35 @@ def augment_detection(image, boxes, randomizer, config, return_metadata=False):
             scale_y = resized_height / height
             boxes = boxes * torch.tensor([scale_x, scale_y, scale_x, scale_y])
             boxes = boxes + torch.tensor([offset_x, offset_y, offset_x, offset_y])
+    elif scale > 1.0:
+        crop_width = max(1, round(width / scale))
+        crop_height = max(1, round(height / scale))
+        if len(boxes):
+            extent_width = float(boxes[:, 2].max() - boxes[:, 0].min())
+            extent_height = float(boxes[:, 3].max() - boxes[:, 1].min())
+            maximum_safe_scale = min(
+                width / max(extent_width, 1.0),
+                height / max(extent_height, 1.0),
+            )
+            scale = min(scale, maximum_safe_scale)
+            crop_width = max(1, min(width, round(width / scale)))
+            crop_height = max(1, min(height, round(height / scale)))
+            minimum_x = max(0, ceil(float(boxes[:, 2].max()) - crop_width))
+            maximum_x = min(int(float(boxes[:, 0].min())), width - crop_width)
+            minimum_y = max(0, ceil(float(boxes[:, 3].max()) - crop_height))
+            maximum_y = min(int(float(boxes[:, 1].min())), height - crop_height)
+        else:
+            minimum_x, maximum_x = 0, width - crop_width
+            minimum_y, maximum_y = 0, height - crop_height
+        offset_x = randomizer.randint(minimum_x, max(minimum_x, maximum_x))
+        offset_y = randomizer.randint(minimum_y, max(minimum_y, maximum_y))
+        image = image.crop((offset_x, offset_y, offset_x + crop_width, offset_y + crop_height))
+        image = image.resize((width, height), Image.Resampling.BILINEAR)
+        if len(boxes):
+            scale_x = width / crop_width
+            scale_y = height / crop_height
+            boxes = boxes - torch.tensor([offset_x, offset_y, offset_x, offset_y])
+            boxes = boxes * torch.tensor([scale_x, scale_y, scale_x, scale_y])
 
     if randomizer.random() < float(config.get("horizontalFlipProbability", 0.0)):
         image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
@@ -151,6 +180,8 @@ def augment_detection(image, boxes, randomizer, config, return_metadata=False):
         "appliedScale": scale,
         "minimumObjectSide": minimum_object_side,
         "scaleClamped": scale > requested_scale + 1e-12,
+        "safeCropScaleReduced": scale < requested_scale - 1e-12,
+        "spatialOperation": "zoom-out" if scale < 1.0 else "safe-crop" if scale > 1.0 else "identity",
     }
     return (image, boxes, metadata) if return_metadata else (image, boxes)
 
@@ -196,8 +227,8 @@ class BalancedBatchSampler(Sampler):
         })
         self.source_balancing_active = len(self.sources) > 1
         self.batch_count = max(
-            ceil(len(self.positive_indices) / self.positive_per_batch),
-            ceil(len(self.negative_indices) / self.negative_per_batch),
+            ceil(self._balanced_pool_size(self.positive_indices) / self.positive_per_batch),
+            ceil(self._balanced_pool_size(self.negative_indices) / self.negative_per_batch),
         )
 
     def __len__(self):
@@ -235,12 +266,28 @@ class BalancedBatchSampler(Sampler):
             randomizer.shuffle(by_source[source])
         result = []
         positions = {source: 0 for source in available}
-        while len(result) < len(indices):
+        target_per_source = max(len(by_source[source]) for source in available)
+        while any(positions[source] < target_per_source for source in available):
             for source in available:
-                if positions[source] < len(by_source[source]):
-                    result.append(by_source[source][positions[source]])
-                    positions[source] += 1
+                position = positions[source]
+                if position >= target_per_source:
+                    continue
+                item = by_source[source][position % len(by_source[source])]
+                if position >= len(by_source[source]):
+                    base_index = item[0] if isinstance(item, tuple) else item
+                    item = (base_index, 2000000 + position)
+                result.append(item)
+                positions[source] += 1
         return result
+
+    def _balanced_pool_size(self, indices):
+        if not self.source_balancing_active:
+            return len(indices)
+        counts = {}
+        for index in indices:
+            source = self._source(index)
+            counts[source] = counts.get(source, 0) + 1
+        return max(counts.values()) * len(counts)
 
     def _source(self, index):
         base_index = index[0] if isinstance(index, tuple) else index
@@ -289,6 +336,65 @@ def is_better_checkpoint(
     )
 
 
+def is_better_diagnostic_checkpoint(metrics, best_metrics, minimum_improvement):
+    if best_metrics is None:
+        return True
+    tiny_recall = metrics.get("objectSizeRecall", {}).get("tiny", {}).get("recall", 0.0)
+    best_tiny_recall = best_metrics.get("objectSizeRecall", {}).get("tiny", {}).get("recall", 0.0)
+    if metrics["mAP50"] > best_metrics["mAP50"] + minimum_improvement:
+        return True
+    return (
+        abs(metrics["mAP50"] - best_metrics["mAP50"]) <= minimum_improvement
+        and (
+            tiny_recall > best_tiny_recall + minimum_improvement
+            or (
+                abs(tiny_recall - best_tiny_recall) <= minimum_improvement
+                and metrics["mAP50-95"] > best_metrics["mAP50-95"] + minimum_improvement
+            )
+        )
+    )
+
+
+def dataset_distribution(dataset):
+    result = {"images": len(dataset), "annotations": 0, "positiveFrames": 0, "negativeFrames": 0, "tinyPositiveFrames": 0, "sources": {}}
+    for index in range(len(dataset)):
+        source = dataset.source_id(index)
+        source_result = result["sources"].setdefault(source, {
+            "images": 0,
+            "annotations": 0,
+            "positiveFrames": 0,
+            "negativeFrames": 0,
+            "tinyPositiveFrames": 0,
+            "tinyAnnotations": 0,
+            "smallAnnotations": 0,
+            "largerAnnotations": 0,
+        })
+        source_result["images"] += 1
+        image_path = dataset.images[index]
+        with Image.open(image_path) as image:
+            width, height = image.size
+        annotation_sides = []
+        for line in dataset.label_path(index).read_text().splitlines():
+            _, _, _, box_width, box_height = map(float, line.split())
+            annotation_sides.append(max(box_width * width, box_height * height))
+        annotation_count = len(annotation_sides)
+        result["annotations"] += annotation_count
+        source_result["annotations"] += annotation_count
+        if annotation_count:
+            result["positiveFrames"] += 1
+            source_result["positiveFrames"] += 1
+        else:
+            result["negativeFrames"] += 1
+            source_result["negativeFrames"] += 1
+        if any(side < 12.0 for side in annotation_sides):
+            result["tinyPositiveFrames"] += 1
+            source_result["tinyPositiveFrames"] += 1
+        for side in annotation_sides:
+            band = "tinyAnnotations" if side < 12.0 else "smallAnnotations" if side < 24.0 else "largerAnnotations"
+            source_result[band] += 1
+    return result
+
+
 def summarize_augmentation_scales(records):
     if not records:
         return {
@@ -296,12 +402,24 @@ def summarize_augmentation_scales(records):
             "clampedSamples": 0,
             "minimumRequestedScale": None,
             "minimumAppliedScale": None,
+            "maximumRequestedScale": None,
+            "maximumAppliedScale": None,
+            "safeCropScaleReductions": 0,
+            "spatialOperations": {},
         }
+    operations = {}
+    for record in records:
+        operation = record.get("spatialOperation", "unknown")
+        operations[operation] = operations.get(operation, 0) + 1
     return {
         "samples": len(records),
         "clampedSamples": sum(record["scaleClamped"] for record in records),
         "minimumRequestedScale": min(record["requestedScale"] for record in records),
         "minimumAppliedScale": min(record["appliedScale"] for record in records),
+        "maximumRequestedScale": max(record["requestedScale"] for record in records),
+        "maximumAppliedScale": max(record["appliedScale"] for record in records),
+        "safeCropScaleReductions": sum(record.get("safeCropScaleReduced", False) for record in records),
+        "spatialOperations": operations,
     }
 
 
@@ -486,6 +604,13 @@ def train(dataset_id):
         raise ValueError(f"unsupported training learning-rate scheduler: {scheduler_name}")
     validation_interval = int(os.environ.get("TRAINING_VALIDATION_INTERVAL", "5"))
     early_stopping_patience = int(os.environ.get("TRAINING_EARLY_STOPPING_PATIENCE", "5"))
+    diagnostic_early_stopping_patience = int(
+        os.environ.get("TRAINING_DIAGNOSTIC_EARLY_STOPPING_PATIENCE", "0")
+    )
+    if early_stopping_patience < 1:
+        raise ValueError("eligible-checkpoint early stopping patience must be at least one")
+    if diagnostic_early_stopping_patience < 0:
+        raise ValueError("diagnostic early stopping patience must be non-negative")
     minimum_improvement = float(os.environ.get("TRAINING_MIN_VALIDATION_IMPROVEMENT", "0.001"))
     minimum_tiny_recall = float(os.environ.get("TRAINING_CHECKPOINT_MIN_TINY_RECALL", "0.20"))
     minimum_tiny_annotations = int(
@@ -511,6 +636,17 @@ def train(dataset_id):
     diagnostic_directory = output / "diagnostic-checkpoints"
     retain_diagnostics = os.environ.get("TRAINING_RETAIN_DIAGNOSTIC_CHECKPOINTS", "true").lower() == "true"
     maximum_diagnostic_checkpoints = int(os.environ.get("TRAINING_MAX_DIAGNOSTIC_CHECKPOINTS", "5"))
+    distribution_audit = {
+        "schemaVersion": 1,
+        "datasetId": dataset_id,
+        "train": dataset_distribution(training_dataset),
+        "validation": dataset_distribution(validation_dataset),
+        "splitLeakageValidation": validation_result.get("leakageDetected"),
+        "datasetValidationStatus": validation_result.get("status"),
+    }
+    (output / "dataset-distribution-audit.json").write_text(
+        json.dumps(distribution_audit, indent=2) + "\n"
+    )
     epoch_losses = []
     component_loss_history = []
     validation_history = []
@@ -519,8 +655,12 @@ def train(dataset_id):
     maximum_batch_loss_history = []
     best_metrics = None
     best_epoch = None
+    best_diagnostic_metrics = None
+    best_diagnostic_epoch = None
     evaluations_without_improvement = 0
+    diagnostic_evaluations_without_improvement = 0
     stopped_early = False
+    early_stopping_reason = None
     consecutive_explosions = 0
     for epoch in range(epochs):
         if scheduler_name == "cosine":
@@ -622,6 +762,27 @@ def train(dataset_id):
                     validation_record,
                     maximum_diagnostic_checkpoints,
                 )
+            if is_better_diagnostic_checkpoint(
+                validation_metrics,
+                best_diagnostic_metrics,
+                minimum_improvement,
+            ):
+                best_diagnostic_metrics = validation_metrics.copy()
+                best_diagnostic_epoch = epoch + 1
+                diagnostic_evaluations_without_improvement = 0
+                if retain_diagnostics:
+                    diagnostic_directory.mkdir(parents=True, exist_ok=True)
+                    torch.save(model.state_dict(), diagnostic_directory / "best-diagnostic.pt")
+                    (diagnostic_directory / "best-diagnostic.json").write_text(json.dumps({
+                        "epoch": best_diagnostic_epoch,
+                        "publishable": False,
+                        "promotionEligible": False,
+                        "exportEligible": False,
+                        "purpose": "best-broad-validation-diagnostic-only",
+                        "metrics": validation_record,
+                    }, indent=2) + "\n")
+            else:
+                diagnostic_evaluations_without_improvement += 1
             if is_better_checkpoint(
                 validation_metrics,
                 best_metrics,
@@ -637,6 +798,14 @@ def train(dataset_id):
                 evaluations_without_improvement += 1
                 if evaluations_without_improvement >= early_stopping_patience:
                     stopped_early = True
+                    early_stopping_reason = "eligible-checkpoint-patience"
+            if (
+                not stopped_early
+                and diagnostic_early_stopping_patience > 0
+                and diagnostic_evaluations_without_improvement >= diagnostic_early_stopping_patience
+            ):
+                stopped_early = True
+                early_stopping_reason = "diagnostic-validation-patience"
             if scheduler is not None and epoch + 1 > warmup_epochs:
                 scheduler.step(validation_metrics["mAP50"])
         print(json.dumps(progress), flush=True)
@@ -652,6 +821,7 @@ def train(dataset_id):
         "batchSize": batch_size,
         "balancedBatches": True,
         "sourceBalancedBatches": sampler.source_balancing_active,
+        "sourceBalancingPolicy": "equal-exposure-within-label-pools",
         "trainingSources": sampler.sources,
         "trainingSourceCount": len(sampler.sources),
         "augmentation": augmentation,
@@ -696,12 +866,17 @@ def train(dataset_id):
         "bestValidationMetrics": best_metrics,
         "selectedOperatingThreshold": best_metrics["scoreThreshold"],
         "earlyStoppingPatience": early_stopping_patience,
+        "diagnosticEarlyStoppingPatience": diagnostic_early_stopping_patience,
+        "earlyStoppingReason": early_stopping_reason,
+        "bestDiagnosticValidationEpoch": best_diagnostic_epoch,
+        "bestDiagnosticValidationMetrics": best_diagnostic_metrics,
         "minimumValidationImprovement": minimum_improvement,
         "minimumCheckpointTinyRecall": minimum_tiny_recall,
         "minimumCheckpointTinyAnnotations": minimum_tiny_annotations,
         "stoppedEarly": stopped_early,
         "publishedCheckpoint": "best-validation",
         "validation": validation_result,
+        "datasetDistributionAudit": distribution_audit,
         "diagnosticCheckpointRetention": {
             "enabled": retain_diagnostics,
             "maximumCheckpoints": maximum_diagnostic_checkpoints,

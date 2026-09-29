@@ -60,6 +60,8 @@ data:
         minimumPositiveObjectSidePixels: 8.0
       validationInterval: 5
       earlyStoppingPatience: 5
+      diagnosticEarlyStoppingPatience: 0
+      diagnosticEarlyStoppingRequiresSeparateRunAuthorization: true
       minimumValidationImprovement: 0.001
       checkpointSelection:
         primary: best-validation-map50

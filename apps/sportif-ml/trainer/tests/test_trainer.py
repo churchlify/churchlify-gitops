@@ -43,8 +43,10 @@ from sportif_ml.train import (
     augment_detection,
     cosine_learning_rate,
     consume_early_stopping_patience,
+    dataset_distribution,
     freeze_backbone_stages,
     is_better_checkpoint,
+    is_better_diagnostic_checkpoint,
     keep_frozen_modules_in_eval_mode,
     require_stable_loss,
     retain_diagnostic_checkpoint,
@@ -538,6 +540,22 @@ class TrainerTests(unittest.TestCase):
             ["a", "b", "a", "b"],
         )
 
+    def test_source_aware_sampler_equalizes_imbalanced_source_exposure(self):
+        sampler = BalancedBatchSampler(
+            [0, 2, 4, 6],
+            [1, 3, 5, 7],
+            batch_size=2,
+            seed=42,
+            source_by_index={0: "a", 1: "a", 2: "a", 3: "a", 4: "a", 5: "a", 6: "b", 7: "b"},
+        )
+
+        positive_order = sampler._ordered_indices([0, 2, 4, 6], __import__("random").Random(42))
+        positive_sources = [sampler._source(index) for index in positive_order]
+
+        self.assertEqual(positive_sources.count("a"), 3)
+        self.assertEqual(positive_sources.count("b"), 3)
+        self.assertTrue(any(isinstance(index, tuple) and index[0] == 6 for index in positive_order))
+
     def test_source_balancing_is_inactive_for_one_source(self):
         sampler = BalancedBatchSampler(
             [0, 2], [1, 3], batch_size=2, seed=42,
@@ -692,16 +710,54 @@ class TrainerTests(unittest.TestCase):
         self.assertEqual(metadata["appliedScale"], 0.5)
         self.assertFalse(metadata["scaleClamped"])
 
+    def test_safe_zoom_in_crop_preserves_all_boxes(self):
+        image = Image.new("RGB", (100, 80), "white")
+        boxes = torch.tensor([[20.0, 20.0, 40.0, 40.0], [50.0, 30.0, 70.0, 50.0]])
+        randomizer = self.FixedRandom([1.25], [10, 5], [1.0])
+
+        transformed_image, transformed_boxes, metadata = augment_detection(
+            image,
+            boxes,
+            randomizer,
+            {"scaleMin": 1.25, "scaleMax": 1.25},
+            return_metadata=True,
+        )
+
+        self.assertEqual(transformed_image.size, image.size)
+        self.assertEqual(metadata["spatialOperation"], "safe-crop")
+        self.assertTrue(torch.all(transformed_boxes[:, :2] >= 0))
+        self.assertTrue(torch.all(transformed_boxes[:, 2] <= image.width))
+        self.assertTrue(torch.all(transformed_boxes[:, 3] <= image.height))
+
+    def test_zoom_in_is_reduced_when_annotations_do_not_fit_crop(self):
+        image = Image.new("RGB", (100, 80), "white")
+        boxes = torch.tensor([[5.0, 5.0, 95.0, 75.0]])
+        randomizer = self.FixedRandom([2.0], [0, 0], [1.0])
+
+        _, _, metadata = augment_detection(
+            image,
+            boxes,
+            randomizer,
+            {"scaleMin": 2.0, "scaleMax": 2.0},
+            return_metadata=True,
+        )
+
+        self.assertTrue(metadata["safeCropScaleReduced"])
+        self.assertLess(metadata["appliedScale"], metadata["requestedScale"])
+
     def test_augmentation_scale_summary_reports_clamping(self):
         summary = summarize_augmentation_scales([
-            {"requestedScale": 0.5, "appliedScale": 0.8, "scaleClamped": True},
-            {"requestedScale": 0.7, "appliedScale": 0.7, "scaleClamped": False},
+            {"requestedScale": 0.5, "appliedScale": 0.8, "scaleClamped": True, "spatialOperation": "zoom-out"},
+            {"requestedScale": 1.2, "appliedScale": 1.1, "scaleClamped": False, "safeCropScaleReduced": True, "spatialOperation": "safe-crop"},
         ])
 
         self.assertEqual(summary["samples"], 2)
         self.assertEqual(summary["clampedSamples"], 1)
         self.assertEqual(summary["minimumRequestedScale"], 0.5)
-        self.assertEqual(summary["minimumAppliedScale"], 0.7)
+        self.assertEqual(summary["minimumAppliedScale"], 0.8)
+        self.assertEqual(summary["maximumRequestedScale"], 1.2)
+        self.assertEqual(summary["safeCropScaleReductions"], 1)
+        self.assertEqual(summary["spatialOperations"], {"zoom-out": 1, "safe-crop": 1})
 
     def test_dataset_augmentation_is_deterministic_per_epoch(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -814,6 +870,42 @@ class TrainerTests(unittest.TestCase):
     def test_early_stopping_patience_starts_after_first_eligible_checkpoint(self):
         self.assertFalse(consume_early_stopping_patience(None))
         self.assertTrue(consume_early_stopping_patience({"mAP50": 0.40}))
+
+    def test_diagnostic_checkpoint_selection_does_not_require_authorization_eligibility(self):
+        baseline = {
+            "mAP50": 0.20,
+            "mAP50-95": 0.10,
+            "operatingPointConstraintsSatisfied": False,
+            "objectSizeRecall": {"tiny": {"recall": 0.30}},
+        }
+        improved = {
+            "mAP50": 0.21,
+            "mAP50-95": 0.05,
+            "operatingPointConstraintsSatisfied": False,
+            "objectSizeRecall": {"tiny": {"recall": 0.20}},
+        }
+
+        self.assertTrue(is_better_diagnostic_checkpoint(baseline, None, 0.001))
+        self.assertTrue(is_better_diagnostic_checkpoint(improved, baseline, 0.001))
+        self.assertFalse(is_better_checkpoint(improved, None, 0.001, 0.20, 10))
+
+    def test_dataset_distribution_reports_source_label_and_size_balance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for source in ("a", "b"):
+                (root / "train" / "images" / source).mkdir(parents=True)
+                (root / "train" / "labels" / source).mkdir(parents=True)
+            Image.new("RGB", (100, 80)).save(root / "train" / "images" / "a" / "positive.jpg")
+            (root / "train" / "labels" / "a" / "positive.txt").write_text("0 0.5 0.5 0.1 0.1\n")
+            Image.new("RGB", (100, 80)).save(root / "train" / "images" / "b" / "negative.jpg")
+            (root / "train" / "labels" / "b" / "negative.txt").write_text("")
+
+            result = dataset_distribution(YoloDetectionDataset(root, "train"))
+
+            self.assertEqual(result["images"], 2)
+            self.assertEqual(result["positiveFrames"], 1)
+            self.assertEqual(result["negativeFrames"], 1)
+            self.assertEqual(result["sources"]["a"]["tinyAnnotations"], 1)
 
     def test_model_uses_small_object_anchors(self):
         with patch.dict("os.environ", {
