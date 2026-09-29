@@ -9,7 +9,12 @@ import torch
 
 from .dataset import dataset_root
 from .metrics import box_iou
-from .model import build_model, initialization_metadata
+from .model import (
+    build_model,
+    detection_loss_weights,
+    initialization_metadata,
+    weighted_detection_loss,
+)
 from .train import YoloDetectionDataset
 
 
@@ -124,6 +129,32 @@ def positive_band_summary(outcomes, minimum_iou, minimum_score):
     return summary
 
 
+def diagnostic_score_sweep(outcomes, minimum_iou, thresholds):
+    positive_outcomes = [item for item in outcomes if item["labelStatus"] == "positive"]
+    negative_outcomes = [item for item in outcomes if item["labelStatus"] == "negative"]
+    sweep = []
+    for threshold in thresholds:
+        positive_passes = sum(
+            item["bestIoUBeforeGateThreshold"] >= minimum_iou
+            and item["scoreAtBestIoUBeforeGateThreshold"] >= threshold
+            for item in positive_outcomes
+        )
+        negative_detections = sum(
+            item["maximumBallScoreBeforeGateThreshold"] >= threshold
+            for item in negative_outcomes
+        )
+        sweep.append({
+            "minimumScore": threshold,
+            "positivePasses": positive_passes,
+            "positiveFrames": len(positive_outcomes),
+            "positivePassRate": positive_passes / len(positive_outcomes),
+            "negativeDetections": negative_detections,
+            "negativeFrames": len(negative_outcomes),
+            "negativeDetectionRate": negative_detections / len(negative_outcomes),
+        })
+    return sweep
+
+
 def persist_diagnostic_result(root, result):
     output = root / "artifacts" / "trainability-diagnostic.json"
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -162,6 +193,7 @@ def verify(dataset_id):
     difficult_side = float(os.environ.get("TRAINABILITY_DIFFICULT_MIN_SIDE", "8.0"))
     core_side = float(os.environ.get("TRAINABILITY_CORE_MIN_SIDE", "12.0"))
     batch_size = int(os.environ.get("TRAINABILITY_BATCH_SIZE", "2"))
+    loss_weights = detection_loss_weights(prefix="TRAINABILITY")
     diagnostic_only = os.environ.get("TRAINABILITY_DIAGNOSTIC_ONLY", "false").lower() == "true"
     if os.environ.get("TRAINING_INITIALIZATION", "random") != "random" and not diagnostic_only:
         raise SystemExit("pretrained trainability runs must be explicitly diagnostic-only")
@@ -176,7 +208,7 @@ def verify(dataset_id):
         images = [image.to(device) for image, _ in batch]
         targets = [{key: value.to(device) for key, value in target.items()} for _, target in batch]
         losses = model(images, targets)
-        loss = sum(losses.values())
+        loss = weighted_detection_loss(losses, loss_weights)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -266,6 +298,10 @@ def verify(dataset_id):
         "minimumPositivePassRate": minimum_positive_pass_rate,
         "maximumNegativeDetectionRate": maximum_negative_detection_rate,
         "evaluationScoreThreshold": evaluation_score_threshold,
+        "scoreGateSweep": diagnostic_score_sweep(
+            outcomes, minimum_iou, (0.80, 0.825, 0.85, 0.875, 0.90)
+        ),
+        "lossWeights": loss_weights,
         "diagnosticOnly": diagnostic_only,
         "publishable": False if diagnostic_only else None,
         "initialization": initialization_metadata(model),

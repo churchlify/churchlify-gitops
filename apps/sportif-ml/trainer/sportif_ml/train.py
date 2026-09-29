@@ -3,7 +3,7 @@ import os
 import random
 import shutil
 import sys
-from math import ceil
+from math import ceil, cos, pi
 from pathlib import Path
 
 import numpy as np
@@ -18,7 +18,12 @@ from .metrics import (
     object_size_recall,
     per_source_metrics,
 )
-from .model import build_model, initialization_metadata
+from .model import (
+    build_model,
+    detection_loss_weights,
+    initialization_metadata,
+    weighted_detection_loss,
+)
 
 
 class YoloDetectionDataset(Dataset):
@@ -324,6 +329,44 @@ def require_stable_loss(loss, explosion_threshold, consecutive_explosions):
     return value, consecutive_explosions
 
 
+BACKBONE_FREEZE_GROUPS = {
+    "stem": ("conv1", "bn1"),
+    "layer1": ("layer1",),
+    "layer2": ("layer2",),
+    "layer3": ("layer3",),
+    "layer4": ("layer4",),
+}
+
+
+def freeze_backbone_stages(model, value):
+    requested = [stage.strip() for stage in value.split(",") if stage.strip()]
+    unknown = sorted(set(requested) - set(BACKBONE_FREEZE_GROUPS))
+    if unknown:
+        raise ValueError(f"unknown backbone freeze stages: {', '.join(unknown)}")
+    frozen_modules = []
+    for stage in requested:
+        for module_name in BACKBONE_FREEZE_GROUPS[stage]:
+            module = getattr(model.backbone.body, module_name)
+            module.requires_grad_(False)
+            frozen_modules.append(module)
+    return requested, frozen_modules
+
+
+def keep_frozen_modules_in_eval_mode(modules):
+    for module in modules:
+        module.eval()
+
+
+def cosine_learning_rate(epoch, epochs, warmup_epochs, maximum, minimum):
+    if minimum <= 0 or maximum <= minimum:
+        raise ValueError("cosine learning rates must satisfy 0 < minimum < maximum")
+    if epoch < warmup_epochs:
+        return maximum * (epoch + 1) / max(warmup_epochs, 1)
+    decay_epochs = max(epochs - warmup_epochs, 1)
+    progress = min(max((epoch - warmup_epochs + 1) / decay_epochs, 0.0), 1.0)
+    return minimum + 0.5 * (maximum - minimum) * (1.0 + cos(pi * progress))
+
+
 def retain_diagnostic_checkpoint(model, directory, epoch, metrics, maximum_checkpoints):
     if maximum_checkpoints < 1:
         raise ValueError("diagnostic checkpoint retention must be at least one")
@@ -409,20 +452,38 @@ def train(dataset_id):
     )
     loader = DataLoader(training_dataset, batch_sampler=sampler, collate_fn=collate)
     base_learning_rate = float(os.environ.get("TRAINING_LEARNING_RATE", "0.0002"))
+    loss_weights = detection_loss_weights()
     warmup_epochs = int(os.environ.get("TRAINING_WARMUP_EPOCHS", "5"))
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=base_learning_rate / max(warmup_epochs, 1),
-    )
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer,
-        mode="max",
-        factor=float(os.environ.get("TRAINING_LR_REDUCTION_FACTOR", "0.5")),
-        patience=int(os.environ.get("TRAINING_LR_PATIENCE", "2")),
-        threshold=float(os.environ.get("TRAINING_MIN_VALIDATION_IMPROVEMENT", "0.001")),
-        min_lr=float(os.environ.get("TRAINING_MIN_LEARNING_RATE", "0.000001")),
-    )
     epochs = int(os.environ.get("TRAINING_EPOCHS", "150"))
+    minimum_learning_rate = float(os.environ.get("TRAINING_MIN_LEARNING_RATE", "0.000001"))
+    weight_decay = float(os.environ.get("TRAINING_WEIGHT_DECAY", "0.01"))
+    if weight_decay < 0:
+        raise ValueError("training weight decay must be non-negative")
+    frozen_backbone_stages, frozen_backbone_modules = freeze_backbone_stages(
+        model, os.environ.get("TRAINING_FREEZE_BACKBONE_STAGES", "")
+    )
+    trainable_parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
+    if not trainable_parameters:
+        raise ValueError("training requires at least one trainable parameter")
+    optimizer = torch.optim.AdamW(
+        trainable_parameters,
+        lr=base_learning_rate / max(warmup_epochs, 1),
+        weight_decay=weight_decay,
+    )
+    scheduler_name = os.environ.get("TRAINING_LR_SCHEDULER", "reduce-on-validation-plateau")
+    if scheduler_name == "reduce-on-validation-plateau":
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="max",
+            factor=float(os.environ.get("TRAINING_LR_REDUCTION_FACTOR", "0.5")),
+            patience=int(os.environ.get("TRAINING_LR_PATIENCE", "2")),
+            threshold=float(os.environ.get("TRAINING_MIN_VALIDATION_IMPROVEMENT", "0.001")),
+            min_lr=minimum_learning_rate,
+        )
+    elif scheduler_name == "cosine":
+        scheduler = None
+    else:
+        raise ValueError(f"unsupported training learning-rate scheduler: {scheduler_name}")
     validation_interval = int(os.environ.get("TRAINING_VALIDATION_INTERVAL", "5"))
     early_stopping_patience = int(os.environ.get("TRAINING_EARLY_STOPPING_PATIENCE", "5"))
     minimum_improvement = float(os.environ.get("TRAINING_MIN_VALIDATION_IMPROVEMENT", "0.001"))
@@ -462,13 +523,20 @@ def train(dataset_id):
     stopped_early = False
     consecutive_explosions = 0
     for epoch in range(epochs):
-        if epoch < warmup_epochs:
+        if scheduler_name == "cosine":
+            scheduled_learning_rate = cosine_learning_rate(
+                epoch, epochs, warmup_epochs, base_learning_rate, minimum_learning_rate
+            )
+            for group in optimizer.param_groups:
+                group["lr"] = scheduled_learning_rate
+        elif epoch < warmup_epochs:
             warmup_learning_rate = base_learning_rate * (epoch + 1) / max(warmup_epochs, 1)
             for group in optimizer.param_groups:
                 group["lr"] = warmup_learning_rate
         sampler.set_epoch(epoch)
         training_dataset.set_epoch(epoch)
         model.train()
+        keep_frozen_modules_in_eval_mode(frozen_backbone_modules)
         running_loss = 0.0
         running_components = {}
         running_gradient_norm = 0.0
@@ -476,7 +544,7 @@ def train(dataset_id):
         batches = 0
         for images, targets in loader:
             losses = model([image.to(device) for image in images], [{key: value.to(device) for key, value in target.items()} for target in targets])
-            loss = sum(losses.values())
+            loss = weighted_detection_loss(losses, loss_weights)
             loss_value, consecutive_explosions = require_stable_loss(
                 loss,
                 explosion_threshold,
@@ -484,7 +552,7 @@ def train(dataset_id):
             )
             optimizer.zero_grad()
             loss.backward()
-            gradient_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clip_norm)
+            gradient_norm = torch.nn.utils.clip_grad_norm_(trainable_parameters, gradient_clip_norm)
             if not torch.isfinite(gradient_norm):
                 raise SystemExit("training produced a non-finite gradient norm")
             optimizer.step()
@@ -569,7 +637,7 @@ def train(dataset_id):
                 evaluations_without_improvement += 1
                 if evaluations_without_improvement >= early_stopping_patience:
                     stopped_early = True
-            if epoch + 1 > warmup_epochs:
+            if scheduler is not None and epoch + 1 > warmup_epochs:
                 scheduler.step(validation_metrics["mAP50"])
         print(json.dumps(progress), flush=True)
         if stopped_early:
@@ -596,6 +664,13 @@ def train(dataset_id):
         "tinyPositiveReplayFactor": tiny_positive_replay_factor,
         "effectivePositiveSamplesPerEpoch": len(sampler.positive_indices),
         "baseLearningRate": base_learning_rate,
+        "minimumLearningRate": minimum_learning_rate,
+        "learningRateScheduler": scheduler_name,
+        "weightDecay": weight_decay,
+        "frozenBackboneStages": frozen_backbone_stages,
+        "trainableParameters": sum(parameter.numel() for parameter in trainable_parameters),
+        "totalParameters": sum(parameter.numel() for parameter in model.parameters()),
+        "lossWeights": loss_weights,
         "finalLearningRate": optimizer.param_groups[0]["lr"],
         "warmupEpochs": warmup_epochs,
         "learningRateHistory": learning_rate_history,

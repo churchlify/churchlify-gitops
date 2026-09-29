@@ -31,6 +31,14 @@ learning-rate reduction, and gradient clipping at norm `5.0`. Non-finite loss or
 two consecutive batch losses above `50.0` fail the run instead of allowing an
 unstable checkpoint to continue training.
 
+Faster R-CNN's native ROI box-regression and RPN box-regression losses have
+explicit positive weights. Both default to `1.0`, preserving the upstream loss
+composition. Controlled diagnostics may increase either weight, but selected
+values are validated in `(0, 10]` and recorded in diagnostic or training metadata.
+CIoU and Distribution Focal Loss are not native loss switches in the pinned
+Torchvision Faster R-CNN implementation; adopting either requires a separately
+reviewed custom head/loss implementation or architecture experiment.
+
 Training-only augmentation is deterministic for the configured seed, epoch, and
 image index. It applies horizontal reflection, bounded brightness/contrast/color
 variation, and whole-frame zoom-out from `1.00` to `0.60` on a neutral canvas.
@@ -59,7 +67,15 @@ box side: `difficult` below 8 pixels, `tiny` from 8 pixels up to (but excluding)
 12 pixels, and `core` at 12 pixels or greater. Each frame records dimensions before
 and after the model transform, detections before and after the gate score threshold,
 and best RPN-proposal overlap. These bands diagnose resolution and proposal failures;
-they do not weaken the gate or convert difficult positives into negatives. Full training evaluates only the validation split every five epochs,
+they do not weaken the gate or convert difficult positives into negatives.
+Diagnostic results additionally report a post-hoc score-gate sweep at `0.80`,
+`0.825`, `0.85`, `0.875`, and `0.90` using predictions emitted above the existing
+`0.50` diagnostic evaluation filter. This sweep is calibration evidence only: it
+does not alter Torchvision NMS, weaken the strict `0.90` gate, or authorize a
+production operating threshold. Production thresholds continue to be selected
+only from the validation split.
+
+Full training evaluates only the validation split every five epochs,
 selects the best checkpoint primarily by mAP50, requires tiny-object recall of
 at least `0.20`, uses tiny recall and then mAP50-95 as near-equal-mAP tie-breakers,
 and stops after five validation checks without sufficient improvement after the

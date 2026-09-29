@@ -17,8 +17,10 @@ from sportif_ml.evaluate import (
 from sportif_ml.model import (
     SMALL_OBJECT_ANCHOR_SIZES,
     build_model,
+    detection_loss_weights,
     image_resize_policy,
     initialization_configuration,
+    weighted_detection_loss,
 )
 from sportif_ml.metrics import (
     calibrate_score_threshold,
@@ -39,8 +41,11 @@ from sportif_ml.train import (
     BalancedBatchSampler,
     YoloDetectionDataset,
     augment_detection,
+    cosine_learning_rate,
     consume_early_stopping_patience,
+    freeze_backbone_stages,
     is_better_checkpoint,
+    keep_frozen_modules_in_eval_mode,
     require_stable_loss,
     retain_diagnostic_checkpoint,
     summarize_augmentation_scales,
@@ -48,6 +53,7 @@ from sportif_ml.train import (
 )
 from sportif_ml.trainability import (
     best_overlap,
+    diagnostic_score_sweep,
     object_size_diagnostics,
     persist_diagnostic_result,
     positive_band_summary,
@@ -821,6 +827,60 @@ class TrainerTests(unittest.TestCase):
         self.assertEqual(model.transform.min_size, (720,))
         self.assertEqual(model.transform.max_size, 1280)
 
+    def test_freeze_backbone_stages_preserves_later_backbone_and_heads(self):
+        model = build_model({"TRAINING_INITIALIZATION": "random"})
+
+        stages, modules = freeze_backbone_stages(model, "stem,layer1,layer2")
+        model.train()
+        keep_frozen_modules_in_eval_mode(modules)
+
+        self.assertEqual(stages, ["stem", "layer1", "layer2"])
+        self.assertFalse(any(parameter.requires_grad for parameter in model.backbone.body.layer2.parameters()))
+        self.assertTrue(all(parameter.requires_grad for parameter in model.backbone.body.layer3.parameters()))
+        self.assertTrue(all(parameter.requires_grad for parameter in model.rpn.parameters()))
+        self.assertFalse(model.backbone.body.bn1.training)
+        self.assertFalse(model.backbone.body.layer2.training)
+
+    def test_freeze_backbone_stages_rejects_unknown_stage(self):
+        model = build_model({"TRAINING_INITIALIZATION": "random"})
+        with self.assertRaisesRegex(ValueError, "unknown backbone freeze stages"):
+            freeze_backbone_stages(model, "layer0")
+
+    def test_cosine_learning_rate_warms_up_then_decays_to_minimum(self):
+        rates = [
+            cosine_learning_rate(epoch, 8, 3, 0.0001, 0.000001)
+            for epoch in range(8)
+        ]
+
+        self.assertAlmostEqual(rates[0], 0.0001 / 3)
+        self.assertAlmostEqual(rates[2], 0.0001)
+        self.assertLess(rates[3], 0.0001)
+        self.assertAlmostEqual(rates[-1], 0.000001)
+        self.assertTrue(all(left >= right for left, right in zip(rates[2:], rates[3:])))
+
+    def test_detection_loss_weights_preserve_defaults_and_weight_regression(self):
+        weights = detection_loss_weights({})
+        losses = {
+            "loss_classifier": torch.tensor(1.0),
+            "loss_box_reg": torch.tensor(2.0),
+            "loss_objectness": torch.tensor(3.0),
+            "loss_rpn_box_reg": torch.tensor(4.0),
+        }
+
+        self.assertEqual(weights, {"loss_box_reg": 1.0, "loss_rpn_box_reg": 1.0})
+        self.assertEqual(weighted_detection_loss(losses, weights).item(), 10.0)
+        weighted = detection_loss_weights({
+            "TRAINING_ROI_BOX_LOSS_WEIGHT": "2.0",
+            "TRAINING_RPN_BOX_LOSS_WEIGHT": "1.5",
+        })
+        self.assertEqual(weighted_detection_loss(losses, weighted).item(), 14.0)
+
+    def test_detection_loss_weights_reject_invalid_values(self):
+        for value in ("0", "-1", "nan", "11"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "regression loss weights"):
+                    detection_loss_weights({"TRAINING_ROI_BOX_LOSS_WEIGHT": value})
+
     def test_pretrained_initialization_requires_approval(self):
         with self.assertRaisesRegex(SystemExit, "explicit weight approval"):
             initialization_configuration({"TRAINING_INITIALIZATION": "pretrained-backbone"})
@@ -1053,6 +1113,31 @@ class TrainerTests(unittest.TestCase):
         self.assertEqual(summary["core"], {"frames": 2, "passes": 1, "passRate": 0.5})
         self.assertEqual(summary["tiny"], {"frames": 1, "passes": 1, "passRate": 1.0})
         self.assertIsNone(summary["difficult"]["passRate"])
+
+    def test_trainability_score_sweep_uses_pre_gate_outputs(self):
+        outcomes = [
+            {
+                "labelStatus": "positive",
+                "bestIoUBeforeGateThreshold": 0.80,
+                "scoreAtBestIoUBeforeGateThreshold": 0.85,
+            },
+            {
+                "labelStatus": "positive",
+                "bestIoUBeforeGateThreshold": 0.70,
+                "scoreAtBestIoUBeforeGateThreshold": 0.99,
+            },
+            {
+                "labelStatus": "negative",
+                "maximumBallScoreBeforeGateThreshold": 0.82,
+            },
+        ]
+
+        sweep = diagnostic_score_sweep(outcomes, 0.75, (0.80, 0.90))
+
+        self.assertEqual(sweep[0]["positivePasses"], 1)
+        self.assertEqual(sweep[0]["negativeDetections"], 1)
+        self.assertEqual(sweep[1]["positivePasses"], 0)
+        self.assertEqual(sweep[1]["negativeDetections"], 0)
 
     def test_pretrained_trainability_result_is_marked_non_publishable(self):
         with tempfile.TemporaryDirectory() as directory:

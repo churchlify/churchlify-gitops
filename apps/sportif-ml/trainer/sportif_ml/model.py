@@ -1,5 +1,6 @@
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 
@@ -17,6 +18,25 @@ SMALL_OBJECT_ANCHOR_SIZES = (
     (64, 128, 256),
 )
 ANCHOR_ASPECT_RATIOS = ((0.5, 1.0, 2.0),) * len(SMALL_OBJECT_ANCHOR_SIZES)
+REGRESSION_LOSS_NAMES = ("loss_box_reg", "loss_rpn_box_reg")
+
+
+def detection_loss_weights(environ=None, prefix="TRAINING"):
+    environ = os.environ if environ is None else environ
+    weights = {
+        "loss_box_reg": float(environ.get(f"{prefix}_ROI_BOX_LOSS_WEIGHT", "1.0")),
+        "loss_rpn_box_reg": float(environ.get(f"{prefix}_RPN_BOX_LOSS_WEIGHT", "1.0")),
+    }
+    if any(not math.isfinite(value) or value <= 0.0 or value > 10.0 for value in weights.values()):
+        raise ValueError("detection regression loss weights must be finite and within (0, 10]")
+    return weights
+
+
+def weighted_detection_loss(losses, weights):
+    missing = set(REGRESSION_LOSS_NAMES) - set(losses)
+    if missing:
+        raise ValueError(f"detector did not return required regression losses: {sorted(missing)}")
+    return sum(value * weights.get(name, 1.0) for name, value in losses.items())
 
 
 def image_resize_policy(environ=None):

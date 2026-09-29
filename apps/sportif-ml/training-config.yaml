@@ -38,6 +38,9 @@ data:
         minimumLearningRate: 0.000001
       gradientClipNorm: 5.0
       repeatedLossExplosionThreshold: 50.0
+      lossWeights:
+        roiBoxRegression: 1.0
+        rpnBoxRegression: 1.0
       balancedBatches: true
       sourceAwareSampling: true
       tinyPositiveReplayFactor: 4
@@ -85,6 +88,10 @@ data:
       minimumSources: 2
       minimumIoU: 0.75
       minimumScore: 0.90
+      scoreGateDiagnosticSweep: [0.80, 0.825, 0.85, 0.875, 0.90]
+      lossWeights:
+        roiBoxRegression: 1.0
+        rpnBoxRegression: 1.0
       minimumPositivePassRate: 0.90
       maximumNegativeDetectionRate: 0.10
       evaluationScoreThreshold: 0.50
