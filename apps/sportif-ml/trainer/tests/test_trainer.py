@@ -29,6 +29,17 @@ from sportif_ml.metrics import (
     per_source_metrics,
 )
 from sportif_ml.provenance import require_passing_evaluation
+from sportif_ml.prelabel import (
+    box_iou as prelabel_box_iou,
+    box_center_in_zones,
+    map_crop_box_to_frame,
+    zone_aware_nms,
+)
+from sportif_ml.cvat_prelabel import (
+    appendable_items,
+    require_expected_annotation_digest,
+    visible_rectangles_by_frame,
+)
 from sportif_ml.release import (
     approval_template,
     build_release_package,
@@ -101,6 +112,135 @@ class TrainerTests(unittest.TestCase):
 
         result = average_precision([(0.9, 0, truth[0])], [truth], 0.5)
         self.assertEqual(result, (1.0, 1, 0, 0))
+
+    def test_prelabel_iou_treats_touching_edges_as_zero_overlap(self):
+        self.assertEqual(prelabel_box_iou([0, 0, 10, 10], [10, 2, 14, 8]), 0.0)
+        self.assertGreater(prelabel_box_iou([0, 0, 10, 10], [9, 2, 14, 8]), 0.0)
+
+    def test_appendable_items_allow_zero_iou_on_a_human_annotated_frame(self):
+        annotations = {
+            "shapes": [{
+                "frame": 7,
+                "label_id": 1,
+                "type": "rectangle",
+                "outside": False,
+                "source": "manual",
+                "points": [10, 10, 20, 20],
+            }],
+            "tracks": [],
+        }
+        items = [{"frame": 7, "points": [30, 10, 40, 20], "score": 0.7}]
+
+        accepted, rejected = appendable_items(items, annotations, {7: (100, 80)})
+
+        self.assertEqual(len(accepted), 1)
+        self.assertEqual(rejected, [])
+
+    def test_appendable_items_reject_any_positive_iou_with_human_box(self):
+        annotations = {
+            "shapes": [{
+                "frame": 7,
+                "label_id": 1,
+                "type": "rectangle",
+                "outside": False,
+                "source": "manual",
+                "points": [10, 10, 20, 20],
+            }],
+            "tracks": [],
+        }
+        items = [{"frame": 7, "points": [19.9, 10, 30, 20], "score": 0.7}]
+
+        accepted, rejected = appendable_items(items, annotations, {7: (100, 80)})
+
+        self.assertEqual(accepted, [])
+        self.assertEqual(rejected[0]["reason"], "positive-iou-with-existing-or-batch-box")
+
+    def test_appendable_items_allow_multiple_disjoint_boxes_on_one_frame(self):
+        items = [
+            {"frame": 7, "points": [10, 10, 20, 20]},
+            {"frame": 7, "points": [30, 10, 40, 20]},
+        ]
+
+        accepted, rejected = appendable_items(items, {"shapes": [], "tracks": []}, {7: (100, 80)})
+
+        self.assertEqual(len(accepted), 2)
+        self.assertEqual(rejected, [])
+
+    def test_appendable_items_prevent_overlapping_duplicates_within_batch(self):
+        items = [
+            {"frame": 7, "points": [10, 10, 20, 20]},
+            {"frame": 7, "points": [11, 11, 21, 21]},
+        ]
+
+        accepted, rejected = appendable_items(items, {"shapes": [], "tracks": []}, {7: (100, 80)})
+
+        self.assertEqual(len(accepted), 1)
+        self.assertEqual(len(rejected), 1)
+
+    def test_visible_rectangles_include_shapes_and_tracks(self):
+        annotations = {
+            "shapes": [{
+                "frame": 2, "label_id": 1, "type": "rectangle", "outside": False,
+                "points": [1, 2, 3, 4],
+            }],
+            "tracks": [{
+                "label_id": 1,
+                "shapes": [{
+                    "frame": 3, "type": "rectangle", "outside": False,
+                    "points": [5, 6, 7, 8],
+                }],
+            }],
+        }
+
+        result = visible_rectangles_by_frame(annotations)
+
+        self.assertEqual(result[2], [(1.0, 2.0, 3.0, 4.0)])
+        self.assertEqual(result[3], [(5.0, 6.0, 7.0, 8.0)])
+
+    def test_nonempty_import_requires_matching_annotation_digest(self):
+        items = [{"frame": 7, "points": [10, 10, 20, 20]}]
+
+        with self.assertRaisesRegex(RuntimeError, "no expected annotation digest"):
+            require_expected_annotation_digest("2", items, "actual", {})
+        with self.assertRaisesRegex(RuntimeError, "annotations changed after curation"):
+            require_expected_annotation_digest(
+                "2", items, "actual", {"2": "expected"}
+            )
+
+        require_expected_annotation_digest("2", items, "actual", {"2": "actual"})
+        require_expected_annotation_digest("2", [], "actual", {})
+
+    def test_small_boxes_in_player_zone_use_relaxed_nms(self):
+        boxes = [[100, 100, 110, 110], [102, 102, 112, 112]]
+        scores = [0.9, 0.8]
+
+        retained = zone_aware_nms(
+            boxes, scores, 200, 200,
+            zones=[(0.4, 0.4, 0.7, 0.7)],
+            default_iou=0.4,
+            small_zone_iou=0.7,
+            maximum_small_side_fraction=0.1,
+        )
+
+        self.assertEqual(retained, [0, 1])
+
+    def test_normal_boxes_keep_conservative_nms_inside_player_zone(self):
+        boxes = [[80, 80, 140, 140], [90, 90, 150, 150]]
+        scores = [0.9, 0.8]
+
+        retained = zone_aware_nms(
+            boxes, scores, 200, 200,
+            zones=[(0.3, 0.3, 0.8, 0.8)],
+            default_iou=0.4,
+            small_zone_iou=0.7,
+            maximum_small_side_fraction=0.1,
+        )
+
+        self.assertEqual(retained, [0])
+
+    def test_box_center_and_crop_coordinate_mapping(self):
+        self.assertTrue(box_center_in_zones([40, 40, 60, 60], 100, 100, [(0.4, 0.4, 0.6, 0.6)]))
+        self.assertEqual(map_crop_box_to_frame([5, 6, 15, 16], [100, 200, 300, 400]), (105.0, 206.0, 115.0, 216.0))
 
     def test_false_positive_on_negative_frame(self):
         prediction = torch.tensor([0.0, 0.0, 4.0, 4.0])

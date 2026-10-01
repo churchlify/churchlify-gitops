@@ -10,6 +10,7 @@ WORKDIR /opt/sportif-ml
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY sportif_ml ./sportif_ml
+COPY scripts ./scripts
 
 RUN useradd --create-home --uid 10001 app \
     && mkdir -p /work \
