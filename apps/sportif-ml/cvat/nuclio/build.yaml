@@ -1,4 +1,4 @@
-apiVersion: nuclio.io/v1
+apiVersion: nuclio.io/v1beta1
 kind: NuclioFunction
 metadata:
   name: sportif-ball-detector
@@ -7,6 +7,9 @@ spec:
   runtime: python:3.11
   handler: main:handler
   imagePullSecrets: sportif-ml-registry
+  # Keep the large Kaniko build away from the storage-constrained GPU node.
+  nodeSelector:
+    node-role.kubernetes.io/worker: worker
   build:
     # Nuclio prepends registry.pushPullUrl to this repository-relative name.
     image: nuclio-sportif-ball-detector:checkpoint-a175e107-nuclio-1.16.11

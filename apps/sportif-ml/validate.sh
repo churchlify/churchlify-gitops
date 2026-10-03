@@ -396,6 +396,7 @@ python3 - \
   "$repo_root/platform/argocd/sportif-ml/cvat.yaml" \
   "$repo_root/apps/sportif-ml/cvat/initializer-config.yaml" \
   "$repo_root/apps/sportif-ml/cvat/automation-externalsecret-staged.yaml" \
+  "$repo_root/apps/sportif-ml/cvat/nuclio/project.yaml" \
   "$repo_root/apps/sportif-ml/cvat/nuclio/function.yaml" \
   "$repo_root/apps/sportif-ml/cvat/nuclio/build.yaml" \
   "$repo_root/apps/sportif-ml/cvat/nuclio/kustomization.yaml" \
@@ -412,10 +413,11 @@ external_secrets = [
 application = yaml.safe_load(Path(sys.argv[4]).read_text())
 initializer_config = yaml.safe_load(Path(sys.argv[5]).read_text())
 automation_secret = yaml.safe_load(Path(sys.argv[6]).read_text())
-nuclio_function = yaml.safe_load(Path(sys.argv[7]).read_text())
-nuclio_build = yaml.safe_load(Path(sys.argv[8]).read_text())
-nuclio_kustomization = yaml.safe_load(Path(sys.argv[9]).read_text())
-function_application = yaml.safe_load(Path(sys.argv[10]).read_text())
+nuclio_project = yaml.safe_load(Path(sys.argv[7]).read_text())
+nuclio_function = yaml.safe_load(Path(sys.argv[8]).read_text())
+nuclio_build = yaml.safe_load(Path(sys.argv[9]).read_text())
+nuclio_kustomization = yaml.safe_load(Path(sys.argv[10]).read_text())
+function_application = yaml.safe_load(Path(sys.argv[11]).read_text())
 
 for component in ("postgresql", "redis"):
     if values[component].get("enabled") is not False:
@@ -660,12 +662,21 @@ if ignored != [{
 
 if set(nuclio_kustomization.get("resources", [])) != {"project.yaml", "function.yaml"}:
     raise SystemExit("Nuclio Kustomize resources must contain only project and prebuilt function")
+if any(resource.get("apiVersion") != "nuclio.io/v1beta1" for resource in (
+    nuclio_project,
+    nuclio_function,
+    nuclio_build,
+)):
+    raise SystemExit("Nuclio 1.16 resources must use the served v1beta1 API")
 function_spec = nuclio_function.get("spec", {})
 if function_spec.get("runtime") != "python:3.11" or function_spec.get("handler") != "main:handler":
     raise SystemExit("Sportif Nuclio function runtime or handler changed unexpectedly")
 image = function_spec.get("image", "")
-if not image.startswith("ghcr.io/bjelugbo/nuclio-sportif-ball-detector:") and "@sha256:" not in image:
-    raise SystemExit("Sportif Nuclio function must use the private function-image repository")
+if image != (
+    "ghcr.io/bjelugbo/nuclio-sportif-ball-detector@sha256:"
+    "26ed6f90953a54e69fb43cc1957b07b538e549dcfde646db03dee02f553a8500"
+):
+    raise SystemExit("Sportif Nuclio function must use the verified immutable 1.16.11 image digest")
 if function_spec.get("imagePullSecrets") != "sportif-ml-registry":
     raise SystemExit("Sportif Nuclio function requires the managed GHCR pull Secret")
 if function_spec.get("serviceType") != "ClusterIP" or "platform" in function_spec:
@@ -700,10 +711,11 @@ if mount.get("readOnly") is not True or mount.get("subPath") != (
 build_spec = nuclio_build.get("spec", {})
 if build_spec.get("runtime") != function_spec.get("runtime") or build_spec.get("handler") != function_spec.get("handler"):
     raise SystemExit("Nuclio build and deployment runtime configuration must match")
+if build_spec.get("nodeSelector") != {"node-role.kubernetes.io/worker": "worker"}:
+    raise SystemExit("Nuclio Kaniko builds must stay off the storage-constrained GPU node")
 build = build_spec.get("build", {})
-expected_build_image = image.removeprefix("ghcr.io/bjelugbo/")
-if build.get("image") != expected_build_image:
-    raise SystemExit("Nuclio build output must be repository-relative and match the deployed bootstrap tag")
+if build.get("image") != "nuclio-sportif-ball-detector:checkpoint-a175e107-nuclio-1.16.11":
+    raise SystemExit("Nuclio build output must retain the verified repository-relative 1.16.11 tag")
 if build.get("baseImage") != (
     "ghcr.io/bjelugbo/sportif-ball-trainer@sha256:"
     "87bc1b8d51584e465920cda193c078b32e6ecf1d1961453d1b787aac83338317"
@@ -721,8 +733,11 @@ if function_application["metadata"].get("annotations", {}).get("argocd.argoproj.
     raise SystemExit("Nuclio functions must sync after the CVAT/Nuclio control plane")
 if function_application.get("spec", {}).get("source", {}).get("path") != "apps/sportif-ml/cvat/nuclio":
     raise SystemExit("Nuclio function Application must target the isolated function bundle")
-if function_application["spec"]["syncPolicy"].get("automated") is not None:
-    raise SystemExit("Nuclio function Application must remain manual until image digest promotion")
+if function_application["spec"]["syncPolicy"].get("automated") != {
+    "prune": True,
+    "selfHeal": True,
+}:
+    raise SystemExit("Nuclio function Application must enforce automated prune and self-heal after digest promotion")
 if "SkipDryRunOnMissingResource=true" not in function_application["spec"]["syncPolicy"].get("syncOptions", []):
     raise SystemExit("Nuclio function sync must tolerate CRDs during the parent wave")
 

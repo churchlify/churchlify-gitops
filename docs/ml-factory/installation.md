@@ -318,6 +318,16 @@ that final policy, commit, and push. Its wave `2` Application syncs only
 `NuclioProject/cvat` and the prebuilt `NuclioFunction` after the CVAT wave `1`
 chart has installed the CRDs.
 
+The Nuclio 1.16.11 Kaniko build completed on October 3, 2026 and is pinned as:
+
+```text
+ghcr.io/bjelugbo/nuclio-sportif-ball-detector@sha256:26ed6f90953a54e69fb43cc1957b07b538e549dcfde646db03dee02f553a8500
+```
+
+The exact digest was verified as Linux/amd64 with final UID `10001`. A one-shot
+pod using `runtimeClassName: nvidia` loaded the 165,776,026-byte checkpoint into
+the production model on a Tesla V100 and completed with `GPU_CHECKPOINT_SMOKE_PASS`.
+
 Verify the deployed model:
 
 ```bash

@@ -1,4 +1,4 @@
-apiVersion: nuclio.io/v1
+apiVersion: nuclio.io/v1beta1
 kind: NuclioFunction
 metadata:
   name: sportif-ball-detector
@@ -19,7 +19,7 @@ spec:
   runtime: python:3.11
   handler: main:handler
   eventTimeout: 5m
-  image: ghcr.io/bjelugbo/nuclio-sportif-ball-detector:checkpoint-a175e107-nuclio-1.16.11
+  image: ghcr.io/bjelugbo/nuclio-sportif-ball-detector@sha256:26ed6f90953a54e69fb43cc1957b07b538e549dcfde646db03dee02f553a8500
   imagePullPolicy: IfNotPresent
   imagePullSecrets: sportif-ml-registry
   serviceType: ClusterIP

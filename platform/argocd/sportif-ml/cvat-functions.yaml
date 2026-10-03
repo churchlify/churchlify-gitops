@@ -21,8 +21,9 @@ spec:
     server: https://kubernetes.default.svc
     namespace: sportif-ml
   syncPolicy:
-    # Bootstrap safety: keep this child manual until the Kaniko build has
-    # published the image and function.yaml has been pinned to its digest.
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=false
       - SkipDryRunOnMissingResource=true
