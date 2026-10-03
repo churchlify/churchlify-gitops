@@ -66,3 +66,6 @@ spec:
         maxRequestBodySize: 33554432
   minReplicas: 1
   maxReplicas: 1
+status:
+  # Nuclio's controller provisions directly-created prebuilt CRs only from this state.
+  state: waitingForResourceConfiguration

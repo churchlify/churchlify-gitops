@@ -327,6 +327,9 @@ ghcr.io/bjelugbo/nuclio-sportif-ball-detector@sha256:26ed6f90953a54e69fb43cc1957
 The exact digest was verified as Linux/amd64 with final UID `10001`. A one-shot
 pod using `runtimeClassName: nvidia` loaded the 165,776,026-byte checkpoint into
 the production model on a Tesla V100 and completed with `GPU_CHECKPOINT_SMOKE_PASS`.
+The prebuilt `NuclioFunction` includes initial status
+`waitingForResourceConfiguration`; Nuclio 1.16.11 otherwise skips a directly
+created CR with an empty state instead of creating its runtime resources.
 
 Verify the deployed model:
 

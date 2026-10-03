@@ -669,6 +669,8 @@ if any(resource.get("apiVersion") != "nuclio.io/v1beta1" for resource in (
 )):
     raise SystemExit("Nuclio 1.16 resources must use the served v1beta1 API")
 function_spec = nuclio_function.get("spec", {})
+if nuclio_function.get("status") != {"state": "waitingForResourceConfiguration"}:
+    raise SystemExit("Prebuilt Nuclio function must declare the controller bootstrap state")
 if function_spec.get("runtime") != "python:3.11" or function_spec.get("handler") != "main:handler":
     raise SystemExit("Sportif Nuclio function runtime or handler changed unexpectedly")
 image = function_spec.get("image", "")
