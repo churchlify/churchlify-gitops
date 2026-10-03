@@ -95,8 +95,9 @@ Use the CVAT v2.45.0 Helm chart at immutable Git revision
 5. Confirm the existing `REDIS_PASSWORD` property is valid for
    `redis-master.platform.svc.cluster.local`.
 6. Confirm Longhorn supports the requested RWX CVAT volume and the RWO KVrocks
-   volume. CVAT CPU workloads are constrained to nodes carrying
-   `node-role.kubernetes.io/worker=worker`; the GPU node is not used.
+   volume. CVAT and Nuclio control-plane workloads are constrained to nodes
+   carrying `node-role.kubernetes.io/worker=worker`; only the Sportif detector
+   function runs on the GPU node.
 
 `platform-root` recursively discovers `platform/argocd/sportif-ml/cvat.yaml`.
 The child Application has sync wave `1`, while the foundation Application owns
@@ -253,7 +254,94 @@ The byte count verifies presence without disclosing the token. Never retrieve
 the token value for routine troubleshooting.
 
 The Stage 3 values disable the chart's bundled PostgreSQL, Redis, analytics,
-ClickHouse, Grafana, Traefik, and Nuclio to avoid duplicate platform services.
+ClickHouse, Grafana, and Traefik to avoid duplicate platform services. Nuclio is
+enabled from the same immutable CVAT chart revision because CVAT serverless
+model discovery depends on its dashboard API.
+
+### Nuclio and Sportif ball detector bootstrap
+
+The pinned CVAT chart includes Nuclio chart `0.19.0` / Nuclio `1.13.0`. The
+controller and dashboard are cluster-internal and run on ordinary worker nodes.
+Function images are built by Kubernetes-native Kaniko and stored in private
+GHCR. The detector itself requests one `nvidia.com/gpu`, selects
+`accelerator=nvidia-v100`, and mounts the checkpoint read-only from the shared
+`sportif-ml-work` PVC.
+
+Bootstrap is deliberately two-phase. Do not sync the function CR before its
+image exists:
+
+1. Commit and push the CVAT values and the wave-2
+   `sportif-ml-cvat-functions` child Application. Its initial manifest has no
+   automated sync policy, so platform-root may create the Application but it
+   cannot create the function while the image is absent.
+2. Wait for the CVAT child Application to install the Nuclio 1.13.0 dashboard,
+   controller, and CRDs.
+3. Download the matching `nuctl` 1.13.0 binary for the operator architecture.
+4. Build only the function image through Kaniko, using the checked-in build
+   configuration and source:
+
+```bash
+export KUBECONFIG="$PWD/apps/sportif-ml/k8s.conf"
+
+kubectl -n sportif-ml rollout status deployment/cvat-nuclio-dashboard --timeout=300s
+kubectl -n sportif-ml rollout status deployment/cvat-nuclio-controller --timeout=300s
+kubectl get crd nucliofunctions.nuclio.io nuclioprojects.nuclio.io
+
+nuctl build sportif-ball-detector \
+  --platform kube \
+  --namespace sportif-ml \
+  --kubeconfig "$KUBECONFIG" \
+  --file apps/sportif-ml/cvat/nuclio/build.yaml \
+  --path apps/sportif-ml/cvat/nuclio/main.py
+```
+
+The build uses the private, digest-pinned trainer image as its CUDA/PyTorch base.
+Nuclio installs its Python 3.11 processor and SDK as root during construction,
+then the final image returns to UID `10001`. `sportif-ml-registry` supplies both
+Kaniko push/pull credentials and the function image pull credential. Do not set
+Nuclio's `registryProviderSecretName`; that field is for provider-specific ECR
+credentials, not a Docker config Secret.
+
+After the push succeeds, resolve the registry digest without printing registry
+credentials, replace the tag in `function.yaml` with
+`ghcr.io/bjelugbo/nuclio-sportif-ball-detector@sha256:<digest>`, and update the
+validator/build record to require that immutable deploy-time reference. Then add
+`automated.prune=true` and `automated.selfHeal=true` to
+`platform/argocd/sportif-ml/cvat-functions.yaml`, update the validator to require
+that final policy, commit, and push. Its wave `2` Application syncs only
+`NuclioProject/cvat` and the prebuilt `NuclioFunction` after the CVAT wave `1`
+chart has installed the CRDs.
+
+Verify the deployed model:
+
+```bash
+kubectl -n argocd get application sportif-ml-cvat sportif-ml-cvat-functions
+kubectl -n sportif-ml get nuclioproject cvat
+kubectl -n sportif-ml get nucliofunction sportif-ball-detector -o wide
+kubectl -n sportif-ml get pods,service -l nuclio.io/function-name=sportif-ball-detector
+kubectl -n sportif-ml logs deployment/nuclio-sportif-ball-detector -c nuclio \
+  --tail=100
+
+CVAT_POD="$(kubectl -n sportif-ml get pod \
+  -l app.kubernetes.io/instance=cvat,component=server \
+  -o jsonpath='{.items[0].metadata.name}')"
+kubectl -n sportif-ml exec "$CVAT_POD" -c cvat-backend -- \
+  python -c 'import requests; print(requests.get("http://localhost:8080/api/functions").status_code)'
+```
+
+Use an authenticated CVAT browser/API session for the final `/api/functions`
+response and a real-image invocation. Confirm the listing contains **Sportif
+Ball Detector** and that inference returns only `ball` rectangle objects with
+four finite, in-bounds points.
+
+The configured checkpoint is
+`ed2c491b-5b21-4529-a7b7-ec016e82e7b9/sportif-ball-v004/artifacts/diagnostic-checkpoints/epoch-0015.pt`.
+It was verified at 165,776,026 bytes with SHA-256
+`a175e107417efdb3de83ebe1acb5960fb96490bf68d71d28f7c0e3c8d242ac3a`.
+It remains explicitly diagnostic-only and non-publishable. Enabling it for
+internal CVAT pre-annotation does not make it export-eligible,
+promotion-eligible, commercially released, or suitable for unattended labels;
+all generated rectangles require human review.
 
 ## Stage 4A: Argo Workflows control plane
 

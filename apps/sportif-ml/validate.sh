@@ -394,7 +394,11 @@ python3 - \
   "$repo_root/apps/sportif-ml/cvat/externalsecrets.yaml" \
   "$repo_root/platform/argocd/sportif-ml/cvat.yaml" \
   "$repo_root/apps/sportif-ml/cvat/initializer-config.yaml" \
-  "$repo_root/apps/sportif-ml/cvat/automation-externalsecret-staged.yaml" <<'PY'
+  "$repo_root/apps/sportif-ml/cvat/automation-externalsecret-staged.yaml" \
+  "$repo_root/apps/sportif-ml/cvat/nuclio/function.yaml" \
+  "$repo_root/apps/sportif-ml/cvat/nuclio/build.yaml" \
+  "$repo_root/apps/sportif-ml/cvat/nuclio/kustomization.yaml" \
+  "$repo_root/platform/argocd/sportif-ml/cvat-functions.yaml" <<'PY'
 from pathlib import Path
 import sys
 import yaml
@@ -406,13 +410,46 @@ external_secrets = [
 application = yaml.safe_load(Path(sys.argv[3]).read_text())
 initializer_config = yaml.safe_load(Path(sys.argv[4]).read_text())
 automation_secret = yaml.safe_load(Path(sys.argv[5]).read_text())
+nuclio_function = yaml.safe_load(Path(sys.argv[6]).read_text())
+nuclio_build = yaml.safe_load(Path(sys.argv[7]).read_text())
+nuclio_kustomization = yaml.safe_load(Path(sys.argv[8]).read_text())
+function_application = yaml.safe_load(Path(sys.argv[9]).read_text())
 
 for component in ("postgresql", "redis"):
     if values[component].get("enabled") is not False:
         raise SystemExit(f"CVAT bundled {component} must remain disabled")
-for component in ("analytics", "clickhouse", "nuclio", "traefik"):
+for component in ("analytics", "clickhouse", "traefik"):
     if values[component].get("enabled") is not False:
         raise SystemExit(f"CVAT bundled {component} must remain disabled")
+
+nuclio = values.get("nuclio", {})
+if nuclio.get("enabled") is not True:
+    raise SystemExit("CVAT bundled Nuclio must remain enabled")
+dashboard = nuclio.get("dashboard", {})
+if dashboard.get("containerBuilderKind") != "kaniko":
+    raise SystemExit("Nuclio must use the Kubernetes-native Kaniko builder")
+if dashboard.get("monitorDockerDeamon", {}).get("enabled") is not False:
+    raise SystemExit("Nuclio must not expect a Docker daemon")
+if dashboard.get("ingress", {}).get("enabled") is not False:
+    raise SystemExit("Nuclio dashboard must remain cluster-internal")
+if dashboard.get("kaniko", {}).get("registryProviderSecretName"):
+    raise SystemExit("Nuclio registry-provider credentials are not used for GHCR")
+registry = nuclio.get("registry", {})
+if registry != {
+    "pushPullUrl": "ghcr.io/bjelugbo",
+    "runRegistryURL": "ghcr.io/bjelugbo",
+    "loginUrl": "ghcr.io",
+    "secretName": "sportif-ml-registry",
+    "kind": "offCluster",
+}:
+    raise SystemExit("Nuclio registry configuration changed unexpectedly")
+for component_name in ("controller", "dashboard"):
+    component = nuclio.get(component_name, {})
+    if component.get("nodeSelector") != {"node-role.kubernetes.io/worker": "worker"}:
+        raise SystemExit(f"Nuclio {component_name} must run on ordinary worker nodes")
+    resources = component.get("resources", {})
+    if not resources.get("requests") or not resources.get("limits"):
+        raise SystemExit(f"Nuclio {component_name} requires explicit resource bounds")
 
 ingress = values["ingress"]
 if ingress.get("enabled") is not True:
@@ -578,6 +615,71 @@ if ignored != [{
     "jsonPointers": ["/spec/volumeClaimTemplates"],
 }]:
     raise SystemExit("CVAT may ignore only the immutable KVrocks claim template")
+
+if set(nuclio_kustomization.get("resources", [])) != {"project.yaml", "function.yaml"}:
+    raise SystemExit("Nuclio Kustomize resources must contain only project and prebuilt function")
+function_spec = nuclio_function.get("spec", {})
+if function_spec.get("runtime") != "python:3.11" or function_spec.get("handler") != "main:handler":
+    raise SystemExit("Sportif Nuclio function runtime or handler changed unexpectedly")
+image = function_spec.get("image", "")
+if not image.startswith("ghcr.io/bjelugbo/nuclio-sportif-ball-detector:") and "@sha256:" not in image:
+    raise SystemExit("Sportif Nuclio function must use the private function-image repository")
+if function_spec.get("imagePullSecrets") != "sportif-ml-registry":
+    raise SystemExit("Sportif Nuclio function requires the managed GHCR pull Secret")
+if function_spec.get("serviceType") != "ClusterIP" or "platform" in function_spec:
+    raise SystemExit("Sportif Nuclio function must use the supported cluster-internal service field")
+if function_spec.get("nodeSelector") != {"accelerator": "nvidia-v100"}:
+    raise SystemExit("Sportif Nuclio function must target the verified GPU node")
+if function_spec.get("resources", {}).get("limits", {}).get("nvidia.com/gpu") != "1":
+    raise SystemExit("Sportif Nuclio function must request exactly one GPU")
+if function_spec.get("minReplicas") != 1 or function_spec.get("maxReplicas") != 1:
+    raise SystemExit("Sportif Nuclio function must remain a single replica on the RWO PVC")
+security = function_spec.get("securityContext", {})
+if security != {"runAsNonRoot": True, "runAsUser": 10001, "runAsGroup": 10001, "fsGroup": 10001}:
+    raise SystemExit("Sportif Nuclio function requires the approved non-root pod identity")
+env = {item["name"]: item.get("value") for item in function_spec.get("env", [])}
+if env.get("PYTHONPATH") != "/opt/sportif-ml" or env.get("SPORTIF_MODEL_CHECKPOINT") != "/models/epoch-0015.pt":
+    raise SystemExit("Sportif Nuclio function runtime paths changed unexpectedly")
+volumes = function_spec.get("volumes", [])
+if len(volumes) != 1:
+    raise SystemExit("Sportif Nuclio function must mount exactly one model volume")
+volume = volumes[0]
+if volume.get("volume", {}).get("persistentVolumeClaim", {}).get("claimName") != "sportif-ml-work":
+    raise SystemExit("Sportif Nuclio function must use the shared model PVC")
+mount = volume.get("volumeMount", {})
+if mount.get("readOnly") is not True or mount.get("subPath") != (
+    "ed2c491b-5b21-4529-a7b7-ec016e82e7b9/sportif-ball-v004/"
+    "artifacts/diagnostic-checkpoints/epoch-0015.pt"
+):
+    raise SystemExit("Sportif Nuclio checkpoint mount changed unexpectedly")
+
+build_spec = nuclio_build.get("spec", {})
+if build_spec.get("runtime") != function_spec.get("runtime") or build_spec.get("handler") != function_spec.get("handler"):
+    raise SystemExit("Nuclio build and deployment runtime configuration must match")
+build = build_spec.get("build", {})
+if build.get("image") != image:
+    raise SystemExit("Nuclio build output and deployed image must match before digest promotion")
+if build.get("baseImage") != (
+    "ghcr.io/bjelugbo/sportif-ball-trainer@sha256:"
+    "87bc1b8d51584e465920cda193c078b32e6ecf1d1961453d1b787aac83338317"
+):
+    raise SystemExit("Nuclio function base image must remain digest-pinned")
+if build.get("noBaseImagesPull") is not None:
+    raise SystemExit("Kaniko must be allowed to pull the private digest-pinned base image")
+if build.get("directives") != {
+    "preCopy": [{"kind": "USER", "value": "root"}],
+    "postCopy": [{"kind": "USER", "value": "10001"}],
+}:
+    raise SystemExit("Nuclio build must install SDK dependencies as root and run as UID 10001")
+
+if function_application["metadata"].get("annotations", {}).get("argocd.argoproj.io/sync-wave") != "2":
+    raise SystemExit("Nuclio functions must sync after the CVAT/Nuclio control plane")
+if function_application.get("spec", {}).get("source", {}).get("path") != "apps/sportif-ml/cvat/nuclio":
+    raise SystemExit("Nuclio function Application must target the isolated function bundle")
+if function_application["spec"]["syncPolicy"].get("automated") is not None:
+    raise SystemExit("Nuclio function Application must remain manual until image digest promotion")
+if "SkipDryRunOnMissingResource=true" not in function_application["spec"]["syncPolicy"].get("syncOptions", []):
+    raise SystemExit("Nuclio function sync must tolerate CRDs during the parent wave")
 
 print("Sportif ML CVAT configuration validation: PASS")
 PY
@@ -759,5 +861,8 @@ PYTHONPYCACHEPREFIX="$pycache" python3 -m compileall -q \
 PYTHONDONTWRITEBYTECODE=1 \
 PYTHONPATH="$repo_root/apps/sportif-ml/worker" python3 -m unittest discover \
   -s "$repo_root/apps/sportif-ml/worker/tests" -q
+
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest \
+  "$repo_root/apps/sportif-ml/cvat/nuclio/test_main.py" -q
 
 echo "Sportif ML active manifest validation: PASS"

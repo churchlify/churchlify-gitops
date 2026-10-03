@@ -1,0 +1,10 @@
+apiVersion: nuclio.io/v1
+kind: NuclioProject
+metadata:
+  name: cvat
+  namespace: sportif-ml
+  labels:
+    app.kubernetes.io/name: cvat
+    app.kubernetes.io/component: automatic-annotation
+spec:
+  description: CVAT automatic annotation functions for Sportif

@@ -1,0 +1,67 @@
+apiVersion: nuclio.io/v1
+kind: NuclioFunction
+metadata:
+  name: sportif-ball-detector
+  namespace: sportif-ml
+  labels:
+    nuclio.io/project-name: cvat
+    app.kubernetes.io/name: sportif-ball-detector
+    app.kubernetes.io/component: automatic-annotation
+  annotations:
+    name: Sportif Ball Detector
+    type: detector
+    spec: |
+      [
+        {"id": 1, "name": "ball", "type": "rectangle"}
+      ]
+spec:
+  description: Sportif Faster R-CNN soccer-ball detector for CVAT automatic annotation
+  runtime: python:3.11
+  handler: main:handler
+  eventTimeout: 5m
+  image: ghcr.io/bjelugbo/nuclio-sportif-ball-detector:checkpoint-a175e107-nuclio-1.13.0
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets: sportif-ml-registry
+  serviceType: ClusterIP
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+  nodeSelector:
+    accelerator: nvidia-v100
+  resources:
+    requests:
+      cpu: "2"
+      memory: 8Gi
+      nvidia.com/gpu: "1"
+    limits:
+      cpu: "8"
+      memory: 24Gi
+      nvidia.com/gpu: "1"
+  env:
+    - name: PYTHONPATH
+      value: /opt/sportif-ml
+    - name: SPORTIF_MODEL_CHECKPOINT
+      value: /models/epoch-0015.pt
+    - name: SPORTIF_SCORE_THRESHOLD
+      value: "0.25"
+  volumes:
+    - volume:
+        name: model-checkpoint
+        persistentVolumeClaim:
+          claimName: sportif-ml-work
+      volumeMount:
+        name: model-checkpoint
+        mountPath: /models/epoch-0015.pt
+        subPath: ed2c491b-5b21-4529-a7b7-ec016e82e7b9/sportif-ball-v004/artifacts/diagnostic-checkpoints/epoch-0015.pt
+        readOnly: true
+  triggers:
+    http:
+      kind: http
+      numWorkers: 1
+      workerAvailabilityTimeoutMilliseconds: 300000
+      attributes:
+        maxRequestBodySize: 33554432
+  minReplicas: 1
+  maxReplicas: 1

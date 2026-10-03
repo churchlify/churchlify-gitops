@@ -47,7 +47,9 @@ acceptance complete until those gaps are implemented and tested.
    `SPORTIF_ML_S3_SECRET_KEY` values limited to the six ML buckets/prefixes.
 3. CVAT requires a dedicated database/user on the shared PostgreSQL service and
    the existing Redis host/password. The Helm values disable bundled
-   PostgreSQL, Redis, ClickHouse, Grafana, Traefik, and Nuclio.
+   PostgreSQL, Redis, ClickHouse, Grafana, and Traefik. The chart's pinned
+   Nuclio 1.13.0 dependency is enabled for cluster-internal CVAT automatic
+   annotation; its dashboard is not exposed through ingress.
 4. MLflow currently uses a single-replica SQLite backend on Longhorn and MinIO
    artifacts through `MLFLOW_S3_ENDPOINT_URL`. It is not pinned to a concrete
    node. Because the upstream MLflow 2.18.0 image omits the optional S3 client,

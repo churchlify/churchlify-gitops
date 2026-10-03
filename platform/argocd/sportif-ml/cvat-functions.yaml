@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sportif-ml-cvat-functions
+  namespace: argocd
+  annotations:
+    # CVAT wave 1 installs Nuclio and its CRDs before these resources are synced.
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: cvat-functions
+    app.kubernetes.io/part-of: sportif-ml
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/churchlify/churchlify-gitops.git
+    targetRevision: main
+    path: apps/sportif-ml/cvat/nuclio
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sportif-ml
+  syncPolicy:
+    # Bootstrap safety: keep this child manual until the Kaniko build has
+    # published the image and function.yaml has been pinned to its digest.
+    syncOptions:
+      - CreateNamespace=false
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m

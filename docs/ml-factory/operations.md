@@ -17,6 +17,7 @@ kubectl -n sportif-ml get pods -l app=mlflow \
   --sort-by=.metadata.creationTimestamp
 kubectl -n sportif-ml get events --sort-by=.lastTimestamp
 kubectl -n argocd get application sportif-ml-cvat
+kubectl -n argocd get application sportif-ml-cvat-functions
 kubectl -n argocd get application sportif-ml-argo-workflows
 kubectl -n sportif-ml get pods,pvc,service -l app.kubernetes.io/instance=cvat
 kubectl -n sportif-ml rollout status \
@@ -25,7 +26,18 @@ kubectl get crd workflows.argoproj.io workflowtemplates.argoproj.io
 kubectl -n sportif-ml get workflowtemplate sportif-video-ingest
 kubectl -n sportif-ml get ingress cvat
 kubectl -n sportif-ml get externalsecret sportif-ml-cvat-ingress-auth-sync
+kubectl -n sportif-ml get nuclioproject,nucliofunction
 ```
+
+The Nuclio dashboard and detector Service remain cluster-internal. The detector
+is a single GPU replica because it mounts the `ReadWriteOnce` work PVC. Before
+starting another GPU workflow, inspect current GPU allocation and PVC-attached
+pods; the scheduler cannot run two one-GPU workloads on the only V100.
+
+The detector uses a diagnostic checkpoint only to accelerate human annotation.
+Treat every returned rectangle as a pre-label requiring CVAT review. Do not use
+the function image or checkpoint as a released production model, and do not
+copy diagnostic artifacts into a release prefix.
 
 Use `https://annotate.churchlify.com` for a complete browser session. Enter the
 ingress username `babs` and the password stored in the operator's macOS

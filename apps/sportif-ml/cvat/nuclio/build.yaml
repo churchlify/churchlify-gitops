@@ -1,0 +1,19 @@
+apiVersion: nuclio.io/v1
+kind: NuclioFunction
+metadata:
+  name: sportif-ball-detector
+  namespace: sportif-ml
+spec:
+  runtime: python:3.11
+  handler: main:handler
+  imagePullSecrets: sportif-ml-registry
+  build:
+    image: ghcr.io/bjelugbo/nuclio-sportif-ball-detector:checkpoint-a175e107-nuclio-1.13.0
+    baseImage: ghcr.io/bjelugbo/sportif-ball-trainer@sha256:87bc1b8d51584e465920cda193c078b32e6ecf1d1961453d1b787aac83338317
+    directives:
+      preCopy:
+        - kind: USER
+          value: root
+      postCopy:
+        - kind: USER
+          value: "10001"
