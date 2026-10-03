@@ -254,14 +254,17 @@ The byte count verifies presence without disclosing the token. Never retrieve
 the token value for routine troubleshooting.
 
 The Stage 3 values disable the chart's bundled PostgreSQL, Redis, analytics,
-ClickHouse, Grafana, and Traefik to avoid duplicate platform services. Nuclio is
-enabled from the same immutable CVAT chart revision because CVAT serverless
-model discovery depends on its dashboard API.
+ClickHouse, Grafana, Traefik, and Nuclio. The existing Nuclio 1.13 dependency
+cannot set a Kubernetes RuntimeClass, while this cluster requires
+`RuntimeClass/nvidia` for CUDA. The same multi-source Argo CD Application installs
+official Nuclio chart `0.22.11` / application `1.16.11` with Helm release name
+`cvat`, preserving the `cvat-nuclio-dashboard` Service expected by CVAT. CVAT's
+serverless environment is configured explicitly in repository values.
 
 ### Nuclio and Sportif ball detector bootstrap
 
-The pinned CVAT chart includes Nuclio chart `0.19.0` / Nuclio `1.13.0`. The
-controller and dashboard are cluster-internal and run on ordinary worker nodes.
+Nuclio chart `0.22.11` / application `1.16.11` is pinned separately from the
+CVAT chart. The controller and dashboard are cluster-internal and run on ordinary worker nodes.
 Function images are built by Kubernetes-native Kaniko and stored in private
 GHCR. The detector itself requests one `nvidia.com/gpu`, selects
 `accelerator=nvidia-v100`, and mounts the checkpoint read-only from the shared
@@ -274,11 +277,13 @@ image exists:
    `sportif-ml-cvat-functions` child Application. Its initial manifest has no
    automated sync policy, so platform-root may create the Application but it
    cannot create the function while the image is absent.
-2. Wait for the CVAT child Application to install the Nuclio 1.13.0 dashboard,
+2. Wait for the CVAT child Application to install the Nuclio 1.16.11 dashboard,
    controller, and CRDs.
-3. Download the matching `nuctl` 1.13.0 binary for the operator architecture.
-4. Build only the function image through Kaniko, using the checked-in build
-   configuration and source:
+3. Build only the function image through the dashboard's cluster-native Kaniko
+   path, using the checked-in build configuration and source. Do not use local
+   `nuctl build --platform kube` from an arm64 operator machine: Nuclio 1.x runs
+   that build in the local client process and cannot consume the amd64-only CUDA
+   trainer base image.
 
 ```bash
 export KUBECONFIG="$PWD/apps/sportif-ml/k8s.conf"
@@ -287,20 +292,21 @@ kubectl -n sportif-ml rollout status deployment/cvat-nuclio-dashboard --timeout=
 kubectl -n sportif-ml rollout status deployment/cvat-nuclio-controller --timeout=300s
 kubectl get crd nucliofunctions.nuclio.io nuclioprojects.nuclio.io
 
-nuctl build sportif-ball-detector \
-  --platform kube \
-  --namespace sportif-ml \
-  --kubeconfig "$KUBECONFIG" \
-  --file apps/sportif-ml/cvat/nuclio/build.yaml \
-  --path apps/sportif-ml/cvat/nuclio/main.py
+# Port-forward the internal dashboard and submit a temporary function with
+# annotation skip-deploy="true", build.yaml as its spec, and base64 main.py as
+# spec.build.functionSourceCode. Delete the imported temporary function after
+# the registry digest is verified.
 ```
 
 The build uses the private, digest-pinned trainer image as its CUDA/PyTorch base.
-Nuclio installs its Python 3.11 processor and SDK as root during construction,
+Nuclio 1.16.11 installs its Python 3.11 processor and SDK as root during construction,
 then the final image returns to UID `10001`. `sportif-ml-registry` supplies both
 Kaniko push/pull credentials and the function image pull credential. Do not set
 Nuclio's `registryProviderSecretName`; that field is for provider-specific ECR
-credentials, not a Docker config Secret.
+credentials, not a Docker config Secret. Keep `build.image` repository-relative;
+Nuclio prepends `registry.pushPullUrl` when constructing the Kaniko destination.
+The deploy-time function must also retain `runtimeClassName: nvidia`; a GPU
+resource request alone is insufficient on this node.
 
 After the push succeeds, resolve the registry digest without printing registry
 credentials, replace the tag in `function.yaml` with

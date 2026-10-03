@@ -85,10 +85,11 @@
 - CVAT components are missing or unhealthy: inspect the `sportif-ml-cvat` child
   Application, shared PostgreSQL and Redis connectivity, RWX storage, External
   Secrets, and the initializer hook. Do not install a second standalone CVAT.
-- Nuclio CRDs or dashboard are missing: confirm the pinned CVAT chart has
-  `nuclio.enabled=true`, then inspect the `sportif-ml-cvat` Application and the
-  `cvat-nuclio-dashboard` / `cvat-nuclio-controller` Deployments. Do not sync the
-  function child Application before the CRDs exist.
+- Nuclio CRDs or dashboard are missing: confirm the CVAT chart has its bundled
+  Nuclio disabled and the same `sportif-ml-cvat` Application contains official
+  Nuclio chart source `0.22.11`. Inspect the `cvat-nuclio-dashboard` and
+  `cvat-nuclio-controller` Deployments. Do not sync the function child before the
+  upgraded CRDs and controller exist.
 - Kaniko cannot pull or push GHCR images: verify `sportif-ml-registry` is type
   `kubernetes.io/dockerconfigjson`, contains the `.dockerconfigjson` key, and is
   named by Nuclio `registry.secretName`. Leave
@@ -104,8 +105,10 @@
   workload can consume the node's single V100.
 - The function starts but CUDA initialization fails: verify the pod selected
   `accelerator=nvidia-v100`, requested one `nvidia.com/gpu`, and the NVIDIA
-  device plugin/runtime remain healthy. Check the function logs before changing
-  the image or scheduler constraints.
+  device plugin/runtime remain healthy. The generated pod must have
+  `runtimeClassName: nvidia`; Nuclio 1.13 cannot set it, which is why the control
+  plane is pinned to Nuclio 1.16.11. Check the function logs before changing the
+  image or scheduler constraints.
 - The function cannot read `epoch-0015.pt`: verify the exact PVC `subPath`, file
   size `165776026`, SHA-256
   `a175e107417efdb3de83ebe1acb5960fb96490bf68d71d28f7c0e3c8d242ac3a`,

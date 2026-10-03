@@ -19,10 +19,11 @@ spec:
   runtime: python:3.11
   handler: main:handler
   eventTimeout: 5m
-  image: ghcr.io/bjelugbo/nuclio-sportif-ball-detector:checkpoint-a175e107-nuclio-1.13.0
+  image: ghcr.io/bjelugbo/nuclio-sportif-ball-detector:checkpoint-a175e107-nuclio-1.16.11
   imagePullPolicy: IfNotPresent
   imagePullSecrets: sportif-ml-registry
   serviceType: ClusterIP
+  runtimeClassName: nvidia
   securityContext:
     runAsNonRoot: true
     runAsUser: 10001

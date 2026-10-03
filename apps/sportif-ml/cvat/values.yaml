@@ -43,6 +43,12 @@ cvat:
       # CVAT's entrypoint reads this variable even when analytics is disabled.
       - name: CLICKHOUSE_HOST
         value: ""
+    # Nuclio is installed as a separately pinned source in the same Argo CD
+    # Application. Keep CVAT's serverless integration enabled explicitly.
+    extensionEnv:
+      CVAT_SERVERLESS: "1"
+      CVAT_NUCLIO_HOST: cvat-nuclio-dashboard
+      CVAT_NUCLIO_FUNCTION_NAMESPACE: sportif-ml
     server:
       replicas: 1
     worker:
@@ -130,51 +136,10 @@ analytics:
 clickhouse:
   enabled: false
 nuclio:
-  enabled: true
-  # Keep Nuclio aligned with the version bundled by the pinned CVAT chart.
-  # The control plane is cluster-internal; only CVAT calls its dashboard API.
-  controller:
-    nodeSelector:
-      node-role.kubernetes.io/worker: worker
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-      limits:
-        cpu: "1"
-        memory: 1Gi
-  dashboard:
-    nodeSelector:
-      node-role.kubernetes.io/worker: worker
-    containerBuilderKind: kaniko
-    monitorDockerDeamon:
-      enabled: false
-    resources:
-      requests:
-        cpu: 100m
-        memory: 256Mi
-      limits:
-        cpu: "2"
-        memory: 2Gi
-    ingress:
-      enabled: false
-  registry:
-    pushPullUrl: ghcr.io/bjelugbo
-    runRegistryURL: ghcr.io/bjelugbo
-    loginUrl: ghcr.io
-    secretName: sportif-ml-registry
-    kind: offCluster
-  rbac:
-    create: true
-    crdAccessMode: namespaced
-  crd:
-    create: true
-  platform:
-    kube:
-      defaultServiceType: ClusterIP
-      defaultHTTPIngressHostTemplate: ""
-    functionReadinessTimeout: 10m
-    functionInvocationTimeout: 5m
+  # The bundled Nuclio 1.13 controller cannot set runtimeClassName and therefore
+  # cannot run this cluster's NVIDIA workloads. A separately pinned Nuclio chart
+  # source owns the same cvat-nuclio-* resources instead.
+  enabled: false
 traefik:
   enabled: false
 

@@ -22,6 +22,13 @@ spec:
         releaseName: cvat
         valueFiles:
           - $values/apps/sportif-ml/cvat/values.yaml
+    - repoURL: https://nuclio.github.io/nuclio/charts
+      chart: nuclio
+      targetRevision: 0.22.11
+      helm:
+        releaseName: cvat
+        valueFiles:
+          - $values/apps/sportif-ml/cvat/nuclio-values.yaml
     - repoURL: https://github.com/churchlify/churchlify-gitops.git
       targetRevision: main
       ref: values

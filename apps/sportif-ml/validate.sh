@@ -391,6 +391,7 @@ PY
 
 python3 - \
   "$repo_root/apps/sportif-ml/cvat/values.yaml" \
+  "$repo_root/apps/sportif-ml/cvat/nuclio-values.yaml" \
   "$repo_root/apps/sportif-ml/cvat/externalsecrets.yaml" \
   "$repo_root/platform/argocd/sportif-ml/cvat.yaml" \
   "$repo_root/apps/sportif-ml/cvat/initializer-config.yaml" \
@@ -404,16 +405,17 @@ import sys
 import yaml
 
 values = yaml.safe_load(Path(sys.argv[1]).read_text())
+nuclio_values = yaml.safe_load(Path(sys.argv[2]).read_text())
 external_secrets = [
-    item for item in yaml.safe_load_all(Path(sys.argv[2]).read_text()) if item
+    item for item in yaml.safe_load_all(Path(sys.argv[3]).read_text()) if item
 ]
-application = yaml.safe_load(Path(sys.argv[3]).read_text())
-initializer_config = yaml.safe_load(Path(sys.argv[4]).read_text())
-automation_secret = yaml.safe_load(Path(sys.argv[5]).read_text())
-nuclio_function = yaml.safe_load(Path(sys.argv[6]).read_text())
-nuclio_build = yaml.safe_load(Path(sys.argv[7]).read_text())
-nuclio_kustomization = yaml.safe_load(Path(sys.argv[8]).read_text())
-function_application = yaml.safe_load(Path(sys.argv[9]).read_text())
+application = yaml.safe_load(Path(sys.argv[4]).read_text())
+initializer_config = yaml.safe_load(Path(sys.argv[5]).read_text())
+automation_secret = yaml.safe_load(Path(sys.argv[6]).read_text())
+nuclio_function = yaml.safe_load(Path(sys.argv[7]).read_text())
+nuclio_build = yaml.safe_load(Path(sys.argv[8]).read_text())
+nuclio_kustomization = yaml.safe_load(Path(sys.argv[9]).read_text())
+function_application = yaml.safe_load(Path(sys.argv[10]).read_text())
 
 for component in ("postgresql", "redis"):
     if values[component].get("enabled") is not False:
@@ -423,9 +425,17 @@ for component in ("analytics", "clickhouse", "traefik"):
         raise SystemExit(f"CVAT bundled {component} must remain disabled")
 
 nuclio = values.get("nuclio", {})
-if nuclio.get("enabled") is not True:
-    raise SystemExit("CVAT bundled Nuclio must remain enabled")
-dashboard = nuclio.get("dashboard", {})
+if nuclio.get("enabled") is not False:
+    raise SystemExit("CVAT bundled Nuclio 1.13 must remain disabled")
+extension_env = values.get("cvat", {}).get("backend", {}).get("extensionEnv", {})
+if extension_env != {
+    "CVAT_SERVERLESS": "1",
+    "CVAT_NUCLIO_HOST": "cvat-nuclio-dashboard",
+    "CVAT_NUCLIO_FUNCTION_NAMESPACE": "sportif-ml",
+}:
+    raise SystemExit("CVAT must explicitly target the separately pinned Nuclio dashboard")
+
+dashboard = nuclio_values.get("dashboard", {})
 if dashboard.get("containerBuilderKind") != "kaniko":
     raise SystemExit("Nuclio must use the Kubernetes-native Kaniko builder")
 if dashboard.get("monitorDockerDeamon", {}).get("enabled") is not False:
@@ -434,7 +444,7 @@ if dashboard.get("ingress", {}).get("enabled") is not False:
     raise SystemExit("Nuclio dashboard must remain cluster-internal")
 if dashboard.get("kaniko", {}).get("registryProviderSecretName"):
     raise SystemExit("Nuclio registry-provider credentials are not used for GHCR")
-registry = nuclio.get("registry", {})
+registry = nuclio_values.get("registry", {})
 if registry != {
     "pushPullUrl": "ghcr.io/bjelugbo",
     "runRegistryURL": "ghcr.io/bjelugbo",
@@ -444,12 +454,25 @@ if registry != {
 }:
     raise SystemExit("Nuclio registry configuration changed unexpectedly")
 for component_name in ("controller", "dashboard"):
-    component = nuclio.get(component_name, {})
+    component = nuclio_values.get(component_name, {})
     if component.get("nodeSelector") != {"node-role.kubernetes.io/worker": "worker"}:
         raise SystemExit(f"Nuclio {component_name} must run on ordinary worker nodes")
     resources = component.get("resources", {})
     if not resources.get("requests") or not resources.get("limits"):
         raise SystemExit(f"Nuclio {component_name} requires explicit resource bounds")
+if nuclio_values.get("rbac") != {"create": True, "crdAccessMode": "namespaced"}:
+    raise SystemExit("Nuclio control-plane RBAC must remain namespace-scoped")
+if nuclio_values.get("crd") != {"create": True}:
+    raise SystemExit("Nuclio must own its CRDs")
+if nuclio_values.get("platform") != {
+    "kube": {
+        "defaultServiceType": "ClusterIP",
+        "defaultHTTPIngressHostTemplate": "",
+    },
+    "functionReadinessTimeout": "10m",
+    "functionInvocationTimeout": "5m",
+}:
+    raise SystemExit("Nuclio platform timeouts or internal service settings changed unexpectedly")
 
 ingress = values["ingress"]
 if ingress.get("enabled") is not True:
@@ -595,7 +618,10 @@ if application["metadata"].get("annotations", {}).get(
     "argocd.argoproj.io/sync-wave"
 ) != "1":
     raise SystemExit("CVAT child Application must follow the foundation sync wave")
-chart_source = application["spec"]["sources"][0]
+sources = application["spec"].get("sources", [])
+if len(sources) != 3:
+    raise SystemExit("CVAT Application must contain CVAT, Nuclio, and repository-values sources")
+chart_source, nuclio_source, values_source = sources
 if chart_source.get("targetRevision") != (
     "125dd1e7006e7aadd8249c1256ec3a8945fcb191"
 ):
@@ -604,6 +630,22 @@ if "$values/apps/sportif-ml/cvat/values.yaml" not in (
     chart_source.get("helm", {}).get("valueFiles", [])
 ):
     raise SystemExit("CVAT child Application must consume repository values")
+if nuclio_source != {
+    "repoURL": "https://nuclio.github.io/nuclio/charts",
+    "chart": "nuclio",
+    "targetRevision": "0.22.11",
+    "helm": {
+        "releaseName": "cvat",
+        "valueFiles": ["$values/apps/sportif-ml/cvat/nuclio-values.yaml"],
+    },
+}:
+    raise SystemExit("CVAT child Application must pin Nuclio chart 0.22.11 with release name cvat")
+if values_source != {
+    "repoURL": "https://github.com/churchlify/churchlify-gitops.git",
+    "targetRevision": "main",
+    "ref": "values",
+}:
+    raise SystemExit("CVAT child Application repository-values source changed unexpectedly")
 sync_options = application["spec"]["syncPolicy"].get("syncOptions", [])
 if "RespectIgnoreDifferences=true" not in sync_options:
     raise SystemExit("CVAT sync must respect scoped ignored differences")
@@ -628,6 +670,8 @@ if function_spec.get("imagePullSecrets") != "sportif-ml-registry":
     raise SystemExit("Sportif Nuclio function requires the managed GHCR pull Secret")
 if function_spec.get("serviceType") != "ClusterIP" or "platform" in function_spec:
     raise SystemExit("Sportif Nuclio function must use the supported cluster-internal service field")
+if function_spec.get("runtimeClassName") != "nvidia":
+    raise SystemExit("Sportif Nuclio function requires the verified NVIDIA RuntimeClass")
 if function_spec.get("nodeSelector") != {"accelerator": "nvidia-v100"}:
     raise SystemExit("Sportif Nuclio function must target the verified GPU node")
 if function_spec.get("resources", {}).get("limits", {}).get("nvidia.com/gpu") != "1":
@@ -657,8 +701,9 @@ build_spec = nuclio_build.get("spec", {})
 if build_spec.get("runtime") != function_spec.get("runtime") or build_spec.get("handler") != function_spec.get("handler"):
     raise SystemExit("Nuclio build and deployment runtime configuration must match")
 build = build_spec.get("build", {})
-if build.get("image") != image:
-    raise SystemExit("Nuclio build output and deployed image must match before digest promotion")
+expected_build_image = image.removeprefix("ghcr.io/bjelugbo/")
+if build.get("image") != expected_build_image:
+    raise SystemExit("Nuclio build output must be repository-relative and match the deployed bootstrap tag")
 if build.get("baseImage") != (
     "ghcr.io/bjelugbo/sportif-ball-trainer@sha256:"
     "87bc1b8d51584e465920cda193c078b32e6ecf1d1961453d1b787aac83338317"
