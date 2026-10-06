@@ -1,0 +1,42 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: agogos-dev
+
+resources:
+  - ../../base
+  - ingress.yaml
+  - namespace.yaml
+  - postgres.yaml
+  - redis.yaml
+
+patches:
+  - path: platform-config.patch.yaml
+
+secretGenerator:
+  - name: agogos-platform-runtime
+    literals:
+      - DATABASE_URL=postgresql://agogos:agogos-dev-only@agogos-postgres:5432/agogos
+      - POSTGRES_DB=agogos
+      - POSTGRES_PASSWORD=agogos-dev-only
+      - POSTGRES_USER=agogos
+      - REDIS_URL=redis://agogos-redis:6379
+
+generatorOptions:
+  disableNameSuffixHash: true
+  annotations:
+    argocd.argoproj.io/sync-wave: '-2'
+
+images:
+  - name: ghcr.io/agogos-llc/agogos-platform-api
+    newName: ghcr.io/agogos-llc/agogos-platform-api
+    digest: sha256:d76187bef02874dc4f802964e10cbc6de3fd58d2911b21e8fd3ec4126bbdd688
+  - name: ghcr.io/agogos-llc/agogos-platform-migration
+    newName: ghcr.io/agogos-llc/agogos-platform-migration
+    digest: sha256:ec6df2857f1b6ba7b471ec0b6d0fc6e99c43f8152216925652f719d686c94be8
+  - name: ghcr.io/agogos-llc/agogos-platform-web
+    newName: ghcr.io/agogos-llc/agogos-platform-web
+    digest: sha256:27dcb2c8e7c371542390210ec0dfde6de59d75e2a8e2ee77a8080ca37af06730
+  - name: ghcr.io/agogos-llc/agogos-platform-worker
+    newName: ghcr.io/agogos-llc/agogos-platform-worker
+    digest: sha256:e77d9c2685367c4d373b22b917830cb0a659279a55f61d543d497b4e085884bd

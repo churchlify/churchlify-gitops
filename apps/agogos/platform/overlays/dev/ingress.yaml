@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: agogos-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: '1'
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: dev.agogos.local
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: agogos-api
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: agogos-web
+                port:
+                  name: http

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agogos-platform-config
+  annotations:
+    argocd.argoproj.io/sync-wave: '-2'
+data:
+  API_CORS_ORIGIN: https://platform.invalid
+  API_REQUEST_BODY_LIMIT_BYTES: '1048576'
+  APP_ENV: dev
+  APP_PORT: '3000'
+  BUILD_SHA: unpromoted
+  BUILD_VERSION: 0.0.0-unpromoted
+  LOG_LEVEL: info
+  OTEL_EXPORTER_OTLP_ENDPOINT: ''

@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agogos-worker
+  labels:
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/name: agogos-platform
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: worker
+      app.kubernetes.io/name: agogos-platform
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/name: agogos-platform
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: agogos-worker
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: worker
+          image: ghcr.io/agogos-llc/agogos-platform-worker:unpromoted
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: agogos-platform-config
+            - secretRef:
+                name: agogos-platform-runtime
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
