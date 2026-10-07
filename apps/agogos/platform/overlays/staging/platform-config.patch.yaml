@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agogos-platform-config
+data:
+  API_CORS_ORIGIN: https://staging.agogos.org
+  PORTAL_BASE_URL: https://staging.agogos.org
+  EMAIL_PROVIDER: resend
+  BILLING_PROVIDER: stripe
+  BILLING_RETURN_URL_ORIGINS: https://staging.agogos.org
+  BILLING_SUPPORTED_CURRENCIES: USD,NGN,GHS,ZAR,KES,UGX,TZS
+  AWS_SES_REGION: us-east-1
+  INTERNAL_EMAIL_DOMAINS: agogos.org
+  IAM_HIGH_RISK_APPROVER_ROLES: SECURITY_ADMIN,SUPER_ADMIN
+  APP_ENV: staging
+  BUILD_SHA: ccd8b073bcba85ce5526f642aa9552cd8a5b52da
+  BUILD_VERSION: 0.0.0-ccd8b073bcba85ce5526f642aa9552cd8a5b52da
+  LOG_LEVEL: info

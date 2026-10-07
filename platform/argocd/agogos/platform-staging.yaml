@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agogos-platform-staging
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: agogos-platform
+    app.kubernetes.io/part-of: agogos
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/churchlify/churchlify-gitops.git
+    path: apps/agogos/platform/overlays/staging
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: agogos-staging
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - RespectIgnoreDifferences=true

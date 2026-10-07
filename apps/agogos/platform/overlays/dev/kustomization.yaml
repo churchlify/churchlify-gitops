@@ -6,18 +6,24 @@ namespace: agogos-dev
 resources:
   - ../../base
   - ingress.yaml
+  - network-policies.yaml
   - namespace.yaml
   - postgres.yaml
   - redis.yaml
 
 patches:
   - path: api-config-revision.patch.yaml
+  - path: delete-database-bootstrap-externalsecret.patch.yaml
+  - path: delete-database-bootstrap.patch.yaml
+  - path: delete-runtime-externalsecret.patch.yaml
   - path: platform-config.patch.yaml
 
 secretGenerator:
   - name: agogos-platform-runtime
     literals:
       - DATABASE_URL=postgresql://agogos:agogos-dev-only@agogos-postgres:5432/agogos
+      - BILLING_WEBHOOK_SECRET=local-development-billing-secret-32
+      - CONNECTOR_CREDENTIAL_ENCRYPTION_KEY=bG9jYWwtZGV2ZWxvcG1lbnQtZW5jcnlwdGlvbi1rZXk
       - POSTGRES_DB=agogos
       - POSTGRES_PASSWORD=agogos-dev-only
       - POSTGRES_USER=agogos
@@ -26,7 +32,7 @@ secretGenerator:
 generatorOptions:
   disableNameSuffixHash: true
   annotations:
-    argocd.argoproj.io/sync-wave: '-2'
+    argocd.argoproj.io/sync-wave: "-2"
 
 images:
   - name: ghcr.io/agogos-llc/agogos-platform-api

@@ -3,13 +3,21 @@ kind: ConfigMap
 metadata:
   name: agogos-platform-config
   annotations:
-    argocd.argoproj.io/sync-wave: '-2'
+    argocd.argoproj.io/sync-wave: "-2"
 data:
   API_CORS_ORIGIN: https://platform.invalid
-  API_REQUEST_BODY_LIMIT_BYTES: '1048576'
+  API_REQUEST_BODY_LIMIT_BYTES: "1048576"
   APP_ENV: dev
-  APP_PORT: '3000'
+  APP_PORT: "3000"
+  AWS_SES_REGION: us-east-1
+  BILLING_PROVIDER: stripe
+  BILLING_RETURN_URL_ORIGINS: https://platform.invalid
+  BILLING_SUPPORTED_CURRENCIES: USD,NGN,GHS,ZAR,KES,UGX,TZS
   BUILD_SHA: unpromoted
   BUILD_VERSION: 0.0.0-unpromoted
+  EMAIL_PROVIDER: resend
+  IAM_HIGH_RISK_APPROVER_ROLES: SECURITY_ADMIN,SUPER_ADMIN
+  INTERNAL_EMAIL_DOMAINS: agogos.org
   LOG_LEVEL: info
-  OTEL_EXPORTER_OTLP_ENDPOINT: ''
+  OTEL_EXPORTER_OTLP_ENDPOINT: ""
+  PORTAL_BASE_URL: https://platform.invalid

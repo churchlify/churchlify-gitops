@@ -4,8 +4,12 @@ kind: Kustomization
 resources:
   - api.yaml
   - configmap.yaml
+  - database-bootstrap-externalsecret.yaml
+  - database-bootstrap.yaml
+  - disruption-budgets.yaml
   - registry-externalsecret.yaml
   - migration.yaml
+  - runtime-externalsecret.yaml
   - service-accounts.yaml
   - web.yaml
   - worker.yaml

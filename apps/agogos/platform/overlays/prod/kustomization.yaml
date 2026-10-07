@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: agogos-prod
+
+resources:
+  - ../../base
+  - ingress.yaml
+  - namespace.yaml
+
+patches:
+  - path: platform-config.patch.yaml
+
+images:
+  - name: ghcr.io/agogos-llc/agogos-platform-api
+    newName: ghcr.io/agogos-llc/agogos-platform-api
+    digest: sha256:a0d67db3e540fa42f8fd39e59563b43b769f87206c23a22b52da7185e92618bf
+  - name: ghcr.io/agogos-llc/agogos-platform-migration
+    newName: ghcr.io/agogos-llc/agogos-platform-migration
+    digest: sha256:c5a158f718e41e0a6a0019ff273739ef40800fef8ac75e58bea973ede8522c5a
+  - name: ghcr.io/agogos-llc/agogos-platform-web
+    newName: ghcr.io/agogos-llc/agogos-platform-web
+    digest: sha256:db568492ff11fc3c14a95e403dbfcc6b1e15a79bbda6174f971216ce55743ae7
+  - name: ghcr.io/agogos-llc/agogos-platform-worker
+    newName: ghcr.io/agogos-llc/agogos-platform-worker
+    digest: sha256:3e42a3d4835952004759a12c4f7965d299299664889dc825ccbdf7d30dbc9c59

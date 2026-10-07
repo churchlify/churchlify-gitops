@@ -1,0 +1,27 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: agogos-api
+  labels:
+    app.kubernetes.io/component: api
+    app.kubernetes.io/name: agogos-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: api
+      app.kubernetes.io/name: agogos-platform
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: agogos-web
+  labels:
+    app.kubernetes.io/component: web
+    app.kubernetes.io/name: agogos-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: web
+      app.kubernetes.io/name: agogos-platform
