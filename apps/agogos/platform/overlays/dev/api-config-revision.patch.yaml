@@ -1,0 +1,9 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agogos-api
+spec:
+  template:
+    metadata:
+      annotations:
+        agogos.org/config-revision: 2026-10-07-public-ingress

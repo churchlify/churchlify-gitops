@@ -11,6 +11,7 @@ resources:
   - redis.yaml
 
 patches:
+  - path: api-config-revision.patch.yaml
   - path: platform-config.patch.yaml
 
 secretGenerator:
