@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: agogos-platform-config
 data:
-  API_CORS_ORIGIN: http://dev.agogos.local
+  API_CORS_ORIGIN: https://dev.agogos.org
   APP_ENV: dev
   BUILD_SHA: 85ec3785f1a49566acc4523c41500fc3d97aad6f
   BUILD_VERSION: 0.0.0-85ec3785f1a49566acc4523c41500fc3d97aad6f
