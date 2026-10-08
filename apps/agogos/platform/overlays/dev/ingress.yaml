@@ -16,46 +16,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - platform.agogos.org
         - dev.agogos.org
-        - staging.agogos.org
       secretName: agogos-platform-web-tls
   rules:
-    - host: platform.agogos.org
-      http:
-        paths:
-          - path: /api
-            pathType: Prefix
-            backend:
-              service:
-                name: agogos-api
-                port:
-                  name: http
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: agogos-web
-                port:
-                  name: http
     - host: dev.agogos.org
-      http:
-        paths:
-          - path: /api
-            pathType: Prefix
-            backend:
-              service:
-                name: agogos-api
-                port:
-                  name: http
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: agogos-web
-                port:
-                  name: http
-    - host: staging.agogos.org
       http:
         paths:
           - path: /api
@@ -91,32 +55,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - api.agogos.org
         - api.dev.agogos.org
-        - api.staging.agogos.org
       secretName: agogos-platform-api-tls
   rules:
-    - host: api.agogos.org
-      http:
-        paths:
-          - path: /api
-            pathType: Prefix
-            backend:
-              service:
-                name: agogos-api
-                port:
-                  name: http
     - host: api.dev.agogos.org
-      http:
-        paths:
-          - path: /api
-            pathType: Prefix
-            backend:
-              service:
-                name: agogos-api
-                port:
-                  name: http
-    - host: api.staging.agogos.org
       http:
         paths:
           - path: /api
