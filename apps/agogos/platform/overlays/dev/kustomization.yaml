@@ -37,13 +37,13 @@ generatorOptions:
 images:
   - name: ghcr.io/agogos-llc/agogos-platform-api
     newName: ghcr.io/agogos-llc/agogos-platform-api
-    digest: sha256:d76187bef02874dc4f802964e10cbc6de3fd58d2911b21e8fd3ec4126bbdd688
+    digest: sha256:5c2c6890fb9f53385fae4fd98f66de09d8bb1e8693c3d9b4fb3021324cd0b12d
   - name: ghcr.io/agogos-llc/agogos-platform-migration
     newName: ghcr.io/agogos-llc/agogos-platform-migration
-    digest: sha256:ec6df2857f1b6ba7b471ec0b6d0fc6e99c43f8152216925652f719d686c94be8
+    digest: sha256:fbdfd135505137322ff899735d7c45ad6df871b76b7dda6cc9af19c56e5fd74d
   - name: ghcr.io/agogos-llc/agogos-platform-web
     newName: ghcr.io/agogos-llc/agogos-platform-web
-    digest: sha256:27dcb2c8e7c371542390210ec0dfde6de59d75e2a8e2ee77a8080ca37af06730
+    digest: sha256:79478edafe7c57f2af152e90ff00dad1bc66f4636364af1c6cc120b573fff731
   - name: ghcr.io/agogos-llc/agogos-platform-worker
     newName: ghcr.io/agogos-llc/agogos-platform-worker
-    digest: sha256:e77d9c2685367c4d373b22b917830cb0a659279a55f61d543d497b4e085884bd
+    digest: sha256:b3c32bd445f1623bfd9593faf81e1e58efa381504d4d4433e61ce5a520d4ea3a
