@@ -3,11 +3,11 @@ kind: ConfigMap
 metadata:
   name: agogos-platform-config
 data:
-  API_CORS_ORIGIN: https://platform.agogos.org
-  PORTAL_BASE_URL: https://platform.agogos.org
+  API_CORS_ORIGIN: https://app.agogos.org,https://portal.agogos.org
+  PORTAL_BASE_URL: https://app.agogos.org
   EMAIL_PROVIDER: resend
   BILLING_PROVIDER: stripe
-  BILLING_RETURN_URL_ORIGINS: https://platform.agogos.org
+  BILLING_RETURN_URL_ORIGINS: https://app.agogos.org
   BILLING_SUPPORTED_CURRENCIES: USD,NGN,GHS,ZAR,KES,UGX,TZS
   AWS_SES_REGION: us-east-1
   INTERNAL_EMAIL_DOMAINS: agogos.org

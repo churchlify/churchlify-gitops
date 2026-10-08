@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: agogos-platform-web
+  name: agogos-platform-customer-portal
   annotations:
     argocd.argoproj.io/sync-wave: "1"
     cert-manager.io/cluster-issuer: letsencrypt-prod
@@ -15,10 +15,46 @@ metadata:
 spec:
   ingressClassName: nginx
   tls:
-    - hosts: [platform.agogos.org]
-      secretName: agogos-platform-web-tls
+    - hosts: [app.agogos.org]
+      secretName: agogos-platform-customer-portal-tls
   rules:
-    - host: platform.agogos.org
+    - host: app.agogos.org
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: agogos-api
+                port: { name: http }
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: agogos-web
+                port: { name: http }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: agogos-platform-admin-portal
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/limit-burst: "40"
+    nginx.ingress.kubernetes.io/limit-rps: "20"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "5"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "65"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "65"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [portal.agogos.org]
+      secretName: agogos-platform-admin-portal-tls
+  rules:
+    - host: portal.agogos.org
       http:
         paths:
           - path: /api
