@@ -9,6 +9,7 @@ resources:
   - namespace.yaml
 
 patches:
+  - path: environment-storage.patch.yaml
   - path: platform-config.patch.yaml
 
 images:
