@@ -5,6 +5,7 @@ namespace: agogos-dev
 
 resources:
   - ../../base
+  - email-externalsecret.yaml
   - ingress.yaml
   - network-policies.yaml
   - namespace.yaml
@@ -12,6 +13,7 @@ resources:
   - redis.yaml
 
 patches:
+  - path: api-email-secret.patch.yaml
   - path: api-config-revision.patch.yaml
   - path: delete-database-bootstrap-externalsecret.patch.yaml
   - path: delete-database-bootstrap.patch.yaml

@@ -6,4 +6,4 @@ spec:
   template:
     metadata:
       annotations:
-        agogos.org/config-revision: 2026-10-07-public-ingress
+        agogos.org/config-revision: 2026-10-08-email-secret-sync
