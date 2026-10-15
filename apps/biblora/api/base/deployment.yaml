@@ -54,6 +54,13 @@ spec:
           env:
             - name: NODE_OPTIONS
               value: "--dns-result-order=ipv4first"
+            # Opus authentication is optional and currently unavailable from
+            # MinIO. Do not let its bootstrap failure prevent the API and the
+            # social publishing workers from starting.
+            - name: OPUS_AUTO_PULL
+              value: "false"
+            - name: OPUS_AUTH_AUTO_PULL
+              value: "false"
           envFrom:
             - secretRef:
                 name: biblora-secrets
