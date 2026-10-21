@@ -5,7 +5,7 @@ kind: Kustomization
 images:
 - name: ghcr.io/agogos-llc/biblora-admin
   newName: ghcr.io/agogos-llc/biblora-admin
-  newTag: 1b358c4d93886cffef230d986bfc8e39f11c851b
+  newTag: 7be9c27ee19992635c094df07ad8a087fa7e9eeb
 - name: ghcr.io/agogos-llc/biblora-web
   newName: ghcr.io/agogos-llc/biblora-web
   newTag: 17cfc95eaa569238c7d4eca7b99270cf7a87e050
