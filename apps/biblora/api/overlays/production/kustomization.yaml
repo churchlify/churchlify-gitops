@@ -5,7 +5,7 @@ kind: Kustomization
 images:
 - name: ghcr.io/agogos-llc/biblora-api
   newName: ghcr.io/agogos-llc/biblora-api
-  newTag: 79b94e985a62f2787bddba9b548fbb89dcda6aec
+  newTag: 9dc6a67d5b0af65a33935a8f507d2c8402cfd21b
 - name: ghcr.io/churchlify/biblora-api
   newName: ghcr.io/churchlify/biblora-api
   newTag: 95d549f8957ba5815363ee0de3d04fad41a5cfda
